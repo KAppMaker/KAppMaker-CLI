@@ -19,6 +19,8 @@ export async function run(
     cwd?: string;
     label?: string;
     allowFailure?: boolean;
+    timeout?: number;
+    env?: Record<string, string>;
   },
 ): Promise<ExecResult> {
   const label = options?.label ?? `${command} ${args.join(' ')}`;
@@ -28,7 +30,8 @@ export async function run(
     const result = await execa(command, args, {
       cwd: options?.cwd,
       reject: false,
-      timeout: 10 * 60_000,
+      timeout: options?.timeout ?? 10 * 60_000,
+      env: options?.env ? { ...process.env, ...options.env } : undefined,
     });
 
     if (wasSignaled(result)) {

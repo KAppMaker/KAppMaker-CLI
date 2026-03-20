@@ -1,3 +1,5 @@
+import path from 'node:path';
+import os from 'node:os';
 import fs from 'fs-extra';
 import { run, runStreaming } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
@@ -9,11 +11,11 @@ export async function firebaseLogin(): Promise<void> {
   });
 }
 
-export async function createProject(config: DerivedConfig): Promise<void> {
+export async function createProject(config: DerivedConfig): Promise<boolean> {
   // Check first if project already exists
   if (await projectExists(config.firebaseProject)) {
     logger.info(`Firebase project "${config.firebaseProject}" already exists, skipping creation.`);
-    return;
+    return true;
   }
 
   const exitCode = await runStreaming(
@@ -32,16 +34,19 @@ export async function createProject(config: DerivedConfig): Promise<void> {
 
   if (exitCode === 0) {
     await waitForProject(config.firebaseProject);
-  } else {
-    const exists = await projectExists(config.firebaseProject);
-    if (!exists) {
-      logger.fatal(`Firebase project "${config.firebaseProject}" does not exist and could not be created.`);
-      logger.info('Check firebase-debug.log for details, or create it manually:');
-      logger.info(`  firebase projects:create ${config.firebaseProject} --display-name ${config.appName}`);
-      process.exit(1);
-    }
-    logger.info('Firebase project already exists, continuing...');
+    return true;
   }
+
+  const exists = await projectExists(config.firebaseProject);
+  if (exists) {
+    logger.info('Firebase project already exists, continuing...');
+    return true;
+  }
+
+  logger.warn(`Firebase project "${config.firebaseProject}" could not be created.`);
+  logger.info('Check firebase-debug.log for details, or create it manually:');
+  logger.info(`  firebase projects:create ${config.firebaseProject} --display-name ${config.appName}`);
+  return false;
 }
 
 export async function createAndroidApp(
@@ -69,7 +74,57 @@ export async function downloadSdkConfig(
   await fs.writeFile(outputPath, result.stdout);
 }
 
+export async function enableAnonymousAuth(projectId: string): Promise<void> {
+  const accessToken = await getFirebaseAccessToken();
+  if (!accessToken) {
+    logger.warn('Could not read Firebase access token. Enable anonymous auth manually in the Firebase console.');
+    return;
+  }
+
+  const url = `https://identitytoolkit.googleapis.com/admin/v2/projects/${projectId}/config?updateMask=signIn.anonymous.enabled`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        signIn: { anonymous: { enabled: true } },
+      }),
+    });
+
+    if (response.ok) {
+      logger.success('Anonymous authentication enabled.');
+    } else {
+      const errorText = await response.text();
+      logger.warn(`Failed to enable anonymous auth (HTTP ${response.status}): ${errorText}`);
+      logger.info('You can enable it manually in the Firebase console → Authentication → Sign-in method.');
+    }
+  } catch (error) {
+    logger.warn(`Could not enable anonymous auth: ${error}`);
+    logger.info('You can enable it manually in the Firebase console → Authentication → Sign-in method.');
+  }
+}
+
 // ── Internal helpers ────────────────────────────────────────────────
+
+async function getFirebaseAccessToken(): Promise<string | null> {
+  const configPath = path.join(
+    os.homedir(),
+    '.config',
+    'configstore',
+    'firebase-tools.json',
+  );
+
+  try {
+    const config = await fs.readJson(configPath);
+    return config?.tokens?.access_token || null;
+  } catch {
+    return null;
+  }
+}
 
 async function projectExists(projectId: string): Promise<boolean> {
   const result = await run(

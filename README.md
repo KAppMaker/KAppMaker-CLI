@@ -1,6 +1,159 @@
 # KAppMaker CLI
 
-CLI tool for automating KAppMaker mobile app setup — cloning templates, configuring Firebase, running Gradle/Fastlane builds, and setting up git remotes.
+CLI tool that automates the entire mobile app launch process — from project scaffolding to store-ready builds.
+
+A single `kappmaker create` command can:
+- Clone a template repository and set up a new project
+- Create a Firebase project, register Android + iOS apps, enable authentication, and download SDK configs
+- Generate an AI-powered app logo with automatic background removal
+- Create an App Store Connect listing with metadata, categories, age rating, subscriptions, privacy declarations, and review contact info
+- Set up Adapty subscription products, paywalls, and placements for both iOS and Android
+- Refactor Gradle package names and application IDs
+- Set up the build environment (Android SDK, CocoaPods)
+- Produce a signed Android release build (AAB) via Fastlane, ready to upload to Google Play
+
+On top of that, standalone commands let you generate marketing screenshots from a text description, translate screenshots to 48+ locales in parallel, remove image backgrounds, enhance image quality, and split grid images — all powered by AI.
+
+By default it uses the [KAppMaker](https://kappmaker.com) boilerplate (Kotlin Multiplatform), but you can bring your own template repository via `--template-repo` or `kappmaker config set templateRepo <your-repo-url>`. Boilerplate-specific steps (Gradle refactor, Fastlane build, CocoaPods) are automatically detected and skipped with a warning when using a custom template.
+
+## Installation
+
+```bash
+npm install -g kappmaker
+```
+
+Then use it anywhere:
+
+```bash
+kappmaker create <AppName>
+```
+
+<details>
+<summary>Development setup</summary>
+
+```bash
+npm install
+npx tsx src/index.ts create <AppName>
+```
+
+</details>
+
+## Configuration
+
+Run interactive setup to configure API keys and preferences:
+
+```bash
+kappmaker config init
+```
+
+Or set keys individually:
+
+```bash
+kappmaker config set falApiKey <your-key>       # Required for AI features (logo, screenshots, etc.)
+kappmaker config set imgbbApiKey <your-key>      # Required for screenshot translation/generation
+kappmaker config set openaiApiKey <your-key>     # Required for generate-screenshots
+kappmaker config set templateRepo <your-repo>    # Use your own template (default: KAppMaker)
+```
+
+See [all config keys](#config-keys) and [external services setup](#external-services--api-keys) for details.
+
+## Claude Code Skill
+
+If you use [Claude Code](https://claude.ai/code), you can install the `/kappmaker` skill to run any CLI command through natural language — with automatic prerequisite checks, guided setup, and inline error recovery.
+
+**Install:**
+
+```bash
+npx skills add KAppMaker/KAppMaker-CLI --skill kappmaker
+```
+
+Or via the Claude Code plugin system:
+
+```
+/plugin marketplace add KAppMaker/KAppMaker-CLI
+/plugin install kappmaker@KAppMaker-CLI
+```
+
+**Use:**
+
+```
+/kappmaker create MyApp
+/kappmaker generate screenshots for my fitness app
+/kappmaker set up App Store Connect
+```
+
+Claude will check your config, verify API keys are set, and walk you through any missing prerequisites before running the command.
+
+## Table of Contents
+
+- [Claude Code Skill](#claude-code-skill)
+- [Configuration](#configuration)
+- [Commands Overview](#commands-overview)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [External Services & API Keys](#external-services--api-keys)
+- [Commands](#commands)
+  - [`create <app-name>`](#create-app-name)
+  - [`create-logo`](#create-logo)
+  - [`create-appstore-app`](#create-appstore-app)
+  - [`adapty setup`](#adapty-setup)
+  - [Image Tools](#image-tools)
+  - [`translate-screenshots`](#translate-screenshots-source-dir)
+  - [`generate-screenshots`](#generate-screenshots)
+  - [`publish`](#publish)
+  - [`generate-keystore`](#generate-keystore)
+  - [`android-release-build`](#android-release-build)
+  - [`refactor`](#refactor)
+  - [`update-version`](#update-version)
+- [Config Reference](#config-reference)
+- [Project Structure](#project-structure)
+
+## Commands Overview
+
+| Command | Description |
+|---------|-------------|
+| [`kappmaker create <app-name>`](#create-app-name) | Full end-to-end app setup (Firebase, logo, App Store, Adapty, release build) |
+| [`kappmaker create-logo`](#create-logo) | Generate an app logo with AI (fal.ai) |
+| [`kappmaker create-appstore-app`](#create-appstore-app) | Set up an app on App Store Connect (metadata, subscriptions, privacy) |
+| [`kappmaker adapty setup`](#adapty-setup) | Set up Adapty products, paywalls, and placements |
+| [`kappmaker image-split <image>`](#image-split-source) | Split a grid image into individual tiles |
+| [`kappmaker image-remove-bg <image>`](#image-remove-bg-source) | Remove background from an image (fal.ai) |
+| [`kappmaker image-enhance <image>`](#image-enhance-source) | Upscale and enhance image quality (fal.ai) |
+| [`kappmaker translate-screenshots [dir]`](#translate-screenshots-source-dir) | Translate screenshots to multiple locales (fal.ai) |
+| [`kappmaker generate-screenshots`](#generate-screenshots) | Generate marketing screenshots with AI (OpenAI + fal.ai) |
+| [`kappmaker publish`](#publish) | Build and upload to Google Play and/or App Store via Fastlane |
+| [`kappmaker generate-keystore`](#generate-keystore) | Generate an Android signing keystore for Play Store releases |
+| [`kappmaker android-release-build`](#android-release-build) | Build a signed Android release AAB |
+| [`kappmaker refactor`](#refactor) | Refactor package names, application ID, bundle ID, and app name |
+| [`kappmaker update-version`](#update-version) | Bump Android and iOS version codes and version name |
+| [`kappmaker config`](#config) | Manage CLI settings, API keys, and global defaults |
+
+## Features
+
+### Works with any project
+
+These commands are standalone and don't depend on any specific boilerplate:
+
+- **AI logo generation** — Generate logo variations with fal.ai, pick your favorite, auto-remove background
+- **AI screenshot generation** — Generate marketing screenshots from a text description (8 style presets)
+- **Screenshot translation** — Translate app screenshots to 48+ locales in parallel
+- **App Store Connect setup** — Register bundle ID, create app, set metadata, categories, age rating, subscriptions, privacy, and review info
+- **Adapty subscription setup** — Create products, paywalls, and placements for iOS and Android
+- **Version bumping** — Increment Android and iOS version codes and names in one command
+- **Image tools** — Split grids, remove backgrounds, enhance quality
+
+### KAppMaker boilerplate-specific
+
+The `create` command runs the full end-to-end setup. Some steps assume the [KAppMaker](https://kappmaker.com) project structure and will be skipped with a warning if you use a custom template:
+
+- **Package refactor** — Renames package name, app ID, and display name using the TypeScript refactor service (also available standalone via `kappmaker refactor`)
+- **Firebase SDK config placement** — Downloads `google-services.json` and `GoogleService-Info.plist` to KAppMaker-specific paths (falls back to `Assets/` for custom templates)
+- **Build environment** — Creates `local.properties` and runs CocoaPods in the `MobileApp/` directory
+- **Android release build** — Generates keystore and builds signed AAB (also available standalone via `kappmaker android-release-build`)
+- **Git remotes** — Renames origin to upstream (designed for the "fork from template" workflow)
+- **Screenshot translation default path** — Defaults to `MobileApp/distribution/ios/appstore_metadata/screenshots/en-US` (falls back to parent of source directory)
+
+---
 
 ## Prerequisites
 
@@ -10,57 +163,137 @@ CLI tool for automating KAppMaker mobile app setup — cloning templates, config
 - **CocoaPods** — `sudo gem install cocoapods`
 - **Fastlane** — via Bundler in the template repo
 - **Android SDK** — installed at `~/Library/Android/sdk` (configurable)
+- **asc CLI** (optional, for App Store Connect) — `brew install asc`
+- **Adapty CLI** (optional, for Adapty setup) — `npm install -g adapty`
 
-## Setup
+## External Services & API Keys
 
-```bash
-npm install
-```
+The CLI integrates with several external services for AI image generation, app store management, and subscription setup. All keys are stored locally at `~/.config/kappmaker/config.json`.
 
-## Usage
+### fal.ai — AI Image Generation
 
-### Development
+**Used for:** Logo generation, background removal, image enhancement, screenshot translation, and screenshot generation.
 
-```bash
-npx tsx src/index.ts create <AppName>
-```
+**How to get your key:**
+1. Sign up at [fal.ai](https://fal.ai)
+2. Go to [Dashboard > Keys](https://fal.ai/dashboard/keys) and create an API key
+3. `kappmaker config set falApiKey <your-key>`
 
-### Production
+### ImgBB — Image Hosting
 
-```bash
-npm run build
-node dist/index.js create <AppName>
-```
+**Used for:** Temporarily hosting reference images when generating or translating screenshots (fal.ai needs a public URL to process images).
 
-### Global install (after build)
+**How to get your key:**
+1. Sign up at [imgbb.com](https://imgbb.com)
+2. Go to [api.imgbb.com](https://api.imgbb.com/) and get your free API key
+3. `kappmaker config set imgbbApiKey <your-key>`
 
-```bash
-npm link
-kappmaker create <AppName>
-```
+### OpenAI — Prompt Generation
 
-## Commands
+**Used for:** Generating detailed screenshot specifications from a short app description (uses GPT-4.1). Only needed for the `generate-screenshots` command.
 
-### `create <app-name>`
+**How to get your key:**
+1. Sign up at [platform.openai.com](https://platform.openai.com)
+2. Go to [API Keys](https://platform.openai.com/api-keys) and create a new key
+3. `kappmaker config set openaiApiKey <your-key>`
 
-Bootstraps a new KAppMaker app from the template repository.
+### App Store Connect CLI (asc) — iOS App Management & Publishing
+
+**Used for:** Creating apps, setting metadata, categories, subscriptions, privacy declarations, and review info on App Store Connect (`create-appstore-app`). The same API key credentials are also used by `publish --platform ios` to build and upload IPAs via Fastlane.
+
+**How to set up:**
+1. Install: `brew install asc`
+2. Generate an API key at [App Store Connect > Users and Access > Integrations > API](https://appstoreconnect.apple.com/access/integrations/api) (Admin role, download the `.p8` file immediately)
+3. Configure:
+   ```bash
+   kappmaker config set ascKeyId <your-key-id>
+   kappmaker config set ascIssuerId <your-issuer-id>
+   kappmaker config set ascPrivateKeyPath /path/to/AuthKey.p8
+   kappmaker config set appleId your@email.com
+   ```
+   Or run `kappmaker config appstore-defaults --init` for interactive setup.
+
+> **Note:** `kappmaker publish --platform ios` uses `ascKeyId`, `ascIssuerId`, and `ascPrivateKeyPath` to automatically generate the Fastlane-format publisher JSON — no separate credentials needed.
+
+### Adapty CLI — Subscription Management
+
+**Used for:** Setting up in-app subscription products, paywalls, and placements across iOS and Android via Adapty's backend.
+
+**How to set up:**
+1. Install: `npm install -g adapty`
+2. Log in: `adapty auth login` (opens browser for authentication)
+3. Run: `kappmaker adapty setup`
+
+### Firebase CLI — Backend Setup
+
+**Used for:** Creating Firebase projects, registering Android/iOS apps, downloading SDK config files (`google-services.json`, `GoogleService-Info.plist`), and enabling anonymous authentication.
+
+**How to set up:**
+1. Install: `npm install -g firebase-tools`
+2. The `create` command handles login and project creation interactively.
+
+### Google Play Publisher — Android Store Uploads
+
+**Used for:** Building and uploading Android AABs to Google Play Store, managing Play Store metadata and screenshots via `kappmaker publish --platform android`.
+
+**How to set up:**
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com) and create a new project (or select existing)
+2. Open **APIs & Services > Library**, search for **Google Play Android Developer API**, and enable it
+3. Go to **IAM & Admin > Service Accounts**, create a new service account (skip role assignment)
+4. Open the service account, go to **Keys**, click **Add key > Create new key > JSON**, and download it
+5. Open [Google Play Console](https://play.google.com/console), go to **Settings > Users and permissions**
+6. Click **Invite new user** with the service account email (`...@...iam.gserviceaccount.com`) and grant permissions for your app(s)
+7. Save the JSON key file and configure:
+   ```bash
+   kappmaker config set googleServiceAccountPath /path/to/google-service-app-publisher.json
+   ```
+
+### App Store Publisher — iOS Store Uploads
+
+**Used for:** Building and uploading iOS IPAs to App Store Connect, managing App Store metadata and screenshots via `kappmaker publish --platform ios`.
+
+The `publish` command reuses the same App Store Connect API key credentials used by `create-appstore-app` (`ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath`) and automatically generates the Fastlane-format publisher JSON.
+
+**How to set up** (if not already configured for `create-appstore-app`):
+
+1. Open [App Store Connect > Users and Access > Integrations](https://appstoreconnect.apple.com/access/integrations/api)
+2. Create an API key with **App Manager** access and download the `.p8` file
+3. Note the **Key ID** and **Issuer ID**
+4. Configure:
+   ```bash
+   kappmaker config set ascKeyId <your-key-id>
+   kappmaker config set ascIssuerId <your-issuer-id>
+   kappmaker config set ascPrivateKeyPath /path/to/AuthKey.p8
+   ```
+
+---
+
+## `create <app-name>`
+
+Full end-to-end app bootstrapping. Creates a new KAppMaker app from the template and optionally sets up everything needed to publish.
 
 ```bash
 kappmaker create Remimi
 ```
 
-**What it does:**
+**What it does (13 steps):**
 
-1. Clones the template repo into `<AppName>-All`
-2. Logs into Firebase (opens browser)
-3. Creates a Firebase project (`<appname>-app`)
-4. Creates Android + iOS Firebase apps and downloads config files
-5. Runs Gradle refactor to set package name (`com.measify.<appname>`) and app name
-6. Creates `local.properties`, installs CocoaPods, runs Gradle build
-7. Runs Fastlane `first_time_build` for Android
-8. Renames origin to upstream (template repo becomes upstream remote)
-
-The project is created in the **current working directory** as `<AppName>-All/`.
+| Step | Action | Details |
+|------|--------|---------|
+| 1 | Clone template | Clones into `<AppName>-All/` (prompts to overwrite if exists) |
+| 2 | Firebase login | Opens browser for authentication |
+| 3 | Create Firebase project | `<appname>-app` (skips if exists) |
+| 4 | Create Firebase apps | Android + iOS apps (reuses existing if found) |
+| 5 | Enable anonymous auth | Via Identity Toolkit REST API (warns on failure) |
+| 6 | Download SDK configs | `google-services.json` + `GoogleService-Info.plist` (falls back to `Assets/` for custom templates) |
+| 7 | Logo generation | *Optional* — AI logo + automatic background removal |
+| 8 | App Store Connect | *Optional* — full app setup (metadata, subs, privacy) |
+| 9 | Adapty setup | *Optional* — products, paywalls, placements |
+| 10 | Package refactor | Sets package name, application ID, bundle ID, and app name (TypeScript) |
+| 11 | Build environment | Creates `local.properties`, installs CocoaPods; *skipped with warning if `gradlew`/`Podfile` not found* |
+| 12 | Git remotes | Renames origin to upstream |
+| 13 | Android release build | Generates keystore if needed, builds signed AAB; *skipped if `gradlew` not found* |
 
 **Options:**
 
@@ -69,26 +302,492 @@ The project is created in the **current working directory** as `<AppName>-All/`.
 | `--template-repo <url>` | Template repository URL | KAppMaker template |
 | `--organization <org>` | Organization for Fastlane signing | App name (configurable) |
 
-### `config`
+---
 
-Manage CLI configuration stored at `~/.config/kappmaker/config.json`.
+## `create-logo`
+
+Generates an app logo using fal.ai's nano-banana-2 model.
 
 ```bash
-kappmaker config init              # Interactive setup
-kappmaker config list              # Show all values
-kappmaker config set <key> <value> # Set a value
-kappmaker config get <key>         # Get a value
-kappmaker config path              # Show config file path
+kappmaker create-logo
+kappmaker create-logo --output ./custom/path/logo.png
 ```
 
-**Config keys:**
+**Flow:**
+1. Prompts for app idea / description
+2. Generates a 4x4 grid of 16 logo variations (2K, 1:1)
+3. Opens grid in Preview.app for review
+4. Pick a logo (1-16) or R to regenerate — optional: `5 --zoom 1.1 --gap 3`
+5. Extracts chosen logo at 512x512
+
+**Output:** `Assets/app_logo.png` + `Assets/logo_variations.png`
+
+Requires: `kappmaker config set falApiKey <your-key>`
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--output <path>` | Custom output path | `Assets/app_logo.png` |
+
+---
+
+## `create-appstore-app`
+
+Creates and fully configures an app on App Store Connect using the [asc CLI](https://github.com/rudrankriyam/App-Store-Connect-CLI).
+
+```bash
+kappmaker create-appstore-app
+kappmaker create-appstore-app --config ./my-config.json
+```
+
+### First-time setup
+
+1. **Generate an API key** at [App Store Connect > Users and Access > Integrations > API](https://appstoreconnect.apple.com/access/integrations/api) — Admin access, download the `.p8` file immediately
+2. **Run one-time setup:**
+   ```bash
+   kappmaker config appstore-defaults --init
+   ```
+
+### What it does (13 steps)
+
+1. Validate asc CLI and authentication
+2. Load config (from file or interactive prompts)
+3. Register Bundle ID
+4. Find or create app
+5. Set content rights
+6. Create app version (1.0.0)
+7. Set categories
+8. Set age rating
+9. Update localizations
+10. Set pricing, availability, and subscriptions
+11. Set privacy data usages
+12. Set encryption declarations
+13. Set review contact details
+
+### Config resolution
+
+Layers are deep-merged (later overrides earlier):
+
+1. **Built-in template** — age rating, privacy, encryption, subscriptions
+2. **Global defaults** (`~/.config/kappmaker/appstore-defaults.json`) — review contact, copyright
+3. **Local config** (`./Assets/appstore-config.json` or `--config`)
+4. **Interactive prompts** — only for fields still empty
+
+### Default subscriptions
+
+| Subscription | Period | Price | Product ID |
+|-------------|--------|-------|------------|
+| Weekly Premium | `ONE_WEEK` | $6.99 | `{appname}.premium.weekly.v1.699.v1` |
+| Yearly Premium | `ONE_YEAR` | $29.99 | `{appname}.premium.yearly.v1.2999.v1` |
+
+Auto-generated naming: group `{appname}.premium.v1`, ref name `{AppName} Premium Weekly v1 (6.99)`.
+
+### Default privacy
+
+| Data Category | Purpose | Protection |
+|--------------|---------|------------|
+| User ID | App Functionality | Linked to You |
+| Device ID | App Functionality | Linked to You |
+| Crash Data | Analytics | Not Linked to You |
+| Performance Data | Analytics | Not Linked to You |
+| Other Diagnostic Data | Analytics | Not Linked to You |
+| Other Usage Data | Analytics | Not Linked to You |
+| Product Interaction | Analytics | Not Linked to You |
+
+During interactive setup, the CLI asks if the app accesses user content (AI image/video wrapper). If yes, adds Photos or Videos + Other User Content (both App Functionality / Not Linked to You).
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config <path>` | Path to JSON config file | `./Assets/appstore-config.json` |
+
+---
+
+## `adapty setup`
+
+Sets up Adapty subscription products, paywalls, and placements using the [Adapty CLI](https://github.com/adaptyteam/adapty-cli).
+
+```bash
+kappmaker adapty setup
+kappmaker adapty setup --config ./my-config.json
+```
+
+**Prerequisites:** Install (`npm install -g adapty`) and log in (`adapty auth login`).
+
+### What it does (8 steps)
+
+1. Validate CLI and authentication
+2. Load config (from file or interactive prompts)
+3. Find or create app (iOS + Android)
+4. Create "Premium" access level
+5. Create products
+6. Create paywalls (linking products)
+7. Create placements (linking paywalls)
+
+### Default products
+
+| Product | Period | Price | iOS Product ID | Android Base Plan ID |
+|---------|--------|-------|----------------|---------------------|
+| Weekly Premium | `weekly` | $6.99 | `{appname}.premium.weekly.v1.699.v1` | `autorenew-weekly-price-v1` |
+| Yearly Premium | `annual` | $29.99 | `{appname}.premium.yearly.v1.2999.v1` | `autorenew-yearly-price-v1` |
+
+iOS product IDs match the App Store Connect format so they align across both systems.
+
+### Default paywalls and placements
+
+| Paywall | Products | Placement | Developer ID |
+|---------|----------|-----------|-------------|
+| Default Paywall | Weekly + Yearly | Default | `default` |
+| Onboarding Paywall | Weekly + Yearly | Onboarding | `onboarding` |
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config <path>` | Path to JSON config file | `./Assets/adapty-config.json` |
+
+---
+
+## Image Tools
+
+AI-powered image commands. Require a fal.ai API key: `kappmaker config set falApiKey <your-key>`
+
+### `image-split <source>`
+
+Splits a grid image into individual tiles.
+
+```bash
+kappmaker image-split grid.png --rows 4 --cols 4 --zoom 1.1 --gap 3
+kappmaker image-split grid.png --keep 1,5    # Keep only tiles 1 and 5
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--rows <n>` | Number of rows | `4` |
+| `--cols <n>` | Number of columns | `4` |
+| `--zoom <factor>` | Zoom factor to crop edges | `1.07` |
+| `--gap <pixels>` | Gap pixels at each tile edge | `0` |
+| `--width <pixels>` | Output tile width | `512` |
+| `--height <pixels>` | Output tile height | `512` |
+| `--output-dir <path>` | Directory to save tiles | `.` |
+| `--keep <indices>` | Comma-separated tile indices to keep | All |
+
+### `image-remove-bg <source>`
+
+Removes background using fal.ai bria model. Outputs PNG with transparency.
+
+```bash
+kappmaker image-remove-bg logo.png
+kappmaker image-remove-bg photo.jpg --output clean.png
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--output <path>` | Custom output path | `<filename>_no_bg.png` |
+
+### `image-enhance <source>`
+
+Upscales and improves image quality using fal.ai nano-banana-2 edit model.
+
+```bash
+kappmaker image-enhance logo.png
+kappmaker image-enhance photo.jpg --output improved.png
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--output <path>` | Custom output path | `<filename>_enhanced.png` |
+
+---
+
+## `translate-screenshots [source-dir]`
+
+Translates app screenshots into multiple locales using fal.ai and saves to Fastlane distribution directories.
+
+```bash
+kappmaker translate-screenshots                                        # Uses default: MobileApp/distribution/.../en-US
+kappmaker translate-screenshots ./screenshots/en-US                    # Custom source dir
+kappmaker translate-screenshots ./screenshots/en-US --locales de-DE ja-JP  # Specific locales
+```
+
+**Flow:**
+1. Combines source images into a 2x4 grid
+2. Submits grid to fal.ai for each locale (all in parallel)
+3. Downloads translated grids, splits back into individual screenshots
+4. Saves to Fastlane iOS/Android directory structure
+
+**Output auto-detection:** If source is inside a distribution structure, the root is detected automatically. Otherwise defaults to `./MobileApp/distribution`.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--output <path>` | Distribution directory root | Auto-detected |
+| `--locales <codes...>` | Target locale codes (space-separated) or `all` | All 48 locales |
+| `--rows <n>` | Grid rows | `2` |
+| `--cols <n>` | Grid columns | `4` |
+| `--resolution <res>` | AI resolution (`1K`, `2K`, `4K`) | `2K` |
+| `--poll-interval <seconds>` | Seconds between status checks | `10` |
+
+<details>
+<summary>Supported locales (48 total)</summary>
+
+| Play Store | App Store | | Play Store | App Store |
+|------------|-----------|---|------------|-----------|
+| `ar` | `ar-SA` | | `lt-LT` | — |
+| `bg-BG` | — | | `lv-LV` | — |
+| `bn-BD` | — | | `ms` | `ms` |
+| `ca` | `ca` | | `nl-NL` | `nl-NL` |
+| `cs-CZ` | `cs` | | `no-NO` | `no` |
+| `da-DK` | `da` | | `pl-PL` | `pl` |
+| `de-DE` | `de-DE` | | `pt-BR` | `pt-BR` |
+| `el-GR` | `el` | | `pt-PT` | `pt-PT` |
+| `en-AU` | `en-AU` | | `ro` | `ro` |
+| `en-GB` | `en-GB` | | `ru-RU` | `ru` |
+| `es-ES` | `es-ES` | | `sk` | `sk` |
+| `es-419` | `es-MX` | | `sl-SI` | — |
+| `et-EE` | — | | `sr` | — |
+| `fi-FI` | `fi` | | `sv-SE` | `sv` |
+| `fil` | — | | `sw` | — |
+| `fr-FR` | `fr-FR` | | `ta-IN` | — |
+| `fr-CA` | `fr-CA` | | `te-IN` | — |
+| `he-IL` | `he` | | `th` | `th` |
+| `hi-IN` | `hi` | | `tr-TR` | `tr` |
+| `hr` | `hr` | | `uk` | `uk` |
+| `hu-HU` | `hu` | | `vi` | `vi` |
+| `id` | `id` | | `zh-CN` | `zh-Hans` |
+| `it-IT` | `it` | | `zh-TW` | `zh-Hant` |
+| `ja-JP` | `ja` | | | |
+| `ko-KR` | `ko` | | | |
+
+Locales marked with **—** are Android-only (no App Store equivalent).
+
+</details>
+
+---
+
+## `generate-screenshots`
+
+Generates marketing screenshots using OpenAI (prompt generation) + fal.ai (image generation).
+
+```bash
+kappmaker generate-screenshots --prompt "A fitness tracking app with workout plans"
+kappmaker generate-screenshots --prompt "A meditation app" --input ./my-screenshots
+kappmaker generate-screenshots --prompt "A recipe app" --style 3 --resolution 4K
+```
+
+**Flow:**
+1. OpenAI (GPT-4.1) generates a detailed screenshot specification from your description
+2. fal.ai generates a grid of 8 screenshots (`nano-banana-2`, or `nano-banana-2/edit` with reference images)
+3. Grid is split into individual screenshots
+
+**Output:** `Assets/screenshots/appstore/` + `Assets/screenshots/playstore/` (+ Fastlane dirs if `MobileApp/distribution` exists)
+
+Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (if using reference images)
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--prompt <text>` | App description (required) | — |
+| `--input <dir>` | Reference screenshot directory | Auto-detect `Assets/screenshots` |
+| `--style <id>` | Style preset (1-8) | `1` |
+| `--output <dir>` | Output base directory | `Assets/screenshots` |
+| `--resolution <res>` | AI resolution (`1K`, `2K`, `4K`) | `2K` |
+
+<details>
+<summary>Screenshot styles (1-8)</summary>
+
+| Style | Description |
+|-------|-------------|
+| `1` | Rich multi-device marketing (bold text, shadows & reflections) |
+| `2` | Minimal Apple-style (single centered device, clean whitespace) |
+| `3` | SaaS conversion-focused (feature bullet callouts) |
+| `4` | Bold geometric color blocks (vibrant split backgrounds) |
+| `5` | Full-bleed UI, no device frames (edge-to-edge with blur overlay) |
+| `6` | Cinematic depth (layered devices, depth-of-field) |
+| `7` | Editorial lifestyle (soft neutral backgrounds, serif type) |
+| `8` | Floating product reveal (Apple keynote aesthetic) |
+
+</details>
+
+---
+
+## `publish`
+
+Builds and uploads your app to Google Play and/or App Store using Fastlane.
+
+```bash
+kappmaker publish                                          # Both platforms
+kappmaker publish --platform android                       # Android only
+kappmaker publish --platform ios                           # iOS only
+kappmaker publish --platform android --platform ios        # Both explicitly
+kappmaker publish --platform android --track internal      # Android internal track
+kappmaker publish --upload-metadata --upload-screenshots   # With metadata
+```
+
+Run from the project root (containing `MobileApp/`) or inside `MobileApp/` directly. Requires Fastlane via Bundler (`Gemfile` + `fastlane/Fastfile`).
+
+**Prerequisites:**
+- **Android:** Google Play service account JSON — see [Google Play Publisher setup](#google-play-publisher--android-store-uploads)
+- **iOS:** App Store Connect API key — see [App Store Publisher setup](#app-store-publisher--ios-store-uploads). The CLI generates the Fastlane-format publisher JSON automatically from your `ascKeyId`/`ascIssuerId`/`ascPrivateKeyPath` config.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--platform <name>` | Platform to publish: `android`, `ios` (repeatable) | Both |
+| `--track <name>` | Android Play Store track (internal/alpha/beta/production) | `production` |
+| `--upload-metadata` | Upload metadata (title, description) | `false` |
+| `--upload-screenshots` | Upload screenshots | `false` |
+| `--upload-images` | Upload images — icon, feature graphic (Android only) | `false` |
+| `--submit-for-review` | Submit for review after upload | `true` |
+
+---
+
+## `generate-keystore`
+
+Generates an Android signing keystore for Play Store releases. Creates `keystore.jks` and `keystore.properties` with a secure random password.
+
+```bash
+kappmaker generate-keystore --organization "MyCompany"
+kappmaker generate-keystore --first-name "John Doe" --organization "MyCompany"
+kappmaker generate-keystore --output ./custom-keystore-dir
+```
+
+Run from the project root (containing `MobileApp/`) or inside `MobileApp/` directly.
+
+**Output** (default: `distribution/android/keystore/` inside MobileApp):
+- `keystore.jks` — the signing keystore
+- `keystore.properties` — password, alias, and store file path
+
+At least one of `--first-name` or `--organization` is required.
+
+| Flag | Description | Required |
+|------|-------------|----------|
+| `--first-name <name>` | Developer name for keystore | One of these |
+| `--organization <name>` | Organization name for keystore | is required |
+| `--output <dir>` | Output directory for keystore files | No |
+
+---
+
+## `android-release-build`
+
+Builds a signed Android release AAB. Automatically generates a keystore if one doesn't exist yet.
+
+```bash
+kappmaker android-release-build
+kappmaker android-release-build --organization "MyCompany"
+kappmaker android-release-build --output ./my-output
+```
+
+Run from the project root (containing `MobileApp/`) or inside `MobileApp/` directly. Requires `gradlew` in the mobile app directory.
+
+**What it does:**
+1. Generates keystore if `distribution/android/keystore/keystore.properties` doesn't exist
+2. Runs `./gradlew :composeApp:bundleRelease`
+3. Copies the AAB to the output directory
+
+**Output:** `distribution/android/app-release.aab` (or custom `--output` path)
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--organization <name>` | Organization for keystore generation | From config |
+| `--first-name <name>` | Developer name for keystore generation | Empty |
+| `--output <dir>` | Output directory for AAB | `distribution/android` |
+
+---
+
+## `refactor`
+
+Refactors package names, application ID, bundle ID, and app name across the entire project. Implemented in TypeScript — no Gradle build system required.
+
+```bash
+kappmaker refactor --app-id com.example.myapp --app-name MyApp
+kappmaker refactor --app-id com.example.myapp --app-name MyApp --skip-package-rename
+```
+
+Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` directly.
+
+**Full refactor (default):**
+1. Renames Kotlin package names in all source sets (commonMain, androidMain, iosMain, etc.)
+2. Moves package directories to match the new package structure
+3. Updates Gradle build files, Firebase configs, iOS project files, and GitHub workflows
+4. Updates the app display name in manifests, settings, and platform-specific files
+
+**Skip-package-rename mode (`--skip-package-rename`):**
+Only updates `applicationId` / bundle ID, Firebase configs, iOS files, GitHub workflows, and app name — keeps Kotlin package directories intact. Useful for creating multiple apps from one codebase without merge conflicts.
+
+| Flag | Description | Required |
+|------|-------------|----------|
+| `--app-id <id>` | New applicationId / bundleId (e.g., `com.example.myapp`) | Yes |
+| `--app-name <name>` | New display name (e.g., `MyApp`) | Yes |
+| `--old-app-id <id>` | Current applicationId to replace (default: `com.measify.kappmaker`) | No |
+| `--old-app-name <name>` | Current app name to replace (default: `KAppMakerAllModules`) | No |
+| `--skip-package-rename` | Keep Kotlin package dirs, only update IDs and app name | No |
+
+---
+
+## `update-version`
+
+Bumps Android and iOS version codes and optionally sets a new version name. Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` directly.
+
+```bash
+kappmaker update-version              # Increment patch: 1.2.3 → 1.2.4, versionCode +1
+kappmaker update-version -v 2.0.0     # Set explicit version name, versionCode +1
+```
+
+**What it updates:**
+
+| Platform | File | Fields |
+|----------|------|--------|
+| Android | `composeApp/build.gradle.kts` | `versionCode`, `versionName` |
+| iOS | `iosApp/iosApp.xcodeproj/project.pbxproj` | `CURRENT_PROJECT_VERSION`, `MARKETING_VERSION` |
+| iOS | `iosApp/iosApp/Info.plist` | `CFBundleVersion`, `CFBundleShortVersionString` |
+
+If a platform's files are missing, that platform is skipped with a warning.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-v, --version <name>` | Set explicit version name (e.g., `2.0.0`) | Auto-increment patch |
+
+---
+
+## Config Reference
+
+Configuration is stored at `~/.config/kappmaker/config.json`.
+
+```bash
+kappmaker config init                                    # Interactive setup
+kappmaker config list                                    # Show all values
+kappmaker config set <key> <value>                       # Set a value
+kappmaker config get <key>                               # Get a value
+kappmaker config path                                    # Show config file path
+kappmaker config appstore-defaults                       # View App Store defaults
+kappmaker config appstore-defaults --init                # Set up API key + review contact
+kappmaker config appstore-defaults --save ./config.json  # Save as global defaults
+kappmaker config adapty-defaults                         # View Adapty defaults
+kappmaker config adapty-defaults --save ./config.json    # Save as global defaults
+```
+
+### Config keys
 
 | Key | Description | Default |
 |-----|-------------|---------|
+| `templateRepo` | Template repository Git URL | KAppMaker template |
+| `bundleIdPrefix` | Bundle/package ID prefix (e.g., `com.measify`) | `com.<appname>` |
 | `androidSdkPath` | Android SDK location | `~/Library/Android/sdk` |
-| `organization` | Organization for Fastlane signing | Empty (uses app name) |
-| `falApiKey` | fal.ai API key (for screenshot translation) | Empty |
-| `openaiApiKey` | OpenAI API key (for ASO metadata) | Empty |
+| `organization` | Organization for Fastlane signing | App name |
+| `falApiKey` | fal.ai API key | — |
+| `imgbbApiKey` | imgbb API key ([api.imgbb.com](https://api.imgbb.com/)) | — |
+| `openaiApiKey` | OpenAI API key | — |
+| `ascAuthName` | ASC keychain credential name | `KAppMaker` |
+| `ascKeyId` | App Store Connect API Key ID | — |
+| `ascIssuerId` | App Store Connect Issuer ID | — |
+| `ascPrivateKeyPath` | Path to `.p8` private key | — |
+| `appleId` | Apple ID email (for privacy setup) | — |
+| `googleServiceAccountPath` | Google Play service account JSON path | `~/credentials/google-service-app-publisher.json` |
+
+### Global defaults
+
+| File | Used by | Manage with |
+|------|---------|-------------|
+| `~/.config/kappmaker/appstore-defaults.json` | `create-appstore-app` | `config appstore-defaults` |
+| `~/.config/kappmaker/adapty-defaults.json` | `adapty setup` | `config adapty-defaults` |
+
+Global defaults are merged as a base layer so shared settings (review contact, privacy, subscriptions, etc.) don't need to be re-entered per app.
+
+---
 
 ## Project Structure
 
@@ -97,20 +796,50 @@ src/
   index.ts                  # Entry point
   cli.ts                    # Command registration (Commander.js)
   commands/
-    create.ts               # Create command orchestrator
-    config.ts               # Config management command
+    create.ts               # Full app setup (13-step orchestrator)
+    create-logo.ts          # AI logo generation
+    create-appstore-app.ts  # App Store Connect setup (13-step orchestrator)
+    adapty-setup.ts         # Adapty setup (8-step orchestrator)
+    split.ts                # Grid image splitter
+    remove-bg.ts            # Background removal
+    enhance.ts              # Image quality enhancement
+    translate-screenshots.ts # Screenshot translation
+    generate-screenshots.ts # AI screenshot generation
+    publish.ts              # Build and upload to Play Store / App Store
+    generate-keystore.ts    # Generate Android signing keystore
+    android-release-build.ts # Build signed Android release AAB
+    refactor.ts             # Package/app name refactoring
+    update-version.ts       # Bump Android + iOS version codes and version name
+    config.ts               # Config management
   services/
-    firebase.service.ts     # Firebase CLI wrapper
+    firebase.service.ts     # Firebase CLI wrapper + anonymous auth
+    fal.service.ts          # fal.ai API (generation, translation, screenshots)
+    openai.service.ts       # OpenAI API (prompt generation)
+    asc.service.ts          # App Store Connect CLI wrapper
+    asc-monetization.service.ts  # ASC pricing, subscriptions, IAP
+    adapty.service.ts       # Adapty CLI wrapper
     git.service.ts          # Git operations
-    gradle.service.ts       # Gradle build operations
+    publish.service.ts      # Android/iOS publishing via Fastlane
+    keystore.service.ts     # Android keystore generation
+    gradle.service.ts       # Gradle build helpers (local.properties, clean & build)
     ios.service.ts          # CocoaPods setup
-    fastlane.service.ts     # Fastlane build operations
+    fastlane.service.ts     # Android release build (keystore + gradle) + AAB finder
+    logo.service.ts         # Logo prompt builder + image extraction
+    screenshot.service.ts   # Screenshot grid operations + Fastlane output
+    screenshot-styles.ts    # Screenshot style prompts (8 styles)
+    refactor.service.ts     # Package/app name refactoring logic
+    version.service.ts      # Android + iOS version reading/writing
   utils/
     logger.ts               # Chalk-based logging
-    exec.ts                 # Command execution wrapper (execa + ora)
+    exec.ts                 # Command execution (execa + ora)
     validator.ts            # Dependency and input validation
-    config.ts               # User config (~/.config/kappmaker/config.json)
-    prompt.ts               # Interactive prompts (confirm, input)
+    config.ts               # User config management
+    prompt.ts               # Interactive prompts
+  templates/
+    appstore-config.json    # Default App Store Connect config
+    adapty-config.json      # Default Adapty config
   types/
-    index.ts                # TypeScript interfaces
+    index.ts                # Shared interfaces
+    appstore.ts             # App Store Connect types
+    adapty.ts               # Adapty types
 ```

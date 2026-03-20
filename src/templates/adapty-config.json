@@ -1,0 +1,50 @@
+{
+  "app": {
+    "title": "",
+    "bundle_id": "",
+    "package_id": "",
+    "app_id": ""
+  },
+  "access_level": {
+    "sdk_id": "Premium",
+    "title": "Premium"
+  },
+  "products": [
+    {
+      "title": "Weekly Premium",
+      "period": "weekly",
+      "price": "6.99",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Yearly Premium",
+      "period": "annual",
+      "price": "29.99",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    }
+  ],
+  "paywalls": [
+    {
+      "title": "Default Paywall",
+      "product_titles": ["Weekly Premium", "Yearly Premium"]
+    },
+    {
+      "title": "Onboarding Paywall",
+      "product_titles": ["Weekly Premium", "Yearly Premium"]
+    }
+  ],
+  "placements": [
+    {
+      "title": "Default",
+      "developer_id": "default"
+    },
+    {
+      "title": "Onboarding",
+      "developer_id": "onboarding"
+    }
+  ]
+}
