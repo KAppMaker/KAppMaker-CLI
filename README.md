@@ -100,6 +100,7 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [Image Tools](#image-tools)
   - [`translate-screenshots`](#translate-screenshots-source-dir)
   - [`generate-screenshots`](#generate-screenshots)
+  - [`fastlane configure`](#fastlane-configure)
   - [`publish`](#publish)
   - [`generate-keystore`](#generate-keystore)
   - [`android-release-build`](#android-release-build)
@@ -121,6 +122,7 @@ Claude will check your config, verify API keys are set, and walk you through any
 | [`kappmaker image-enhance <image>`](#image-enhance-source) | Upscale and enhance image quality (fal.ai) |
 | [`kappmaker translate-screenshots [dir]`](#translate-screenshots-source-dir) | Translate screenshots to multiple locales (fal.ai) |
 | [`kappmaker generate-screenshots`](#generate-screenshots) | Generate marketing screenshots with AI (OpenAI + fal.ai) |
+| [`kappmaker fastlane configure`](#fastlane-configure) | Set up Fastlane in the mobile app directory |
 | [`kappmaker publish`](#publish) | Build and upload to Google Play and/or App Store via Fastlane |
 | [`kappmaker generate-keystore`](#generate-keystore) | Generate an Android signing keystore for Play Store releases |
 | [`kappmaker android-release-build`](#android-release-build) | Build a signed Android release AAB |
@@ -605,6 +607,26 @@ Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (if using reference ima
 
 ---
 
+## `fastlane configure`
+
+Sets up Fastlane in the mobile app directory. Creates `Gemfile`, `fastlane/Fastfile`, and runs `bundle install`.
+
+```bash
+kappmaker fastlane configure
+```
+
+Run from the project root (containing `MobileApp/`) or inside `MobileApp/` directly.
+
+**What it creates:**
+- `Gemfile` — Ruby gem dependencies (fastlane)
+- `fastlane/Fastfile` — Build and upload lanes for Android (Play Store) and iOS (App Store)
+
+If files already exist, they are skipped (not overwritten).
+
+**Prerequisite for:** `kappmaker publish`
+
+---
+
 ## `publish`
 
 Builds and uploads your app to Google Play and/or App Store using Fastlane.
@@ -805,6 +827,7 @@ src/
     enhance.ts              # Image quality enhancement
     translate-screenshots.ts # Screenshot translation
     generate-screenshots.ts # AI screenshot generation
+    fastlane-configure.ts   # Set up Fastlane (Gemfile + Fastfile + bundle install)
     publish.ts              # Build and upload to Play Store / App Store
     generate-keystore.ts    # Generate Android signing keystore
     android-release-build.ts # Build signed Android release AAB
@@ -819,6 +842,7 @@ src/
     asc-monetization.service.ts  # ASC pricing, subscriptions, IAP
     adapty.service.ts       # Adapty CLI wrapper
     git.service.ts          # Git operations
+    fastlane-setup.service.ts # Fastlane scaffolding (Gemfile + Fastfile)
     publish.service.ts      # Android/iOS publishing via Fastlane
     keystore.service.ts     # Android keystore generation
     gradle.service.ts       # Gradle build helpers (local.properties, clean & build)

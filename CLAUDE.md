@@ -40,6 +40,7 @@ npx tsx src/index.ts translate-screenshots <dir> --locales de-DE ja-JP  # Specif
 npx tsx src/index.ts generate-screenshots --prompt "A fitness app..."   # Generate marketing screenshots
 npx tsx src/index.ts create-appstore-app           # App Store Connect setup
 npx tsx src/index.ts adapty setup                  # Adapty products/paywall/placements setup
+npx tsx src/index.ts fastlane configure                                    # Set up Fastlane (Gemfile + Fastfile + bundle install)
 npx tsx src/index.ts publish --platform android                            # Publish Android to Play Store
 npx tsx src/index.ts publish --platform ios                                # Publish iOS to App Store
 npx tsx src/index.ts publish                                               # Publish to both stores
@@ -98,6 +99,7 @@ src/
     enhance.ts              # image-enhance — upscale quality (fal.ai nano-banana-2/edit)
     translate-screenshots.ts  # Screenshot translation to multiple locales (fal.ai)
     generate-screenshots.ts   # AI screenshot generation (OpenAI + fal.ai)
+    fastlane-configure.ts   # Set up Fastlane (Gemfile + Fastfile + bundle install)
     publish.ts              # Build and upload to Google Play / App Store via Fastlane
     generate-keystore.ts    # Generate Android signing keystore
     android-release-build.ts # Build signed Android release AAB
@@ -110,6 +112,7 @@ src/
     openai.service.ts       # OpenAI API (prompt generation for screenshots)
     screenshot-styles.ts    # Screenshot style prompts (8 styles) for generate-screenshots
     git.service.ts          # Git clone + remote setup
+    fastlane-setup.service.ts # Fastlane scaffolding (Gemfile + Fastfile + bundle install)
     publish.service.ts      # Android/iOS publishing via Fastlane (Play Store + App Store)
     keystore.service.ts     # Android keystore generation (keytool + properties)
     gradle.service.ts       # Gradle build helpers (local.properties, clean & build)

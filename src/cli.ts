@@ -14,6 +14,7 @@ import { refactorCommand } from './commands/refactor.js';
 import { generateKeystoreCommand } from './commands/generate-keystore.js';
 import { androidReleaseBuild } from './commands/android-release-build.js';
 import { publishCommand } from './commands/publish.js';
+import { fastlaneConfigure } from './commands/fastlane-configure.js';
 
 export function createCli(): Command {
   const program = new Command();
@@ -179,6 +180,19 @@ export function createCli(): Command {
     .option('--output <dir>', 'Output directory for AAB (default: distribution/android)')
     .action(async (options) => {
       await androidReleaseBuild(options);
+    });
+
+  // ── Fastlane ───────────────────────────────────────────────────────
+
+  const fastlaneCmd = program
+    .command('fastlane')
+    .description('Fastlane setup and management');
+
+  fastlaneCmd
+    .command('configure')
+    .description('Set up Fastlane in the mobile app directory (Gemfile + Fastfile + bundle install)')
+    .action(async () => {
+      await fastlaneConfigure();
     });
 
   // ── Publish ────────────────────────────────────────────────────────

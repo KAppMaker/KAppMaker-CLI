@@ -25,6 +25,7 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 | Split a grid image | `kappmaker image-split <image>` |
 | Remove image background | `kappmaker image-remove-bg <image>` |
 | Enhance image quality | `kappmaker image-enhance <image>` |
+| Set up Fastlane | `kappmaker fastlane configure` |
 | Publish to Play Store / App Store | `kappmaker publish` |
 | Generate Android keystore | `kappmaker generate-keystore` |
 | Build signed Android AAB | `kappmaker android-release-build` |
@@ -211,6 +212,16 @@ Run the command and let the user interact with it directly.
 
 ---
 
+### fastlane configure — Set Up Fastlane
+
+**Syntax**: `kappmaker fastlane configure`
+
+**Prerequisites**: Ruby and Bundler (`gem install bundler`). Run from the project root or inside `MobileApp/`.
+
+**What it does**: Creates `Gemfile` + `fastlane/Fastfile` in the mobile app directory, then runs `bundle install`. Skips files that already exist. This is a prerequisite for `kappmaker publish`.
+
+---
+
 ### publish — Build & Upload to Stores
 
 **Syntax**: `kappmaker publish [options]`
@@ -356,3 +367,4 @@ Some common workflows:
 3. **Logo pipeline**: `create-logo`, then optionally `image-remove-bg` and `image-enhance`
 4. **Store setup**: `create-appstore-app`, then `adapty setup` (product IDs align automatically)
 5. **Rebrand app**: `refactor --app-id <new-id> --app-name <new-name>`, then `update-version`
+6. **First publish**: `fastlane configure`, then `android-release-build`, then `publish`

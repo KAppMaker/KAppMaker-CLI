@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/templates/Fastfile.txt dist/templates/Fastfile.txt",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js"
   },
