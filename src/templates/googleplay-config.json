@@ -1,0 +1,74 @@
+{
+  "app": {
+    "package_name": "",
+    "name": "",
+    "default_language": "en-US"
+  },
+  "details": {
+    "contact_website": "",
+    "contact_email": "",
+    "contact_phone": ""
+  },
+  "listings": [
+    {
+      "locale": "en-US",
+      "title": "",
+      "short_description": "",
+      "full_description": "",
+      "video": ""
+    }
+  ],
+  "data_safety": {
+    "dataTypes": [],
+    "securityPractices": {
+      "dataEncryptedInTransit": true,
+      "canRequestDataDeletion": true,
+      "dataDeletionRequestUrl": ""
+    }
+  },
+  "subscriptions": [
+    {
+      "product_id": "",
+      "listings": [
+        {
+          "locale": "en-US",
+          "title": "Weekly Premium",
+          "description": "Full access for one week."
+        }
+      ],
+      "base_plans": [
+        {
+          "base_plan_id": "weekly",
+          "billing_period": "P1W",
+          "grace_period": "P3D",
+          "available_to_new_subscribers": true,
+          "regional_configs": [
+            { "region_code": "US", "price": "6.99", "currency_code": "USD" }
+          ]
+        }
+      ]
+    },
+    {
+      "product_id": "",
+      "listings": [
+        {
+          "locale": "en-US",
+          "title": "Yearly Premium",
+          "description": "Full access for one year."
+        }
+      ],
+      "base_plans": [
+        {
+          "base_plan_id": "yearly",
+          "billing_period": "P1Y",
+          "grace_period": "P7D",
+          "available_to_new_subscribers": true,
+          "regional_configs": [
+            { "region_code": "US", "price": "29.99", "currency_code": "USD" }
+          ]
+        }
+      ]
+    }
+  ],
+  "in_app_products": []
+}

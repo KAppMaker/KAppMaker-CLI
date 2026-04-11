@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootstrapping for the KAppMaker platform. It wraps Firebase CLI, Gradle, Fastlane, CocoaPods, Git, fal.ai, App Store Connect CLI (asc), and Adapty CLI into a single workflow.
+KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootstrapping for the KAppMaker platform. It wraps Firebase CLI, Gradle, Fastlane, CocoaPods, Git, fal.ai, App Store Connect CLI (asc), and Adapty CLI into a single workflow. Google Play Console management is built-in (not wrapping any external CLI) — `gpc.service.ts` talks directly to `androidpublisher.googleapis.com/v3` via Node's built-in `fetch` + `crypto` (service-account JWT flow).
 
 ## Tech Stack
 
@@ -39,6 +39,15 @@ npx tsx src/index.ts translate-screenshots          # Translate screenshots (def
 npx tsx src/index.ts translate-screenshots <dir> --locales de-DE ja-JP  # Specific locales
 npx tsx src/index.ts generate-screenshots --prompt "A fitness app..."   # Generate marketing screenshots
 npx tsx src/index.ts create-appstore-app           # App Store Connect setup
+npx tsx src/index.ts gpc setup                     # Google Play Console setup (full 11-step flow)
+npx tsx src/index.ts create-play-app               # Alias for `gpc setup`
+npx tsx src/index.ts gpc app-check --package <pkg> # Verify app exists on Play Console
+npx tsx src/index.ts gpc listings push             # Push store listings from config
+npx tsx src/index.ts gpc subscriptions list [--package <pkg>]  # List existing subscriptions
+npx tsx src/index.ts gpc subscriptions push        # Create/reuse subscriptions from config
+npx tsx src/index.ts gpc iap list [--package <pkg>]            # List existing in-app products
+npx tsx src/index.ts gpc iap push                  # Create/reuse IAPs from config
+npx tsx src/index.ts gpc data-safety push          # Push data safety declaration from config
 npx tsx src/index.ts adapty setup                  # Adapty products/paywall/placements setup
 npx tsx src/index.ts fastlane configure                                    # Set up Fastlane (Gemfile + Fastfile + bundle install)
 npx tsx src/index.ts publish --platform android                            # Publish Android to Play Store
@@ -76,7 +85,9 @@ The `create` command is the main orchestrator that runs everything end-to-end:
 5. Enable anonymous authentication (Identity Toolkit REST API)
 6. Download Firebase SDK configs (KAppMaker paths or `Assets/` fallback)
 7. Logo generation (optional — asks user, then auto-removes background)
-8. App Store Connect setup (optional — calls `createAppStoreApp`)
+8. Mobile store setup (optional) — two prompts in sequence:
+   - App Store Connect (iOS) → calls `createAppStoreApp`
+   - Google Play Console (Android) → calls `createPlayApp`
 9. Adapty setup (optional — calls `adaptySetup`)
 10. Package refactor — renames packages, IDs, and app name (TypeScript, no Gradle dependency)
 11. Build environment — skipped with warning if `gradlew`/`Podfile` not found
@@ -90,9 +101,11 @@ src/
   index.ts                  # Entry point (shebang)
   cli.ts                    # Commander.js program setup
   commands/
-    create.ts               # Full app setup (13-step orchestrator: Firebase + logo + ASC + Adapty + build)
+    create.ts               # Full app setup (13-step orchestrator: Firebase + logo + ASC + GPC + Adapty + build)
     create-logo.ts          # Logo generation (fal.ai + sharp)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator via asc CLI)
+    create-play-app.ts      # Google Play Console setup (11-step orchestrator via direct Publisher API)
+    gpc.ts                  # kappmaker gpc subcommands: setup, app-check, listings, subscriptions, iap, data-safety
     adapty-setup.ts         # Adapty setup (8-step orchestrator via adapty CLI)
     split.ts                # image-split — grid image splitter
     remove-bg.ts            # image-remove-bg — background removal (fal.ai bria)
@@ -121,6 +134,8 @@ src/
     logo.service.ts         # Prompt builder + sharp image extraction/splitting
     asc.service.ts          # App Store Connect CLI wrapper (app, version, categories, metadata)
     asc-monetization.service.ts  # ASC pricing, subscriptions, in-app purchases
+    gpc.service.ts          # Google Play Publisher API wrapper (service-account JWT auth, edits, listings, data safety) — no external CLI
+    gpc-monetization.service.ts  # Play monetization API (subscriptions, base plans, in-app products)
     adapty.service.ts       # Adapty CLI wrapper (apps, access levels, products, paywalls, placements)
     refactor.service.ts     # Package/app name refactoring (Kotlin sources, Gradle, iOS, Firebase, workflows)
     screenshot.service.ts   # Screenshot grid combine/split, locale mapping, Fastlane output
@@ -133,10 +148,12 @@ src/
     prompt.ts               # Interactive prompts (confirm, input)
   templates/
     appstore-config.json    # Default App Store Connect config template
+    googleplay-config.json  # Default Google Play Console config template
     adapty-config.json      # Default Adapty config template
   types/
     index.ts                # Shared interfaces
     appstore.ts             # App Store Connect config interfaces
+    googleplay.ts           # Google Play Console config interfaces
     adapty.ts               # Adapty config interfaces
 ```
 
@@ -149,8 +166,9 @@ src/
 ## Adding a New Service
 
 1. Create `src/services/<tool>.service.ts`
-2. Import `run` or `runStreaming` from `src/utils/exec.js`
-3. Export individual functions (not a class)
+2. For services that wrap an external CLI: import `run` or `runStreaming` from `src/utils/exec.js` and shell out with typed arguments.
+3. For services that talk to an HTTP API directly (see `gpc.service.ts`): use Node's built-in `fetch` + `node:crypto` (for JWT signing if needed). Add a local `apiRequest<T>()` helper that reuses an `ora` spinner for UX parity with `run()` in `exec.ts`. Do not add new npm dependencies without a concrete reason.
+4. Export individual functions (not a class).
 
 ## Configuration
 
@@ -170,11 +188,13 @@ User config file: `~/.config/kappmaker/config.json` (managed via `src/utils/conf
 | `ascIssuerId` | `""` | `asc.service.ts` → App Store Connect API authentication |
 | `ascPrivateKeyPath` | `""` | `asc.service.ts` → path to `.p8` key (copied to config dir) |
 | `appleId` | `""` | `asc.service.ts` → Apple ID for privacy setup (asc web privacy) |
-| `googleServiceAccountPath` | `~/credentials/google-service-app-publisher.json` | `publish.service.ts` → Google Play API authentication |
+| `googleServiceAccountPath` | `~/credentials/google-service-app-publisher.json` | `publish.service.ts` → Fastlane upload; `gpc.service.ts` → Play Publisher API auth (JWT → access token) |
 
 ### Subscription Product ID Alignment
 
-Both `create-appstore-app` and `adapty setup` auto-generate iOS product IDs in the same format: `{appname}.premium.{period}.v1.{price}.v1` (e.g., `myapp.premium.weekly.v1.699.v1`). Adapty products include a `price` field so the IDs match across both systems.
+`create-appstore-app`, `create-play-app`, and `adapty setup` all auto-generate product IDs in the same format: `{appname}.premium.{period}.v1.{price}.v1` (e.g., `myapp.premium.weekly.v1.699.v1`). Adapty products include a `price` field so the iOS `productId` and Android `productId` match across ASC, Play Console, and Adapty — enabling automatic linking.
+
+On Google Play the `productId` is the subscription, and each billing period lives under a `basePlanId` like `weekly`, `monthly`, `yearly` — these match Adapty's `android_base_plan_id`.
 
 ### Privacy Interactive Prompts
 
@@ -191,6 +211,48 @@ Config resolution: built-in template → global defaults → local `./Assets/app
 Stored at `~/.config/kappmaker/adapty-defaults.json`. Used by `adapty setup` as a base layer — shared fields like access level, paywalls, placements, and product structure.
 
 Config resolution: built-in template → global defaults → local `./Assets/adapty-config.json` → interactive prompts.
+
+### Google Play Console management (`kappmaker gpc`)
+
+Talks directly to `androidpublisher.googleapis.com/v3` via a built-in service-account JWT → access-token flow (no external CLI, no new npm deps — uses Node's `crypto` and `fetch`). Auth shares `googleServiceAccountPath` with `publish --platform android`.
+
+**Command tree:**
+
+```
+kappmaker gpc
+├── setup                  # Full 11-step orchestrator (create-play-app is an alias)
+├── app-check              # GET /inappproducts probe — 0 if found, 2 if missing
+├── listings
+│   └── push               # Start edit → updateDetails → updateListing per locale → commit
+├── subscriptions
+│   ├── list               # GET /applications/{pkg}/subscriptions
+│   └── push               # Idempotent create + base plan activate (new monetization API)
+├── iap
+│   ├── list               # GET /applications/{pkg}/inappproducts
+│   └── push               # Idempotent create (inappproducts endpoint)
+└── data-safety
+    └── push               # POST /applications/{pkg}/dataSafety (pass-through body)
+```
+
+**Setup flow (11 steps):**
+
+1. Validate `googleServiceAccountPath` and obtain an access token
+2. Load config (`./Assets/googleplay-config.json` or interactive prompts)
+3. Review summary and confirm
+4. Verify app exists on Play Console (fails fast with a deep link if not — Google does not allow app creation via the public API)
+5. Update app details (default language + contact website/email/phone) inside an edit
+6. Update store listings per locale (title, short/full description, video)
+7. Commit the edit
+8. Create subscriptions via the new monetization API (`subscriptions` → base plans → activate)
+9. Create one-time in-app products via the `inappproducts` endpoint
+10. Update data safety declaration (`POST /applications/{pkg}/dataSafety`)
+11. Print warnings for Play Console-only items (content rating / IARC, app pricing tier)
+
+**Idempotency:** `subscriptions push` and `iap push` call `listSubscriptions`/`listInAppProducts` first and skip already-existing product IDs / SKUs. Safe to rerun.
+
+**Individual push commands** reuse the same config file (`Assets/googleplay-config.json`) and operate on just one section — useful when iterating on listings copy or subscription prices without rerunning the full flow. All require the config to already exist (run `gpc setup` first or create it manually).
+
+**`gpc app-check`** is a side-effect-free probe (GET, no edit created) — exits 0 if the app exists and 2 if it doesn't.
 
 ### Default Inputs
 

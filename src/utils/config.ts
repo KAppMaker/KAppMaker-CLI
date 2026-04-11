@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import type { KAppMakerConfig } from '../types/index.js';
 import appStoreTemplate from '../templates/appstore-config.json' with { type: 'json' };
 import adaptyTemplate from '../templates/adapty-config.json' with { type: 'json' };
+import googlePlayTemplate from '../templates/googleplay-config.json' with { type: 'json' };
 
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'kappmaker');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -84,6 +85,10 @@ export function getAppStoreDefaultsPath(): string {
 
 export function getAppStoreTemplate(): Record<string, unknown> {
   return JSON.parse(JSON.stringify(appStoreTemplate));
+}
+
+export function getGooglePlayTemplate(): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(googlePlayTemplate));
 }
 
 export async function loadAppStoreDefaults(): Promise<Record<string, unknown> | null> {

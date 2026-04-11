@@ -13,6 +13,7 @@ import * as fastlane from '../services/fastlane.service.js';
 import { createLogo } from './create-logo.js';
 import { removeBackground } from './remove-bg.js';
 import { createAppStoreApp } from './create-appstore-app.js';
+import { createPlayApp } from './create-play-app.js';
 import { adaptySetup } from './adapty-setup.js';
 import { loadConfig } from '../utils/config.js';
 import type { CreateOptions, DerivedConfig, StepContext, KAppMakerConfig } from '../types/index.js';
@@ -140,13 +141,19 @@ export async function createApp(
     logger.info('Skipping logo generation.');
   }
 
-  // Step 8: App Store Connect setup (optional)
-  logger.step(8, TOTAL_STEPS, 'App Store Connect setup');
+  // Step 8: Mobile store setup — App Store Connect + Google Play Console (optional)
+  logger.step(8, TOTAL_STEPS, 'Mobile store setup');
   const wantsAppStore = await confirm('  Set up App Store Connect?');
   if (wantsAppStore) {
     await createAppStoreApp({});
   } else {
     logger.info('Skipping App Store Connect setup. Run "kappmaker create-appstore-app" later.');
+  }
+  const wantsPlayStore = await confirm('  Set up Google Play Console?');
+  if (wantsPlayStore) {
+    await createPlayApp({});
+  } else {
+    logger.info('Skipping Google Play Console setup. Run "kappmaker create-play-app" later.');
   }
 
   // Step 9: Adapty setup (optional)

@@ -1,6 +1,6 @@
 ---
 name: kappmaker
-description: KAppMaker CLI - automate mobile app bootstrapping, AI logo/screenshot generation, App Store Connect setup, Adapty subscriptions, image tools, Android builds, store publishing, package refactoring, and version bumping. Use when the user wants to create a mobile app, generate logos, screenshots, translate screenshots, set up App Store Connect, configure Adapty, process images, build Android releases, generate keystores, publish to Play Store or App Store, refactor package names, or bump versions.
+description: KAppMaker CLI - automate mobile app bootstrapping, AI logo/screenshot generation, App Store Connect setup, Google Play Console setup, Adapty subscriptions, image tools, Android builds, store publishing, package refactoring, and version bumping. Use when the user wants to create a mobile app, generate logos, screenshots, translate screenshots, set up App Store Connect, configure Google Play Console (listings, subscriptions, IAPs, data safety), configure Adapty, process images, build Android releases, generate keystores, publish to Play Store or App Store, refactor package names, or bump versions.
 argument-hint: "[command or description]"
 ---
 
@@ -19,6 +19,12 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 | Create/bootstrap a new app | `kappmaker create <AppName>` |
 | Generate a logo | `kappmaker create-logo` |
 | Set up App Store Connect | `kappmaker create-appstore-app` |
+| Set up Google Play Console (full) | `kappmaker gpc setup` |
+| Push Play Store listings only | `kappmaker gpc listings push` |
+| Push/list Play subscriptions | `kappmaker gpc subscriptions push` / `list` |
+| Push/list Play one-time IAPs | `kappmaker gpc iap push` / `list` |
+| Push Play data safety form | `kappmaker gpc data-safety push` |
+| Check if an app exists on Play Console | `kappmaker gpc app-check --package <pkg>` |
 | Set up Adapty subscriptions | `kappmaker adapty setup` |
 | Generate marketing screenshots | `kappmaker generate-screenshots` |
 | Translate screenshots to locales | `kappmaker translate-screenshots` |
@@ -70,7 +76,9 @@ And where to get it (see API Key Sources section).
 5. Enable anonymous authentication
 6. Download Firebase SDK configs
 7. Logo generation (optional — asks user)
-8. App Store Connect setup (optional — asks user)
+8. Mobile store setup (optional) — two sequential prompts:
+   - App Store Connect (iOS) → full asc CLI flow
+   - Google Play Console (Android) → full gpc setup flow
 9. Adapty setup (optional — asks user)
 10. Package refactor (TypeScript — renames packages, IDs, app name)
 11. Build environment (local.properties, CocoaPods)
@@ -80,7 +88,7 @@ And where to get it (see API Key Sources section).
 **Interactive prompts**: This command has multiple y/n prompts during execution. The user will need to respond in the terminal. Before running, ask the user:
 - What app name they want (validate PascalCase)
 - Whether they want a custom template repo
-- Whether they plan to use the optional steps (logo, ASC, Adapty) so they know what to expect
+- Whether they plan to use the optional steps (logo, ASC, Google Play Console, Adapty) so they know what to expect. Remind them that Google Play Console setup requires the app to already exist in Play Console (Google does not allow API-based app creation), and that they need `googleServiceAccountPath` configured.
 
 Run the command and let the user interact with it directly.
 
@@ -111,7 +119,7 @@ Run the command and let the user interact with it directly.
 **Prerequisites**:
 - `asc` CLI installed (`which asc`; auto-installs via brew if missing)
 - Config keys: `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath` (for API auth)
-- Optional: `appleId` (for privacy setup)
+- `appleId` — now required (used by both `asc web apps create` and privacy setup)
 
 **Config file**: Looks for `./Assets/appstore-config.json`. If not found, prompts interactively.
 - Global defaults at `~/.config/kappmaker/appstore-defaults.json` are used as base layer.
@@ -119,6 +127,50 @@ Run the command and let the user interact with it directly.
 **What it does** (13 steps): Register bundle ID, create/find app, set content rights, create version, set categories, age rating, localizations, pricing, subscriptions, privacy, encryption, review contact.
 
 **Tip**: Before running, you can help the user review or create the `Assets/appstore-config.json` file. Read the existing config and explain each section. The user can edit it before running.
+
+---
+
+### gpc — Google Play Console Management
+
+**Syntax**:
+- `kappmaker gpc setup [--config <path>]` — full 11-step flow (alias: `kappmaker create-play-app`)
+- `kappmaker gpc listings push [--config <path>]` — push store listings only
+- `kappmaker gpc subscriptions list [--package <pkg>] [--config <path>]`
+- `kappmaker gpc subscriptions push [--config <path>]`
+- `kappmaker gpc iap list [--package <pkg>] [--config <path>]`
+- `kappmaker gpc iap push [--config <path>]`
+- `kappmaker gpc data-safety push [--config <path>]`
+- `kappmaker gpc app-check --package <pkg>`
+
+**Prerequisites**:
+- `googleServiceAccountPath` set in config (Google Play Developer API service account JSON)
+- App MUST already exist in [Play Console](https://play.google.com/console/u/0/developers) — Google does not allow API-based app creation. If `gpc setup` gets a 404 at step 4, tell the user to create the app manually first, then rerun.
+- No external CLI required — gpc talks directly to `androidpublisher.googleapis.com/v3` via Node's built-in `fetch` + `crypto` (service account → JWT → access token).
+
+**Config file**: Looks for `./Assets/googleplay-config.json`. If not found, `gpc setup` prompts interactively; other subcommands fail and tell the user to run `gpc setup` first.
+
+**What `gpc setup` does** (11 steps):
+1. Validate service account + obtain access token
+2. Load config (file or interactive prompts)
+3. Review summary + confirm
+4. Verify app exists on Play Console (fails fast with deep link if not)
+5. Update app details (default language + contact website/email/phone) inside an edit
+6. Update store listings per locale (title, short/full description, video)
+7. Commit the edit
+8. Create subscriptions via the new monetization API (subscription → base plans → activate) — idempotent
+9. Create one-time in-app products via the `inappproducts` endpoint — idempotent
+10. Update data safety declaration (`POST /applications/{pkg}/dataSafety`)
+11. Print warnings for Play Console-only items (content rating / IARC, app pricing tier)
+
+**Product ID format**: `{appname}.premium.{period}.v1.{price}.v1` — matches App Store Connect and Adapty formats so products link across all three systems automatically.
+
+**When to use individual subcommands instead of `setup`**:
+- User changed listing copy → `gpc listings push`
+- User tweaked subscription prices → `gpc subscriptions push`
+- User updated data safety form → `gpc data-safety push`
+- CI pre-check that the app exists → `gpc app-check --package <pkg>` (exits 0 or 2)
+
+**Tip**: Before running `gpc setup`, help the user review or create `Assets/googleplay-config.json`. Read the existing config and explain each section (app, details, listings, subscriptions, in_app_products, data_safety). The user can edit it before running.
 
 ---
 
@@ -135,7 +187,9 @@ Run the command and let the user interact with it directly.
 
 **What it does** (8 steps): Create/find app, set access level, create products (with iOS/Android IDs), create paywalls, create placements.
 
-**Product ID format**: `{appname}.premium.{period}.v1.{price}.v1` — aligned with App Store Connect product IDs.
+**Product ID format**: `{appname}.premium.{period}.v1.{price}.v1` — aligned with App Store Connect AND Google Play Console product IDs so Adapty can link them across all three systems automatically. On Google Play, the Adapty `android_base_plan_id` matches the gpc `basePlanId` (e.g., `weekly`, `yearly`).
+
+**Prerequisite ordering**: If the user wants Adapty on Android, the Play Console products must exist first. The `create` orchestrator handles this automatically (step 8 runs `gpc setup` before step 9 runs Adapty), but if invoked standalone, tell the user to run `kappmaker gpc setup` (or at least `gpc subscriptions push`) before `kappmaker adapty setup`.
 
 ---
 
@@ -345,7 +399,7 @@ For config setup, prefer using `kappmaker config set <key> <value>` for each key
 | `openaiApiKey` | https://platform.openai.com/api-keys |
 | `ascKeyId` + `ascIssuerId` + `ascPrivateKeyPath` | App Store Connect > Users and Access > Integrations > App Store Connect API |
 | `appleId` | Your Apple ID email address |
-| `googleServiceAccountPath` | Google Cloud Console > IAM > Service Accounts > Keys > JSON |
+| `googleServiceAccountPath` | Google Cloud Console > IAM > Service Accounts > Keys > JSON (then grant access in Play Console > Users and permissions). Used by both `kappmaker publish --platform android` and the entire `kappmaker gpc` command group. |
 
 ## Error Handling
 
@@ -365,6 +419,7 @@ Some common workflows:
 1. **Full app setup**: `kappmaker create <AppName>` (does everything)
 2. **Screenshots pipeline**: First `generate-screenshots`, then `translate-screenshots`
 3. **Logo pipeline**: `create-logo`, then optionally `image-remove-bg` and `image-enhance`
-4. **Store setup**: `create-appstore-app`, then `adapty setup` (product IDs align automatically)
+4. **Store setup**: `create-appstore-app`, then `gpc setup`, then `adapty setup` — product IDs align automatically across all three systems. On Android, the Play Console app must already exist (create manually once in Play Console, then `gpc setup` configures everything else).
+5. **Iterate on Play Store copy without a full upload**: edit `Assets/googleplay-config.json`, then `kappmaker gpc listings push` (skips Fastlane, talks to the API directly)
 5. **Rebrand app**: `refactor --app-id <new-id> --app-name <new-name>`, then `update-version`
 6. **First publish**: `fastlane configure`, then `android-release-build`, then `publish`
