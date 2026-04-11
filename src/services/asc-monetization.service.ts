@@ -9,27 +9,26 @@ import type {
 
 export async function createPricing(appId: string, pricing: AppStorePricingConfig): Promise<void> {
   const isFree = !pricing.price || pricing.price === '0';
+  const targetPrice = isFree ? '0' : pricing.price;
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // v1.x `asc pricing schedule create` only accepts --price-point (no --price),
+  // so resolve a price-point ID that matches the target customer price first.
+  const pricePoint = await findPricePointForPrice(appId, pricing.base_territory, targetPrice);
+  if (!pricePoint) {
+    const label = isFree ? 'free price point' : `price point for $${targetPrice}`;
+    logger.warn(`Could not find a ${label} in ${pricing.base_territory}. Skipping price schedule.`);
+    return;
+  }
+
   const args = [
     'pricing', 'schedule', 'create',
     '--app', appId,
     '--base-territory', pricing.base_territory,
     '--start-date', today,
+    '--price-point', pricePoint,
+    '--output', 'json',
   ];
-
-  if (isFree) {
-    const freePricePoint = await findFreePricePoint(appId, pricing.base_territory);
-    if (freePricePoint) {
-      args.push('--price-point', freePricePoint);
-    } else {
-      logger.warn('Could not find free price point. Skipping price schedule.');
-      return;
-    }
-  } else {
-    args.push('--price', pricing.price);
-  }
-
-  args.push('--output', 'json');
   const label = isFree ? 'Setting pricing (free)' : `Setting pricing ($${pricing.price})`;
   await run('asc', args, { label, allowFailure: true });
 
@@ -45,25 +44,42 @@ export async function createPricing(appId: string, pricing: AppStorePricingConfi
   }
 }
 
-async function findFreePricePoint(appId: string, territory: string): Promise<string | null> {
+/**
+ * Find a price-point ID in the given territory whose customer price matches the target.
+ * Matching is tolerant of trailing-zero formatting ("6.99", "6.990", "0.00", "0").
+ * Returns null if no exact numeric match is found.
+ */
+async function findPricePointForPrice(
+  appId: string,
+  territory: string,
+  targetPrice: string,
+): Promise<string | null> {
   const result = await run(
     'asc',
     ['pricing', 'price-points', '--app', appId, '--territory', territory, '--output', 'json'],
-    { label: 'Looking up free price point', allowFailure: true },
+    { label: `Looking up price point for ${targetPrice === '0' ? 'free tier' : `$${targetPrice}`}`, allowFailure: true },
   );
 
-  if (result.exitCode === 0 && result.stdout) {
-    try {
-      const data = JSON.parse(result.stdout);
-      const points = data?.data ?? data ?? [];
-      for (const p of points) {
-        const attrs = p.attributes ?? p;
-        if (attrs.customerPrice === '0.0' || attrs.customerPrice === '0' || attrs.customerPrice === '0.00') {
-          return p.id;
-        }
-      }
-    } catch {
-      // Fall through
+  if (result.exitCode !== 0 || !result.stdout) return null;
+
+  let points: Array<{ id?: string; attributes?: { customerPrice?: string }; customerPrice?: string }> = [];
+  try {
+    const data = JSON.parse(result.stdout);
+    points = data?.data ?? data ?? [];
+  } catch {
+    return null;
+  }
+
+  const target = Number(targetPrice);
+  if (!Number.isFinite(target)) return null;
+
+  for (const p of points) {
+    const attrs = p.attributes ?? p;
+    const raw = attrs.customerPrice;
+    if (raw === undefined || raw === null) continue;
+    const num = Number(raw);
+    if (Number.isFinite(num) && num === target) {
+      return p.id ?? null;
     }
   }
   return null;

@@ -13,9 +13,16 @@ import type {
   AppStoreReviewInfoConfig,
 } from '../types/appstore.js';
 
+// Minimum supported asc CLI version. v1.0 removed compatibility shims for
+// `apps create`, `age-rating set`, `submit preflight`, `release run`, etc.
+// See https://docs.asccli.sh/migrate-to-1-0
+const MIN_ASC_VERSION = '1.2.1';
+
 export async function validateAscInstalled(): Promise<void> {
+  let versionOutput: string | null = null;
   try {
-    await execa('asc', ['--version']);
+    const result = await execa('asc', ['--version']);
+    versionOutput = result.stdout;
   } catch {
     logger.warn('asc CLI is not installed.');
     console.log('');
@@ -26,7 +33,29 @@ export async function validateAscInstalled(): Promise<void> {
       logger.fatal('asc CLI is required. Install manually: brew install asc');
       process.exit(1);
     }
+    return;
   }
+
+  if (versionOutput && !meetsMinimumVersion(versionOutput, MIN_ASC_VERSION)) {
+    const found = versionOutput.match(/\d+\.\d+\.\d+/)?.[0] ?? versionOutput.trim();
+    logger.warn(`asc CLI ${found} is older than ${MIN_ASC_VERSION}. Some commands may fail.`);
+    logger.info('Upgrade with: brew upgrade asc');
+    logger.info('Migration notes: https://docs.asccli.sh/migrate-to-1-0');
+  }
+}
+
+function meetsMinimumVersion(versionString: string, minimum: string): boolean {
+  const match = versionString.match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return true; // Unknown format — don't block
+  const [, maj, min, patch] = match;
+  const [minMaj, minMin, minPatch] = minimum.split('.').map(Number);
+  const current: [number, number, number] = [Number(maj), Number(min), Number(patch)];
+  const required: [number, number, number] = [minMaj, minMin, minPatch];
+  for (let i = 0; i < 3; i++) {
+    if (current[i] > required[i]) return true;
+    if (current[i] < required[i]) return false;
+  }
+  return true;
 }
 
 export async function validateAscAuth(): Promise<void> {
@@ -88,20 +117,27 @@ export async function createBundleId(bundleId: string, name: string, platform: s
 }
 
 export async function createApp(config: AppStoreAppConfig): Promise<string> {
-  // asc apps create requires Apple ID auth (not API key)
-  // Use runStreaming so user can enter credentials if needed
+  // v1.0+ removed `asc apps create`; creation lives under `asc web apps create`
+  // and requires an explicit --apple-id for the web-session auth path.
+  const kappConfig = await loadConfig();
+  if (!kappConfig.appleId) {
+    logger.fatal('Apple ID is required to create apps (asc web apps create --apple-id).');
+    logger.info('Set it with: kappmaker config appstore-defaults --init');
+    logger.info('Or create the app manually at: https://appstoreconnect.apple.com/apps');
+    process.exit(1);
+  }
+
   const shouldCreate = await confirm(
-    '  App not found. Create it now? (requires Apple ID login)',
+    '  App not found. Create it now? (requires Apple ID session)',
   );
 
   if (shouldCreate) {
     await runStreaming('asc', [
-      'apps', 'create',
+      'web', 'apps', 'create',
       '--name', config.name,
       '--bundle-id', config.bundle_id,
       '--sku', config.sku,
-      '--platform', config.platform,
-      '--primary-locale', config.primary_locale,
+      '--apple-id', kappConfig.appleId,
     ], { label: `Creating app: ${config.name}` });
 
     const appId = await findAppByBundleId(config.bundle_id);
@@ -113,7 +149,7 @@ export async function createApp(config: AppStoreAppConfig): Promise<string> {
 
   logger.fatal('App must exist on App Store Connect before configuring it.');
   logger.info('Create it manually at: https://appstoreconnect.apple.com/apps');
-  logger.info('Or run again and choose yes to create via Apple ID login.');
+  logger.info('Or run again and choose yes to create via asc web apps create.');
   process.exit(1);
 }
 
@@ -190,8 +226,9 @@ const AGE_RATING_FLAG_MAP: Record<string, string> = {
 };
 
 export async function setAgeRating(appId: string, ageRating: AppStoreAgeRatingConfig): Promise<void> {
-  // Start with --all-none to set safe defaults, then override any non-default values
-  const args = ['age-rating', 'set', '--app', appId, '--all-none'];
+  // v1.0 renamed `asc age-rating set` → `asc age-rating edit`.
+  // Start with --all-none to set safe defaults, then override any non-default values.
+  const args = ['age-rating', 'edit', '--app', appId, '--all-none'];
 
   for (const [key, value] of Object.entries(ageRating)) {
     if (value === undefined || value === '' || value === 'NONE' || value === false) continue;

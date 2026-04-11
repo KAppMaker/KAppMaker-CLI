@@ -17,6 +17,15 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
   await asc.validateAscInstalled();
   await asc.validateAscAuth();
 
+  // `asc web apps create` (v1.0+) requires --apple-id, so surface the missing
+  // value now rather than deep inside step 4 after config parsing and confirms.
+  const userConfig = await loadConfig();
+  if (!userConfig.appleId) {
+    logger.fatal('Apple ID is required for App Store Connect app creation and privacy setup.');
+    logger.info('Set it with: kappmaker config appstore-defaults --init');
+    process.exit(1);
+  }
+
   // Step 2: Load config
   logger.step(2, TOTAL_STEPS, 'Loading App Store Connect config');
   const { config, configPath } = await loadAppStoreConfig(options.config);

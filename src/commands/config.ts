@@ -143,7 +143,7 @@ async function initAppStoreDefaults(): Promise<void> {
 
   const curAppleId = config.appleId || '';
   const appleIdHint = curAppleId ? ` (${chalk.gray(curAppleId)})` : '';
-  const appleId = await promptInput(`  Apple ID email (for privacy setup)${appleIdHint}: `);
+  const appleId = await promptInput(`  Apple ID email (for app creation & privacy)${appleIdHint}: `);
   if (appleId) config.appleId = appleId;
 
   await saveConfig(config);
