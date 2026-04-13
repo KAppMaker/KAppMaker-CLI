@@ -3,7 +3,8 @@ import fs from 'fs-extra';
 import sharp from 'sharp';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
-import { loadConfig } from '../utils/config.js';
+import { promptInput } from '../utils/prompt.js';
+import { loadConfig, saveConfig } from '../utils/config.js';
 import * as fal from '../services/fal.service.js';
 import * as openai from '../services/openai.service.js';
 import * as screenshot from '../services/screenshot.service.js';
@@ -17,15 +18,29 @@ export async function generateScreenshots(
   const config = await loadConfig();
 
   if (!config.openaiApiKey) {
-    logger.fatal('OpenAI API key is not configured.');
-    logger.info('Set it with: kappmaker config set openaiApiKey <your-key>');
-    process.exit(1);
+    logger.warn('OpenAI API key is not configured.');
+    logger.info('Get one at: https://platform.openai.com/api-keys');
+    const key = await promptInput('  Enter your OpenAI API key: ');
+    if (!key.trim()) {
+      logger.fatal('OpenAI API key is required for screenshot generation.');
+      process.exit(1);
+    }
+    config.openaiApiKey = key.trim();
+    await saveConfig(config);
+    logger.success('openaiApiKey saved to config.');
   }
 
   if (!config.falApiKey) {
-    logger.fatal('fal.ai API key is not configured.');
-    logger.info('Set it with: kappmaker config set falApiKey <your-key>');
-    process.exit(1);
+    logger.warn('fal.ai API key is not configured.');
+    logger.info('Get one at: https://fal.ai/dashboard/keys');
+    const key = await promptInput('  Enter your fal.ai API key: ');
+    if (!key.trim()) {
+      logger.fatal('fal.ai API key is required for screenshot generation.');
+      process.exit(1);
+    }
+    config.falApiKey = key.trim();
+    await saveConfig(config);
+    logger.success('falApiKey saved to config.');
   }
 
   const rows = options.rows ?? 2;

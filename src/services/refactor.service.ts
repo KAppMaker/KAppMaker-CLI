@@ -21,6 +21,18 @@ const SOURCE_DIRS = [
 
 const FILE_EXTENSIONS = ['kt', 'kts', 'gradle', 'xml', 'json'];
 
+// All Gradle modules that may contain Kotlin sources needing refactoring.
+// Each module gets its source directories renamed and imports updated.
+const REFACTOR_MODULES = [
+  'composeApp',
+  'designsystem',
+  'libs/auth/auth-api',
+  'libs/auth/auth-firebase',
+  'libs/subscription/subscription-api',
+  'libs/subscription/subscription-adapty',
+  'libs/subscription/subscription-revenuecat',
+];
+
 async function replaceInFile(filePath: string, oldStr: string, newStr: string): Promise<boolean> {
   if (!(await fs.pathExists(filePath))) return false;
   const content = await fs.readFile(filePath, 'utf8');
@@ -40,7 +52,7 @@ async function walkFiles(dir: string, extensions: string[]): Promise<string[]> {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       results.push(...await walkFiles(fullPath, extensions));
-    } else if (extensions.some(ext => entry.name.endsWith(`.${ext}`))) {
+    } else if (extensions.some(ext => entry.name.endsWith('.' + ext))) {
       results.push(fullPath);
     }
   }
@@ -48,27 +60,27 @@ async function walkFiles(dir: string, extensions: string[]): Promise<string[]> {
 }
 
 async function updatePackageNamesInFiles(
-  composeDir: string, oldId: string, newId: string,
+  moduleDir: string, oldId: string, newId: string,
 ): Promise<void> {
   for (const dir of SOURCE_DIRS) {
-    const rootDir = path.join(composeDir, dir);
+    const rootDir = path.join(moduleDir, dir);
     const files = await walkFiles(rootDir, FILE_EXTENSIONS);
     for (const file of files) {
       if (await replaceInFile(file, oldId, newId)) {
-        logger.info(`Updated package in: ${path.relative(composeDir, file)}`);
+        logger.info('Updated package in: ' + path.relative(moduleDir, file));
       }
     }
   }
 }
 
 async function movePackageDirectories(
-  composeDir: string, oldId: string, newId: string,
+  moduleDir: string, oldId: string, newId: string,
 ): Promise<void> {
   const oldPkgDir = oldId.replace(/\./g, '/');
   const newPkgDir = newId.replace(/\./g, '/');
 
   for (const dir of SOURCE_DIRS) {
-    const sourceDir = path.join(composeDir, dir);
+    const sourceDir = path.join(moduleDir, dir);
     if (!(await fs.pathExists(sourceDir))) continue;
 
     const oldPath = path.join(sourceDir, oldPkgDir);
@@ -76,14 +88,14 @@ async function movePackageDirectories(
 
     if (!(await fs.pathExists(oldPath))) continue;
     if (await fs.pathExists(newPath)) {
-      logger.warn(`Target already exists: ${newPath} — skipping move`);
+      logger.warn('Target already exists: ' + newPath + ' -- skipping move');
       continue;
     }
 
     await fs.ensureDir(path.dirname(newPath));
     await fs.copy(oldPath, newPath);
     await fs.remove(oldPath);
-    logger.info(`Moved: ${path.relative(composeDir, oldPath)} → ${path.relative(composeDir, newPath)}`);
+    logger.info('Moved: ' + path.relative(moduleDir, oldPath) + ' -> ' + path.relative(moduleDir, newPath));
   }
 }
 
@@ -91,15 +103,14 @@ async function updateGradleFiles(
   mobileDir: string, oldId: string, newId: string,
 ): Promise<void> {
   const files = [
-    'composeApp/build.gradle.kts',
-    'designsystem/build.gradle.kts',
+    ...REFACTOR_MODULES.map((m) => m + '/build.gradle.kts'),
     'gradle/scripts/generateNewScreen.gradle.kts',
     'scripts/make_local.sh',
     'scripts/create_module.sh',
   ];
   for (const f of files) {
     if (await replaceInFile(path.join(mobileDir, f), oldId, newId)) {
-      logger.info(`Updated: ${f}`);
+      logger.info('Updated: ' + f);
     }
   }
 }
@@ -112,7 +123,7 @@ async function updateApplicationIdOnly(
   const content = await fs.readFile(buildFile, 'utf8');
   const updated = content.replace(
     /applicationId\s*=\s*["'][^"']+["']/,
-    `applicationId = "${newId}"`,
+    'applicationId = "' + newId + '"',
   );
   if (content !== updated) {
     await fs.writeFile(buildFile, updated, 'utf8');
@@ -129,7 +140,7 @@ async function updateFirebaseConfigs(
   ];
   for (const f of files) {
     if (await replaceInFile(path.join(mobileDir, f), oldId, newId)) {
-      logger.info(`Updated: ${f}`);
+      logger.info('Updated: ' + f);
     }
   }
 }
@@ -143,7 +154,7 @@ async function updateIosFiles(
   ];
   for (const f of files) {
     if (await replaceInFile(path.join(mobileDir, f), oldId, newId)) {
-      logger.info(`Updated: ${f}`);
+      logger.info('Updated: ' + f);
     }
   }
 }
@@ -157,24 +168,24 @@ async function updateGithubWorkflows(
   ];
   for (const f of files) {
     if (await replaceInFile(path.join(mobileDir, f), oldId, newId)) {
-      logger.info(`Updated: ${f}`);
+      logger.info('Updated: ' + f);
     }
   }
 }
 
 async function cleanUpOldDirectories(
-  composeDir: string, oldId: string, newId: string,
+  moduleDir: string, oldId: string, newId: string,
 ): Promise<void> {
   const oldParent = oldId.replace(/\./g, '/').replace(/\/[^/]+$/, '');
   const newParent = newId.replace(/\./g, '/').replace(/\/[^/]+$/, '');
   if (oldParent === newParent) return;
 
   for (const dir of SOURCE_DIRS) {
-    const sourceDir = path.join(composeDir, dir);
+    const sourceDir = path.join(moduleDir, dir);
     const oldPath = path.join(sourceDir, oldParent);
     if (await fs.pathExists(oldPath)) {
       await fs.remove(oldPath);
-      logger.info(`Cleaned up: ${path.relative(composeDir, oldPath)}`);
+      logger.info('Cleaned up: ' + path.relative(moduleDir, oldPath));
     }
   }
 }
@@ -188,12 +199,12 @@ async function updateAppName(
     'iosApp/iosApp.xcodeproj/project.pbxproj',
     '.github/workflows/publish_ios_appstore.yml',
     'composeApp/src/webMain/resources/index.html',
-    `composeApp/src/jvmMain/kotlin/com/measify/kappmaker/main.kt`,
-    `composeApp/src/jvmMain/kotlin/com/measify/kappmaker/util/AppUtilImpl.jvm.kt`,
+    'composeApp/src/jvmMain/kotlin/com/measify/kappmaker/main.kt',
+    'composeApp/src/jvmMain/kotlin/com/measify/kappmaker/util/AppUtilImpl.jvm.kt',
   ];
   for (const f of files) {
     if (await replaceInFile(path.join(mobileDir, f), oldName, newName)) {
-      logger.info(`Updated app name in: ${f}`);
+      logger.info('Updated app name in: ' + f);
     }
   }
 }
@@ -206,24 +217,30 @@ export async function refactor(
   oldAppId: string = DEFAULT_OLD_APP_ID,
   oldAppName: string = DEFAULT_OLD_APP_NAME,
 ): Promise<void> {
-  const composeDir = path.join(mobileDir, 'composeApp');
-  logger.info(`Refactoring from ${oldAppId} → ${newAppId}, ${oldAppName} → ${newAppName}`);
+  logger.info('Refactoring from ' + oldAppId + ' -> ' + newAppId + ', ' + oldAppName + ' -> ' + newAppName);
 
   if (!skipPackageRename) {
-    logger.info('Updating package names in source files...');
-    await updatePackageNamesInFiles(composeDir, oldAppId, newAppId);
+    // Process every module that may contain Kotlin sources
+    for (const mod of REFACTOR_MODULES) {
+      const moduleDir = path.join(mobileDir, mod);
+      if (!(await fs.pathExists(moduleDir))) continue;
 
-    logger.info('Moving package directories...');
-    await movePackageDirectories(composeDir, oldAppId, newAppId);
+      logger.info('Updating package names in ' + mod + '...');
+      await updatePackageNamesInFiles(moduleDir, oldAppId, newAppId);
+
+      logger.info('Moving package directories in ' + mod + '...');
+      await movePackageDirectories(moduleDir, oldAppId, newAppId);
+
+      await cleanUpOldDirectories(moduleDir, oldAppId, newAppId);
+    }
 
     await updateGradleFiles(mobileDir, oldAppId, newAppId);
     await updateFirebaseConfigs(mobileDir, oldAppId, newAppId);
     await updateIosFiles(mobileDir, oldAppId, newAppId);
     await updateGithubWorkflows(mobileDir, oldAppId, newAppId);
-    await cleanUpOldDirectories(composeDir, oldAppId, newAppId);
     await updateAppName(mobileDir, oldAppName, newAppName);
   } else {
-    logger.info('Skipping package rename — updating IDs and app name only...');
+    logger.info('Skipping package rename -- updating IDs and app name only...');
     await updateApplicationIdOnly(mobileDir, newAppId);
     await updateFirebaseConfigs(mobileDir, oldAppId, newAppId);
     await updateIosFiles(mobileDir, oldAppId, newAppId);

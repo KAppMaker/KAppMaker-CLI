@@ -7,6 +7,7 @@ A single `kappmaker create` command can:
 - Create a Firebase project, register Android + iOS apps, enable authentication, and download SDK configs
 - Generate an AI-powered app logo with automatic background removal
 - Create an App Store Connect listing with metadata, categories, age rating, subscriptions, privacy declarations, and review contact info
+- Configure an existing Google Play Console app — store listings, subscriptions, one-time in-app products, and the data safety declaration — via a built-in wrapper around the Play Publisher API (no external CLI, no extra dependencies)
 - Set up Adapty subscription products, paywalls, and placements for both iOS and Android
 - Refactor Gradle package names and application IDs
 - Set up the build environment (Android SDK, CocoaPods)
@@ -49,9 +50,9 @@ kappmaker config init
 Or set keys individually:
 
 ```bash
-kappmaker config set falApiKey <your-key>       # Required for AI features (logo, screenshots, etc.)
-kappmaker config set imgbbApiKey <your-key>      # Required for screenshot translation/generation
-kappmaker config set openaiApiKey <your-key>     # Required for generate-screenshots
+kappmaker config set falApiKey <your-key>       # For AI features (logo, screenshots) — or prompted on first use
+kappmaker config set imgbbApiKey <your-key>      # For screenshot translation/generation — or prompted on first use
+kappmaker config set openaiApiKey <your-key>     # For generate-screenshots — or prompted on first use
 kappmaker config set templateRepo <your-repo>    # Use your own template (default: KAppMaker)
 ```
 
@@ -96,6 +97,7 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [`create <app-name>`](#create-app-name)
   - [`create-logo`](#create-logo)
   - [`create-appstore-app`](#create-appstore-app)
+  - [`gpc`](#gpc) — Google Play Console management
   - [`adapty setup`](#adapty-setup)
   - [Image Tools](#image-tools)
   - [`translate-screenshots`](#translate-screenshots-source-dir)
@@ -113,9 +115,15 @@ Claude will check your config, verify API keys are set, and walk you through any
 
 | Command | Description |
 |---------|-------------|
-| [`kappmaker create <app-name>`](#create-app-name) | Full end-to-end app setup (Firebase, logo, App Store, Adapty, release build) |
+| [`kappmaker create <app-name>`](#create-app-name) | Full end-to-end app setup (Firebase, logo, App Store Connect, Google Play Console, Adapty, release build) |
 | [`kappmaker create-logo`](#create-logo) | Generate an app logo with AI (fal.ai) |
 | [`kappmaker create-appstore-app`](#create-appstore-app) | Set up an app on App Store Connect (metadata, subscriptions, privacy) |
+| [`kappmaker gpc setup`](#gpc) | Set up an existing app on Google Play Console (listings, subscriptions, IAPs, data safety) |
+| [`kappmaker gpc listings push`](#gpc) | Push store listings from the Google Play config file |
+| [`kappmaker gpc subscriptions list/push`](#gpc) | List or push subscriptions on Google Play Console |
+| [`kappmaker gpc iap list/push`](#gpc) | List or push one-time in-app products on Google Play Console |
+| [`kappmaker gpc data-safety push`](#gpc) | Push data safety declaration on Google Play Console |
+| [`kappmaker gpc app-check --package <pkg>`](#gpc) | Check if a package exists on Google Play Console |
 | [`kappmaker adapty setup`](#adapty-setup) | Set up Adapty products, paywalls, and placements |
 | [`kappmaker image-split <image>`](#image-split-source) | Split a grid image into individual tiles |
 | [`kappmaker image-remove-bg <image>`](#image-remove-bg-source) | Remove background from an image (fal.ai) |
@@ -139,7 +147,8 @@ These commands are standalone and don't depend on any specific boilerplate:
 - **AI logo generation** — Generate logo variations with fal.ai, pick your favorite, auto-remove background
 - **AI screenshot generation** — Generate marketing screenshots from a text description (8 style presets)
 - **Screenshot translation** — Translate app screenshots to 48+ locales in parallel
-- **App Store Connect setup** — Register bundle ID, create app, set metadata, categories, age rating, subscriptions, privacy, and review info
+- **App Store Connect setup** — Register bundle ID (with Sign in with Apple, In-App Purchases, and Push Notifications capabilities enabled automatically), create app, set metadata, categories, age rating, subscriptions, privacy, and review info — fully automated, no manual App Store Connect steps needed
+- **Google Play Console setup** — Push store listings, subscriptions (new monetization API), one-time in-app products, and the data safety declaration via a built-in wrapper around the Play Publisher API — no external CLI, no extra dependencies
 - **Adapty subscription setup** — Create products, paywalls, and placements for iOS and Android
 - **Version bumping** — Increment Android and iOS version codes and names in one command
 - **Image tools** — Split grids, remove backgrounds, enhance quality
@@ -167,6 +176,7 @@ The `create` command runs the full end-to-end setup. Some steps assume the [KApp
 - **Android SDK** — installed at `~/Library/Android/sdk` (configurable)
 - **asc CLI** (optional, for App Store Connect) — `brew install asc`
 - **Adapty CLI** (optional, for Adapty setup) — `npm install -g adapty`
+- **No extra CLI for Google Play Console** — `kappmaker gpc` talks to the Play Publisher API directly via Node's built-in `fetch` and `crypto`; all it needs is the service-account JSON path set in `googleServiceAccountPath`
 
 ## External Services & API Keys
 
@@ -179,7 +189,7 @@ The CLI integrates with several external services for AI image generation, app s
 **How to get your key:**
 1. Sign up at [fal.ai](https://fal.ai)
 2. Go to [Dashboard > Keys](https://fal.ai/dashboard/keys) and create an API key
-3. `kappmaker config set falApiKey <your-key>`
+3. `kappmaker config set falApiKey <your-key>` — or skip this and the CLI will prompt you the first time you run a command that needs it
 
 ### ImgBB — Image Hosting
 
@@ -188,7 +198,7 @@ The CLI integrates with several external services for AI image generation, app s
 **How to get your key:**
 1. Sign up at [imgbb.com](https://imgbb.com)
 2. Go to [api.imgbb.com](https://api.imgbb.com/) and get your free API key
-3. `kappmaker config set imgbbApiKey <your-key>`
+3. `kappmaker config set imgbbApiKey <your-key>` — or prompted on first use
 
 ### OpenAI — Prompt Generation
 
@@ -197,7 +207,7 @@ The CLI integrates with several external services for AI image generation, app s
 **How to get your key:**
 1. Sign up at [platform.openai.com](https://platform.openai.com)
 2. Go to [API Keys](https://platform.openai.com/api-keys) and create a new key
-3. `kappmaker config set openaiApiKey <your-key>`
+3. `kappmaker config set openaiApiKey <your-key>` — or prompted on first use
 
 ### App Store Connect CLI (asc) — iOS App Management & Publishing
 
@@ -234,9 +244,13 @@ The CLI integrates with several external services for AI image generation, app s
 1. Install: `npm install -g firebase-tools`
 2. The `create` command handles login and project creation interactively.
 
-### Google Play Publisher — Android Store Uploads
+### Google Play Publisher — Android Store Uploads + Play Console Management
 
-**Used for:** Building and uploading Android AABs to Google Play Store, managing Play Store metadata and screenshots via `kappmaker publish --platform android`.
+**Used for:**
+- Building and uploading Android AABs to Google Play Store via `kappmaker publish --platform android` (Fastlane)
+- Configuring store listings, subscriptions, in-app products, and the data safety declaration via `kappmaker gpc ...` (direct Publisher API call, no external CLI)
+
+Both flows share the same service account JSON key — set it once, use it everywhere.
 
 **How to set up:**
 
@@ -250,6 +264,8 @@ The CLI integrates with several external services for AI image generation, app s
    ```bash
    kappmaker config set googleServiceAccountPath /path/to/google-service-app-publisher.json
    ```
+
+> **Note:** Google Play does not allow creating new apps via any public API — you must create the app manually once in [Play Console](https://play.google.com/console/u/0/developers) before `kappmaker gpc` can configure it.
 
 ### App Store Publisher — iOS Store Uploads
 
@@ -287,15 +303,16 @@ kappmaker create Remimi
 | 2 | Firebase login | Opens browser for authentication |
 | 3 | Create Firebase project | `<appname>-app` (skips if exists) |
 | 4 | Create Firebase apps | Android + iOS apps (reuses existing if found) |
-| 5 | Enable anonymous auth | Via Identity Toolkit REST API (warns on failure) |
-| 6 | Download SDK configs | `google-services.json` + `GoogleService-Info.plist` (falls back to `Assets/` for custom templates) |
+| 5 | Enable anonymous auth | If brand-new project, prompts user to click "Get started" in Firebase Console, then enables via API |
+| 6 | Download SDK configs | `google-services.json` + `GoogleService-Info.plist` (verifies package match, falls back to `Assets/`) |
 | 7 | Logo generation | *Optional* — AI logo + automatic background removal |
-| 8 | App Store Connect | *Optional* — full app setup (metadata, subs, privacy) |
-| 9 | Adapty setup | *Optional* — products, paywalls, placements |
-| 10 | Package refactor | Sets package name, application ID, bundle ID, and app name (TypeScript) |
-| 11 | Build environment | Creates `local.properties`, installs CocoaPods; *skipped with warning if `gradlew`/`Podfile` not found* |
-| 12 | Git remotes | Renames origin to upstream |
-| 13 | Android release build | Generates keystore if needed, builds signed AAB; *skipped if `gradlew` not found* |
+| 8 | Package refactor | Renames packages, IDs, app name across all modules (composeApp, designsystem, libs) |
+| 9 | Build environment | `local.properties`, CocoaPods, generates signing keystore if missing |
+| 10 | Git remotes | Renames origin to upstream |
+| | *Pre-store reminder* | *Prompts user to create Google Play Console app; App Store Connect is created automatically* |
+| 11 | App Store Connect | *Optional* — full app setup (metadata, subs, privacy); app created automatically via `asc web apps create` |
+| 12 | Google Play Console | *Optional* — Fastlane builds + uploads AAB to internal track, then runs full gpc setup |
+| 13 | Adapty setup | *Optional* — products, paywalls, placements (links to ASC + Play products created in 11-12) |
 
 **Options:**
 
@@ -324,7 +341,7 @@ kappmaker create-logo --output ./custom/path/logo.png
 
 **Output:** `Assets/app_logo.png` + `Assets/logo_variations.png`
 
-Requires: `kappmaker config set falApiKey <your-key>`
+Requires a fal.ai API key (prompted on first use if not set, or set manually: `kappmaker config set falApiKey <your-key>`)
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -353,8 +370,8 @@ kappmaker create-appstore-app --config ./my-config.json
 
 1. Validate asc CLI and authentication
 2. Load config (from file or interactive prompts)
-3. Register Bundle ID
-4. Find or create app
+3. Register Bundle ID + enable capabilities (Sign in with Apple, In-App Purchases, Push Notifications). Name follows Apple convention: `XC com measify myapp` for `com.measify.myapp`
+4. Find or create app (fully automated via `asc web apps create` — no manual App Store Connect step needed)
 5. Set content rights
 6. Create app version (1.0.0)
 7. Set categories
@@ -403,6 +420,181 @@ During interactive setup, the CLI asks if the app accesses user content (AI imag
 
 ---
 
+## `gpc`
+
+Google Play Console management — a tight wrapper around the official Google Play Android Publisher API. All subcommands authenticate via the service account JSON at `googleServiceAccountPath` (same one used by `publish --platform android`). **No external CLI and no extra npm dependencies** — the JWT flow and HTTPS calls are implemented with Node's built-in `crypto` and `fetch`.
+
+> **Note:** Google Play does not allow creating new apps via any public API. Create the app manually once in [Play Console](https://play.google.com/console/u/0/developers), then use these commands to configure it.
+
+### `gpc setup`
+
+Full end-to-end configuration (11 steps) — the Google Play parallel to `create-appstore-app`.
+
+```bash
+kappmaker gpc setup
+kappmaker gpc setup --config ./my-config.json
+```
+
+**What it does:**
+
+1. Validate service account + obtain access token
+2. Load config (`./Assets/googleplay-config.json` or interactive prompts). **Auto-detects Play's actual default language** via a throwaway edit probe and rewrites `config.app.default_language` + the matching listing locale if your config drifted from reality. Also migrates legacy product IDs and legacy data-safety placeholders. Also reads tracks state to verify an APK/AAB is uploaded.
+3. Review summary and confirm
+4. Verify app exists on Play Console (fails fast with a deep link if not — Google does not allow app creation via the public API)
+5. Start a Play Console edit (only if the default-language listing has a title — otherwise steps 5-7 are skipped cleanly)
+6. Update app details (default language + contact website/email/phone)
+7. Update store listings per locale (title, short/full description, video); commits the edit
+8. **Pre-flight build check**, then create subscriptions via the new monetization API (`POST /subscriptions` with `productId` + `regionsVersion.version` as query params, base plans in body in DRAFT state, then `basePlans:activate` each one). Idempotent — existing product IDs are skipped. **Subscription listings are auto-cloned into Play's default language if missing.** Skipped with a clear message if no build is uploaded to any track (Google rejects monetization writes in that case).
+9. Create one-time in-app products via the **new** monetization API (`PATCH /onetimeproducts/{id}?allowMissing=true` + `purchaseOptions:batchUpdateStates` to activate). Idempotent via `GET /oneTimeProducts`. Replaces the legacy `/inappproducts` endpoint that returns 403 on migrated apps.
+10. Update the data safety declaration: converts `data_safety` JSON → Google's CSV format using a bundled canonical template + KAppMaker defaults matching the iOS App Store privacy set, then posts it via `POST /dataSafety` with `{ safetyLabels: "<csv>" }`. Respects `data_safety_csv_path` as an escape hatch for pre-exported CSVs.
+11. Print a checklist of policy declarations that the Publisher API does NOT expose (content rating / IARC, target audience, ads, health apps, financial features, government apps, news apps, gambling, COVID-19 tracing, app access, advertising ID, families compliance, app pricing tier) with a deep link to Play Console's App content page. All verified against Google's v3 discovery document — none have REST endpoints.
+
+### `gpc listings push`
+
+Push just the store listings section from the config file (useful after editing copy).
+
+```bash
+kappmaker gpc listings push
+kappmaker gpc listings push --config ./my-config.json
+```
+
+Runs a single edit transaction: updates app details → updates every listing locale → commits.
+
+### `gpc subscriptions list`
+
+Read-only — lists existing subscription product IDs on Play Console.
+
+```bash
+kappmaker gpc subscriptions list --package com.example.myapp
+kappmaker gpc subscriptions list   # uses app.package_name from the config file
+```
+
+### `gpc subscriptions push`
+
+Create or reuse subscriptions from the config file. Idempotent — already-existing product IDs are skipped, and base plans are activated even for reused subscriptions.
+
+```bash
+kappmaker gpc subscriptions push
+```
+
+Uses the **new** monetization API (`applications/{pkg}/subscriptions` + `basePlans:activate`). Auto-generated IDs:
+
+| Field | Format | Example ($6.99 weekly) |
+|---|---|---|
+| `productId` (subscription) | `{appname}.premium.{period}.v1` | `myapp.premium.weekly.v1` |
+| `basePlanId` | `autorenew-{period}-{priceDigits}-v1` | `autorenew-weekly-699-v1` |
+| Subscription title | `{AppName} Premium {PeriodLabel}` | `MyApp Premium Weekly` |
+
+These align 1-to-1 with what `adapty setup` writes to `android_product_id` and `android_base_plan_id`, so Adapty links the products automatically without any extra configuration.
+
+### `gpc iap list`
+
+Read-only — lists existing one-time in-app product SKUs on Play Console.
+
+```bash
+kappmaker gpc iap list --package com.example.myapp
+kappmaker gpc iap list
+```
+
+### `gpc iap push`
+
+Create or reuse one-time in-app products from the config file. Idempotent — already-existing product IDs are skipped.
+
+```bash
+kappmaker gpc iap push
+```
+
+Uses the **new** monetization API: `PATCH /applications/{pkg}/onetimeproducts/{id}?allowMissing=true` to create/update the product, then `purchaseOptions:batchUpdateStates` with an `activatePurchaseOptionRequest` to activate the default purchase option so it's available to buyers. Replaces the legacy `/inappproducts` endpoint, which Google now rejects with "Please migrate to the new publishing API" on migrated apps.
+
+### `gpc data-safety push`
+
+Push only the data safety declaration. Faster than running the full `setup` when you're iterating on the privacy answers.
+
+```bash
+kappmaker gpc data-safety push
+```
+
+**How it works under the hood:** Google's `POST /applications/{pkg}/dataSafety` does not take structured JSON — it takes a CSV file (the same one Play Console exports from Policy → App content → Data safety → Export to CSV), wrapped in `{ safetyLabels: "<csv>" }`. KAppMaker lets you stay in JSON and converts internally.
+
+**Two ways to configure it in `Assets/googleplay-config.json`:**
+
+1. **Structured JSON (recommended)** — `data_safety.answers` overlay on top of KAppMaker defaults:
+
+   **Account creation:** "My app does not allow users to create an account" (`PSL_ACM_NONE`).
+
+   **Data deletion:** skipped entirely (the question is optional).
+
+   **Data types collected:**
+
+   | Data type | Play Question / Response |
+   |---|---|
+   | User IDs | `PSL_DATA_TYPES_PERSONAL/PSL_USER_ACCOUNT` |
+   | Device ID | `PSL_DATA_TYPES_IDENTIFIERS/PSL_DEVICE_ID` |
+   | Crash logs | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_CRASH_LOGS` |
+   | Diagnostics | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_PERFORMANCE_DIAGNOSTICS` |
+   | Other performance | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_OTHER_PERFORMANCE` |
+   | App interactions | `PSL_DATA_TYPES_APP_ACTIVITY/PSL_USER_INTERACTION` |
+
+   **Data handling (same for ALL data types above):**
+   - Collected only, **not shared** with third parties
+   - **Processed ephemerally** (YES)
+   - **Collection is required** — users can't turn it off
+   - Purposes: Analytics (+ App functionality for Device ID)
+
+   **Security:** encrypted in transit = YES.
+
+   Example config (just use the default — override if you need to add data types or change handling):
+   ```json
+   "data_safety": {
+     "apply_defaults": true,
+     "answers": {}
+   }
+   ```
+
+   To override a specific answer, add keys to `answers`. Keys are either `QuestionID` (for single-answer rows) or `QuestionID/ResponseID` (for multi-choice rows). Values are `true` / `false` / URL string / `null`:
+   ```json
+   "data_safety": {
+     "apply_defaults": true,
+     "answers": {
+       "PSL_DATA_TYPES_PERSONAL/PSL_USER_ACCOUNT": true,
+       "PSL_DATA_TYPES_LOCATION/PSL_APPROX_LOCATION": true
+     }
+   }
+   ```
+
+   Internally, KAppMaker loads a canonical 783-row template (extracted from the well-maintained [fastlane-plugin-google_data_safety](https://github.com/owenbean400/fastlane-plugin-google_data_safety)), applies defaults + your overrides, emits a filled CSV, and uploads it via `POST /dataSafety`.
+
+2. **Escape hatch: CSV file** — if you already exported a real CSV from Play Console and filled it in:
+   ```json
+   "data_safety_csv_path": "Assets/data-safety.csv"
+   ```
+   When this field is set and the file exists, it takes priority over the JSON block and is uploaded verbatim.
+
+**Important:** Review the summary Play Console shows after the push before publishing. Google's conditional question logic may reject some answers — paste the error and I'll adjust the defaults.
+
+### `gpc app-check`
+
+Quick read-only probe to verify that an app exists on Play Console. Useful for CI scripts and before running destructive operations.
+
+```bash
+kappmaker gpc app-check --package com.example.myapp
+```
+
+Exits 0 if found, 2 if missing (prints the Play Console deep link).
+
+### Config
+
+All `gpc` subcommands except `app-check` load `./Assets/googleplay-config.json` by default. The first run of `kappmaker gpc setup` creates it interactively.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config <path>` | Path to JSON config file | `./Assets/googleplay-config.json` |
+| `--package <name>` | (list commands) Override the package name from config | — |
+
+**Alias:** `kappmaker create-play-app` is kept as a shortcut for `kappmaker gpc setup` (the entire 11-step flow is also what the top-level `kappmaker create` calls under step 8 when you answer yes to the Google Play Console prompt).
+
+---
+
 ## `adapty setup`
 
 Sets up Adapty subscription products, paywalls, and placements using the [Adapty CLI](https://github.com/adaptyteam/adapty-cli).
@@ -426,12 +618,12 @@ kappmaker adapty setup --config ./my-config.json
 
 ### Default products
 
-| Product | Period | Price | iOS Product ID | Android Base Plan ID |
-|---------|--------|-------|----------------|---------------------|
-| Weekly Premium | `weekly` | $6.99 | `{appname}.premium.weekly.v1.699.v1` | `autorenew-weekly-price-v1` |
-| Yearly Premium | `annual` | $29.99 | `{appname}.premium.yearly.v1.2999.v1` | `autorenew-yearly-price-v1` |
+| Product | Period | Price | iOS Product ID | Android Product ID | Android Base Plan ID |
+|---------|--------|-------|----------------|--------------------|-----------------------|
+| Weekly Premium | `weekly` | $6.99 | `{appname}.premium.weekly.v1.699.v1` | `{appname}.premium.weekly.v1` | `autorenew-weekly-699-v1` |
+| Yearly Premium | `annual` | $29.99 | `{appname}.premium.yearly.v1.2999.v1` | `{appname}.premium.yearly.v1` | `autorenew-yearly-2999-v1` |
 
-iOS product IDs match the App Store Connect format so they align across both systems.
+iOS product IDs match the App Store Connect format, and Android IDs match what `kappmaker gpc setup` writes to Google Play Console — so all three systems link automatically without extra configuration.
 
 ### Default paywalls and placements
 
@@ -448,7 +640,7 @@ iOS product IDs match the App Store Connect format so they align across both sys
 
 ## Image Tools
 
-AI-powered image commands. Require a fal.ai API key: `kappmaker config set falApiKey <your-key>`
+AI-powered image commands. A fal.ai API key is prompted on first use if not already configured.
 
 ### `image-split <source>`
 
@@ -797,8 +989,8 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 | `ascKeyId` | App Store Connect API Key ID | — |
 | `ascIssuerId` | App Store Connect Issuer ID | — |
 | `ascPrivateKeyPath` | Path to `.p8` private key | — |
-| `appleId` | Apple ID email (for privacy setup) | — |
-| `googleServiceAccountPath` | Google Play service account JSON path | `~/credentials/google-service-app-publisher.json` |
+| `appleId` | Apple ID email (for app creation & privacy setup) | — |
+| `googleServiceAccountPath` | Google Play service account JSON — used by both Fastlane publish and `kappmaker gpc` | `~/credentials/google-service-app-publisher.json` |
 
 ### Global defaults
 
@@ -818,9 +1010,11 @@ src/
   index.ts                  # Entry point
   cli.ts                    # Command registration (Commander.js)
   commands/
-    create.ts               # Full app setup (13-step orchestrator)
+    create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
     create-logo.ts          # AI logo generation
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator)
+    create-play-app.ts      # Google Play Console setup (11-step orchestrator, aliased by `gpc setup`)
+    gpc.ts                  # kappmaker gpc subcommands (setup, listings, subscriptions, iap, data-safety, app-check)
     adapty-setup.ts         # Adapty setup (8-step orchestrator)
     split.ts                # Grid image splitter
     remove-bg.ts            # Background removal
@@ -840,6 +1034,9 @@ src/
     openai.service.ts       # OpenAI API (prompt generation)
     asc.service.ts          # App Store Connect CLI wrapper
     asc-monetization.service.ts  # ASC pricing, subscriptions, IAP
+    gpc.service.ts          # Google Play Publisher API wrapper (JWT auth, edits, listings, data safety) — no external CLI
+    gpc-monetization.service.ts  # Play new monetization API (subscriptions + base plans + onetimeproducts, NOT legacy inappproducts)
+    gpc-data-safety.service.ts   # JSON → CSV converter for Play Data Safety form (uses bundled canonical template)
     adapty.service.ts       # Adapty CLI wrapper
     git.service.ts          # Git operations
     fastlane-setup.service.ts # Fastlane scaffolding (Gemfile + Fastfile)
@@ -861,9 +1058,12 @@ src/
     prompt.ts               # Interactive prompts
   templates/
     appstore-config.json    # Default App Store Connect config
+    googleplay-config.json  # Default Google Play Console config
+    data-safety-template.json  # Canonical Play Data Safety form schema (783 rows, 217 Q IDs)
     adapty-config.json      # Default Adapty config
   types/
     index.ts                # Shared interfaces
     appstore.ts             # App Store Connect types
+    googleplay.ts           # Google Play Console types
     adapty.ts               # Adapty types
 ```

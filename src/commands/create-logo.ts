@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
 import { promptInput } from '../utils/prompt.js';
-import { loadConfig } from '../utils/config.js';
+import { loadConfig, saveConfig } from '../utils/config.js';
 import * as fal from '../services/fal.service.js';
 import { buildLogoPrompt, extractLogo, openPreview } from '../services/logo.service.js';
 import type { CreateLogoOptions, ExtractOptions } from '../types/index.js';
@@ -15,9 +15,16 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
   const config = await loadConfig();
 
   if (!config.falApiKey) {
-    logger.fatal('fal.ai API key is not configured.');
-    logger.info('Set it with: kappmaker config set falApiKey <your-key>');
-    process.exit(1);
+    logger.warn('fal.ai API key is not configured.');
+    logger.info('Get one at: https://fal.ai/dashboard/keys');
+    const key = await promptInput('  Enter your fal.ai API key: ');
+    if (!key.trim()) {
+      logger.fatal('fal.ai API key is required for logo generation.');
+      process.exit(1);
+    }
+    config.falApiKey = key.trim();
+    await saveConfig(config);
+    logger.success('falApiKey saved to config.');
   }
 
   const appIdea = await promptInput('Describe your app idea (concept, audience, style preferences): ');
@@ -26,7 +33,11 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
     process.exit(1);
   }
 
-  const assetsDir = path.resolve(ASSETS_DIR);
+  // When called from `create` with --output pointing into the -All/Assets dir,
+  // save the grid image alongside the final logo — not in CWD's ./Assets/.
+  const assetsDir = options.output
+    ? path.dirname(path.resolve(options.output))
+    : path.resolve(ASSETS_DIR);
   await fs.ensureDir(assetsDir);
 
   const gridPath = path.join(assetsDir, GRID_FILENAME);

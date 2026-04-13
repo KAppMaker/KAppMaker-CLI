@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { promptInput, confirm } from '../utils/prompt.js';
 import chalk from 'chalk';
 import { loadConfig, getAppStoreTemplate, loadAppStoreDefaults } from '../utils/config.js';
+import { configAppStoreDefaults } from './config.js';
 import * as asc from '../services/asc.service.js';
 import * as ascMoney from '../services/asc-monetization.service.js';
 import type { AppStoreConfig, CreateAppStoreOptions } from '../types/appstore.js';
@@ -12,19 +13,28 @@ const CONFIG_FILENAME = 'Assets/appstore-config.json';
 const TOTAL_STEPS = 13;
 
 export async function createAppStoreApp(options: CreateAppStoreOptions): Promise<void> {
-  // Step 1: Validate asc CLI
+  // Step 1: Validate asc CLI + config
   logger.step(1, TOTAL_STEPS, 'Validating asc CLI');
   await asc.validateAscInstalled();
-  await asc.validateAscAuth();
 
-  // `asc web apps create` (v1.0+) requires --apple-id, so surface the missing
-  // value now rather than deep inside step 4 after config parsing and confirms.
-  const userConfig = await loadConfig();
-  if (!userConfig.appleId) {
-    logger.fatal('Apple ID is required for App Store Connect app creation and privacy setup.');
-    logger.info('Set it with: kappmaker config appstore-defaults --init');
-    process.exit(1);
+  // Check if ASC config is complete. If key fields are missing, offer to run
+  // the interactive setup inline so the user doesn't have to abort and come back.
+  let userConfig = await loadConfig();
+  if (!userConfig.appleId || !userConfig.ascKeyId || !userConfig.ascIssuerId || !userConfig.ascPrivateKeyPath) {
+    logger.warn('App Store Connect configuration is incomplete.');
+    const shouldSetup = await confirm('  Run interactive setup now? (API key, Apple ID, review contact)');
+    if (shouldSetup) {
+      await configAppStoreDefaults({ init: true });
+      userConfig = await loadConfig();
+    }
+    if (!userConfig.appleId) {
+      logger.fatal('Apple ID is still not set. Cannot continue.');
+      logger.info('Set it with: kappmaker config appstore-defaults --init');
+      process.exit(1);
+    }
   }
+
+  await asc.validateAscAuth();
 
   // Step 2: Load config
   logger.step(2, TOTAL_STEPS, 'Loading App Store Connect config');

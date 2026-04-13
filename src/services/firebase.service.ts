@@ -3,6 +3,7 @@ import os from 'node:os';
 import fs from 'fs-extra';
 import { run, runStreaming } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
+import { promptInput } from '../utils/prompt.js';
 import type { DerivedConfig, FirebaseAppResult } from '../types/index.js';
 
 export async function firebaseLogin(): Promise<void> {
@@ -81,30 +82,66 @@ export async function enableAnonymousAuth(projectId: string): Promise<void> {
     return;
   }
 
-  const url = `https://identitytoolkit.googleapis.com/admin/v2/projects/${projectId}/config?updateMask=signIn.anonymous.enabled`;
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
 
+  // Enable the Identity Toolkit API (required for the config endpoint).
   try {
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        signIn: { anonymous: { enabled: true } },
-      }),
-    });
+    const enableUrl = 'https://serviceusage.googleapis.com/v1/projects/' + projectId + '/services/identitytoolkit.googleapis.com:enable';
+    await fetch(enableUrl, { method: 'POST', headers });
+  } catch {
+    // Non-fatal
+  }
 
+  const url = 'https://identitytoolkit.googleapis.com/admin/v2/projects/' + projectId + '/config?updateMask=signIn.anonymous.enabled';
+  const body = JSON.stringify({ signIn: { anonymous: { enabled: true } } });
+
+  // First attempt — works if Firebase Auth is already initialized.
+  const firstTry = await tryEnableAnonymous(url, headers, body);
+  if (firstTry === 'ok') return;
+
+  if (firstTry === 'not_found') {
+    // Firebase Auth needs to be initialized in the console first.
+    // Ask the user to do it, then we'll retry.
+    const consoleUrl = 'https://console.firebase.google.com/project/' + projectId + '/authentication';
+    console.log('');
+    logger.info('Firebase Authentication needs to be initialized for this project.');
+    logger.info('Please open the link below and click "Get started":');
+    console.log('');
+    console.log('    ' + consoleUrl);
+    console.log('');
+    await promptInput('  Press Enter after clicking "Get started"...');
+
+    // Retry after user initialized Auth in the console.
+    const secondTry = await tryEnableAnonymous(url, headers, body);
+    if (secondTry === 'ok') return;
+
+    logger.warn('Still could not enable anonymous auth.');
+    logger.info('You can enable it manually: Firebase Console -> Authentication -> Sign-in method -> Anonymous.');
+  }
+}
+
+async function tryEnableAnonymous(
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+): Promise<'ok' | 'not_found' | 'error'> {
+  try {
+    const response = await fetch(url, { method: 'PATCH', headers, body });
     if (response.ok) {
       logger.success('Anonymous authentication enabled.');
-    } else {
-      const errorText = await response.text();
-      logger.warn(`Failed to enable anonymous auth (HTTP ${response.status}): ${errorText}`);
-      logger.info('You can enable it manually in the Firebase console → Authentication → Sign-in method.');
+      return 'ok';
     }
-  } catch (error) {
-    logger.warn(`Could not enable anonymous auth: ${error}`);
-    logger.info('You can enable it manually in the Firebase console → Authentication → Sign-in method.');
+    const errorText = await response.text();
+    if (response.status === 404 && errorText.includes('CONFIGURATION_NOT_FOUND')) {
+      return 'not_found';
+    }
+    logger.warn('Failed to enable anonymous auth (HTTP ' + response.status + ')');
+    return 'error';
+  } catch {
+    return 'error';
   }
 }
 

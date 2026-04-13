@@ -3,10 +3,10 @@ import fs from 'fs-extra';
 import sharp from 'sharp';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
-import { loadConfig } from '../utils/config.js';
+import { loadConfig, saveConfig } from '../utils/config.js';
 import * as fal from '../services/fal.service.js';
 import * as screenshot from '../services/screenshot.service.js';
-import { confirm } from '../utils/prompt.js';
+import { confirm, promptInput } from '../utils/prompt.js';
 import type { TranslateScreenshotsOptions } from '../types/index.js';
 
 export async function translateScreenshots(
@@ -16,15 +16,29 @@ export async function translateScreenshots(
   const config = await loadConfig();
 
   if (!config.falApiKey) {
-    logger.fatal('fal.ai API key is not configured.');
-    logger.info('Set it with: kappmaker config set falApiKey <your-key>');
-    process.exit(1);
+    logger.warn('fal.ai API key is not configured.');
+    logger.info('Get one at: https://fal.ai/dashboard/keys');
+    const key = await promptInput('  Enter your fal.ai API key: ');
+    if (!key.trim()) {
+      logger.fatal('fal.ai API key is required.');
+      process.exit(1);
+    }
+    config.falApiKey = key.trim();
+    await saveConfig(config);
+    logger.success('falApiKey saved to config.');
   }
 
   if (!config.imgbbApiKey) {
-    logger.fatal('imgbb API key is not configured (needed for image upload).');
-    logger.info('Get a free key at https://api.imgbb.com/ and set it with: kappmaker config set imgbbApiKey <your-key>');
-    process.exit(1);
+    logger.warn('imgbb API key is not configured (needed for image upload).');
+    logger.info('Get a free key at: https://api.imgbb.com/');
+    const key = await promptInput('  Enter your imgbb API key: ');
+    if (!key.trim()) {
+      logger.fatal('imgbb API key is required for screenshot translation.');
+      process.exit(1);
+    }
+    config.imgbbApiKey = key.trim();
+    await saveConfig(config);
+    logger.success('imgbbApiKey saved to config.');
   }
 
   const srcPath = path.resolve(sourceDir);

@@ -1,7 +1,8 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
-import { loadConfig } from '../utils/config.js';
+import { promptInput } from '../utils/prompt.js';
+import { loadConfig, saveConfig } from '../utils/config.js';
 import * as fal from '../services/fal.service.js';
 import type { RemoveBgOptions } from '../types/index.js';
 
@@ -9,9 +10,16 @@ export async function removeBackground(source: string, options: RemoveBgOptions)
   const config = await loadConfig();
 
   if (!config.falApiKey) {
-    logger.fatal('fal.ai API key is not configured.');
-    logger.info('Set it with: kappmaker config set falApiKey <your-key>');
-    process.exit(1);
+    logger.warn('fal.ai API key is not configured.');
+    logger.info('Get one at: https://fal.ai/dashboard/keys');
+    const key = await promptInput('  Enter your fal.ai API key: ');
+    if (!key.trim()) {
+      logger.fatal('fal.ai API key is required.');
+      process.exit(1);
+    }
+    config.falApiKey = key.trim();
+    await saveConfig(config);
+    logger.success('falApiKey saved to config.');
   }
 
   const sourcePath = path.resolve(source);

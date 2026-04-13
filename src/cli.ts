@@ -7,6 +7,17 @@ import { enhance } from './commands/enhance.js';
 import { translateScreenshots } from './commands/translate-screenshots.js';
 import { configList, configGet, configSet, configPath, configInit, configAppStoreDefaults, configAdaptyDefaults } from './commands/config.js';
 import { createAppStoreApp } from './commands/create-appstore-app.js';
+import { createPlayApp } from './commands/create-play-app.js';
+import {
+  gpcSetup,
+  gpcAppCheck,
+  gpcListingsPush,
+  gpcSubscriptionsList,
+  gpcSubscriptionsPush,
+  gpcIapList,
+  gpcIapPush,
+  gpcDataSafetyPush,
+} from './commands/gpc.js';
 import { generateScreenshots } from './commands/generate-screenshots.js';
 import { adaptySetup } from './commands/adapty-setup.js';
 import { updateVersion } from './commands/update-version.js';
@@ -144,6 +155,88 @@ export function createCli(): Command {
     .option('--config <path>', 'Path to App Store Connect JSON config file')
     .action(async (options) => {
       await createAppStoreApp(options);
+    });
+
+  // ── Google Play Console ────────────────────────────────────────────
+
+  program
+    .command('create-play-app')
+    .description('Alias for `kappmaker gpc setup` — configure an existing Google Play app end-to-end')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await createPlayApp(options);
+    });
+
+  const gpcCmd = program
+    .command('gpc')
+    .description('Google Play Console management (listings, subscriptions, IAPs, data safety)');
+
+  gpcCmd
+    .command('setup')
+    .description('Full end-to-end Google Play Console setup (11 steps)')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await gpcSetup(options);
+    });
+
+  gpcCmd
+    .command('app-check')
+    .description('Check whether an app exists on Google Play Console')
+    .requiredOption('--package <name>', 'Android package name (e.g. com.example.myapp)')
+    .action(async (options) => {
+      await gpcAppCheck(options);
+    });
+
+  const gpcListings = gpcCmd.command('listings').description('Manage store listings');
+  gpcListings
+    .command('push')
+    .description('Push listings from the Google Play config file (title, short/full description, video)')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await gpcListingsPush(options);
+    });
+
+  const gpcSubs = gpcCmd.command('subscriptions').description('Manage subscriptions (new monetization API)');
+  gpcSubs
+    .command('list')
+    .description('List existing subscriptions on Google Play Console')
+    .option('--package <name>', 'Android package name (defaults to config app.package_name)')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await gpcSubscriptionsList(options);
+    });
+  gpcSubs
+    .command('push')
+    .description('Create/reuse subscriptions from the Google Play config file (idempotent)')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await gpcSubscriptionsPush(options);
+    });
+
+  const gpcIap = gpcCmd.command('iap').description('Manage one-time in-app products');
+  gpcIap
+    .command('list')
+    .description('List existing one-time in-app products')
+    .option('--package <name>', 'Android package name (defaults to config app.package_name)')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await gpcIapList(options);
+    });
+  gpcIap
+    .command('push')
+    .description('Create/reuse in-app products from the Google Play config file (idempotent)')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await gpcIapPush(options);
+    });
+
+  const gpcDataSafety = gpcCmd.command('data-safety').description('Manage the Play Store data safety declaration');
+  gpcDataSafety
+    .command('push')
+    .description('Push data safety declaration from the Google Play config file')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .action(async (options) => {
+      await gpcDataSafetyPush(options);
     });
 
   // ── Adapty ──────────────────────────────────────────────────────────
