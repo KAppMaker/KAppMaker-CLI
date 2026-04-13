@@ -1,5 +1,7 @@
 # KAppMaker CLI
 
+> **Full documentation at [cli.kappmaker.com](https://cli.kappmaker.com)**
+
 CLI tool that automates the entire mobile app launch process — from project scaffolding to store-ready builds.
 
 A single `kappmaker create` command can:

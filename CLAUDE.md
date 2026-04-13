@@ -2,6 +2,8 @@
 
 ## Project Overview
 
+Documentation site: https://cli.kappmaker.com (source in `docs-site/`, deployed via GitHub Pages)
+
 KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootstrapping for the KAppMaker platform. It wraps Firebase CLI, Gradle, Fastlane, CocoaPods, Git, fal.ai, App Store Connect CLI (asc), and Adapty CLI into a single workflow. Google Play Console management is built-in (not wrapping any external CLI) — `gpc.service.ts` talks directly to `androidpublisher.googleapis.com/v3` via Node's built-in `fetch` + `crypto` (service-account JWT flow).
 
 ## Tech Stack
@@ -99,6 +101,21 @@ The `create` command is the main orchestrator that runs everything end-to-end:
 ## Project Structure
 
 ```
+docs-site/                    # Docusaurus documentation site (cli.kappmaker.com)
+  docusaurus.config.ts        # Site config (url, navbar, footer, theme)
+  sidebars.ts                 # Sidebar navigation structure
+  docs/                       # Markdown pages organized by topic
+    intro.md                  # Landing page (Getting Started)
+    configuration.md          # Config keys, global defaults, subscription ID alignment
+    project-setup/            # Full App Setup, Refactoring, Version Bumping
+    store-publishing/         # App Store Connect, Google Play Console, Adapty, Publish
+    build-signing/            # Fastlane Setup, Keystore, Android Release Build
+    ai-image-tools/           # Logo Generation, Screenshots, Image Processing
+    guides/                   # External Services, Custom Templates, Claude Code Skill
+  static/CNAME                # Custom domain: cli.kappmaker.com
+.github/
+  workflows/
+    deploy-docs.yml           # GitHub Pages deployment (triggers on docs-site/ changes)
 src/
   index.ts                  # Entry point (shebang)
   cli.ts                    # Commander.js program setup
