@@ -12,7 +12,7 @@ interface PublishCommandOptions {
   uploadMetadata: boolean;
   uploadScreenshots: boolean;
   uploadImages: boolean;
-  submitForReview: boolean;
+  submitForReview: string;
 }
 
 export async function publishCommand(options: PublishCommandOptions): Promise<void> {
@@ -40,7 +40,7 @@ export async function publishCommand(options: PublishCommandOptions): Promise<vo
     uploadMetadata: options.uploadMetadata,
     uploadScreenshots: options.uploadScreenshots,
     uploadImages: options.uploadImages,
-    submitForReview: options.submitForReview,
+    submitForReview: options.submitForReview !== 'false',
   };
 
   if (platforms.includes('android')) {

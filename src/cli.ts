@@ -302,7 +302,7 @@ export function createCli(): Command {
     .option('--upload-metadata', 'Upload metadata (title, description)', false)
     .option('--upload-screenshots', 'Upload screenshots', false)
     .option('--upload-images', 'Upload images — icon, feature graphic (Android only)', false)
-    .option('--submit-for-review', 'Submit for review after upload', true)
+    .option('--submit-for-review <bool>', 'Submit for review after upload (default: true)', 'true')
     .action(async (options) => {
       await publishCommand(options);
     });
