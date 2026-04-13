@@ -89,6 +89,17 @@ export async function configInit(): Promise<void> {
     config[key] = answer || current;
   }
 
+  // ── Google Play Service Account ─────────────────────────────────
+  // Prompted here (not in appstore-defaults) because the service account
+  // is used by both `kappmaker gpc` and `kappmaker publish --platform android`.
+  console.log(chalk.bold('\n  Google Play Service Account\n'));
+  const curSaPath = config.googleServiceAccountPath || '';
+  const saPathHint = curSaPath ? ` (${chalk.gray(curSaPath)})` : '';
+  const saPath = await promptInput(`  Path to service account JSON file${saPathHint}: `);
+  if (saPath) {
+    config.googleServiceAccountPath = await copyKeyToConfigDir(saPath);
+  }
+
   await saveConfig(config);
   console.log('');
   logger.success(`Config saved to ${getConfigPath()}`);

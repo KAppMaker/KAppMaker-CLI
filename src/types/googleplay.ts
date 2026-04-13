@@ -2,9 +2,37 @@ export interface GooglePlayConfig {
   app: GooglePlayAppConfig;
   details: GooglePlayAppDetails;
   listings: GooglePlayListing[];
-  data_safety?: GooglePlayDataSafetyForm;
+  /**
+   * User-facing structured data-safety declaration. Internally converted to
+   * Google Play's CSV format using a canonical template bundled with the CLI,
+   * then posted to `POST /applications/{pkg}/dataSafety`.
+   */
+  data_safety?: GooglePlayDataSafety;
+  /**
+   * Escape hatch: path to a Play Console Data Safety CSV export file. If set
+   * and the file exists, this overrides `data_safety` and is uploaded verbatim.
+   * Useful when you've already exported + filled in a CSV from Play Console.
+   */
+  data_safety_csv_path?: string;
   subscriptions: GooglePlaySubscription[];
   in_app_products: GooglePlayInAppProduct[];
+}
+
+/**
+ * Structured data-safety form data. Converted to Play's CSV format internally.
+ *
+ * Keys in `answers` are either a raw Question ID (for single-answer rows where
+ * Google's template has no Response ID) or a `QuestionID/ResponseID` composite
+ * (for multi-choice rows like "check this data type"). Values are:
+ *   - `true` / `false` — TRUE / FALSE / blank on the CSV row
+ *   - `string`        — free-form response value (used for URL-answer rows)
+ *   - `null`          — explicitly blank (overrides defaults)
+ */
+export interface GooglePlayDataSafety {
+  /** Apply the kappmaker-default answer set before user overrides. Defaults to true. */
+  apply_defaults?: boolean;
+  /** Answer overrides / additions, keyed by Question ID or Question ID/Response ID. */
+  answers?: Record<string, boolean | string | null>;
 }
 
 export interface GooglePlayAppConfig {
@@ -34,13 +62,6 @@ export interface GooglePlayListing {
   /** YouTube URL */
   video?: string;
 }
-
-/**
- * Raw pass-through to POST /applications/{pkg}/dataSafety. Google has changed
- * the safety-labels schema several times, so we don't re-encode it — whatever
- * the user provides is sent verbatim and validated server-side.
- */
-export type GooglePlayDataSafetyForm = Record<string, unknown>;
 
 export interface GooglePlaySubscription {
   /** Product ID (e.g. "myapp.premium.weekly.v1.699.v1") — must match Adapty android_product_id */

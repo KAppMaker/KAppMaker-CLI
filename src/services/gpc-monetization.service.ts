@@ -64,6 +64,7 @@ export async function listSubscriptions(packageName: string): Promise<Set<string
 export async function setupSubscriptions(
   packageName: string,
   subscriptions: GooglePlaySubscription[],
+  playDefaultLanguage: string,
 ): Promise<void> {
   if (subscriptions.length === 0) {
     logger.info('No subscriptions configured, skipping.');
@@ -81,20 +82,42 @@ export async function setupSubscriptions(
       }
       continue;
     }
-    await createSubscriptionWithBasePlans(packageName, sub);
+    await createSubscriptionWithBasePlans(packageName, sub, playDefaultLanguage);
   }
 }
+
+// Google Play's new monetization API ties pricing regions to a "regionsVersion"
+// — bump this constant if Google publishes a newer region catalog.
+const REGIONS_VERSION = '2022/02';
 
 async function createSubscriptionWithBasePlans(
   packageName: string,
   sub: GooglePlaySubscription,
+  playDefaultLanguage: string,
 ): Promise<void> {
-  // 1. Create the subscription shell with localized listings and all base plans
-  //    in a single call, then activate each base plan individually.
+  // Play rejects subscriptions that don't have a listing in the app's current
+  // default language. If the config's listings don't cover it, clone the first
+  // entry with the Play default language tacked on.
+  const listings = [...sub.listings];
+  const hasDefault = listings.some((l) => l.locale === playDefaultLanguage);
+  if (!hasDefault && listings.length > 0) {
+    const first = listings[0];
+    listings.unshift({
+      locale: playDefaultLanguage,
+      title: first.title,
+      description: first.description,
+      benefits: first.benefits,
+    });
+    logger.info(`Cloned "${first.locale}" listing to "${playDefaultLanguage}" (Play default language).`);
+  }
+
+  // Create subscription + base plans in a single call. The new monetization API
+  // requires productId and regionsVersion.version as QUERY PARAMETERS (not body)
+  // — passing productId in the body triggers "Product ID must be specified".
   const body: Record<string, unknown> = {
     packageName,
     productId: sub.product_id,
-    listings: sub.listings.map((l) => ({
+    listings: listings.map((l) => ({
       languageCode: l.locale,
       title: l.title,
       description: l.description ?? '',
@@ -106,6 +129,10 @@ async function createSubscriptionWithBasePlans(
   const result = await apiRequest({
     method: 'POST',
     path: `/applications/${encodeURIComponent(packageName)}/subscriptions`,
+    query: {
+      productId: sub.product_id,
+      'regionsVersion.version': REGIONS_VERSION,
+    },
     body,
     label: `Creating subscription: ${sub.product_id}`,
     allowFailure: true,
@@ -156,21 +183,49 @@ export async function activateBasePlan(
   });
 }
 
-// ── In-app products (one-time) ───────────────────────────────────────
+// ── One-time in-app products (new monetization API) ─────────────────
+//
+// The legacy `/applications/{pkg}/inappproducts` endpoint returns 403
+// "Please migrate to the new publishing API" for apps that have been
+// migrated to the new monetization model (most apps now). We use the
+// `monetization.onetimeproducts.*` family instead:
+//
+//   LIST:   GET    /applications/{pkg}/oneTimeProducts
+//   GET:    GET    /applications/{pkg}/oneTimeProducts/{productId}
+//   CREATE: PATCH  /applications/{pkg}/onetimeproducts/{productId}?allowMissing=true&regionsVersion.version=2022/02
+//   DELETE: DELETE /applications/{pkg}/oneTimeProducts/{productId}
+//
+// Note the CASING QUIRK: list/get/delete use `/oneTimeProducts` (camelCase)
+// but patch uses `/onetimeproducts` (all lowercase). This is verified
+// against Google's v3 discovery document and is a known Google API quirk.
+//
+// Creation uses the AIP-134 "patch with allow_missing" pattern: if the
+// product does not yet exist, allowMissing=true tells Play to create it
+// from scratch; if it exists, the patch updates it.
 
-interface PlayListInAppProductsResponse {
-  inappproduct?: Array<{ sku: string; packageName: string }>;
+interface PlayListOneTimeProductsResponse {
+  oneTimeProducts?: Array<{ productId: string; packageName: string }>;
+  nextPageToken?: string;
 }
 
 export async function listInAppProducts(packageName: string): Promise<Set<string>> {
-  const result = await apiRequest<PlayListInAppProductsResponse>({
-    method: 'GET',
-    path: `/applications/${encodeURIComponent(packageName)}/inappproducts`,
-    label: 'Looking up existing in-app products',
-    allowFailure: true,
-  });
-  if (!result.ok || !result.data?.inappproduct) return new Set();
-  return new Set(result.data.inappproduct.map((p) => p.sku));
+  const existing = new Set<string>();
+  let pageToken: string | undefined;
+  do {
+    const result = await apiRequest<PlayListOneTimeProductsResponse>({
+      method: 'GET',
+      path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts`,
+      query: pageToken ? { pageToken } : undefined,
+      label: 'Looking up existing one-time products',
+      allowFailure: true,
+    });
+    if (!result.ok) return existing;
+    for (const p of result.data?.oneTimeProducts ?? []) {
+      existing.add(p.productId);
+    }
+    pageToken = result.data?.nextPageToken;
+  } while (pageToken);
+  return existing;
 }
 
 export async function setupInAppProducts(
@@ -186,7 +241,7 @@ export async function setupInAppProducts(
 
   for (const product of products) {
     if (existing.has(product.sku)) {
-      logger.info(`In-app product "${product.sku}" already exists, skipping.`);
+      logger.info(`One-time product "${product.sku}" already exists, skipping.`);
       continue;
     }
     await createInAppProduct(packageName, product);
@@ -197,42 +252,84 @@ async function createInAppProduct(
   packageName: string,
   product: GooglePlayInAppProduct,
 ): Promise<void> {
-  const listings: Record<string, { title: string; description: string }> = {};
-  for (const loc of product.listings) {
-    listings[loc.locale] = {
-      title: loc.title,
-      description: loc.description ?? '',
-    };
-  }
+  const listings = product.listings.map((loc) => ({
+    languageCode: loc.locale,
+    title: loc.title,
+    description: loc.description ?? '',
+  }));
 
-  const prices: Record<string, { priceMicros: string; currency: string }> = {};
+  // Build one purchase option with regional pricing from the config.
+  // We default to a single "default" purchase option covering the base price
+  // and any per-region overrides the user supplied.
   const allPrices = [product.default_price, ...(product.prices ?? [])];
-  for (const p of allPrices) {
-    const money = priceToMoney(p.price, p.currency_code);
-    // Legacy inappproducts endpoint uses priceMicros (string) and currency fields.
-    const priceMicros = (BigInt(money.units) * 1_000_000n + BigInt(Math.round(money.nanos / 1000))).toString();
-    prices[p.region_code] = { priceMicros, currency: p.currency_code };
-  }
+  // Dedupe by region — if the user listed the same region twice, last wins.
+  const byRegion = new Map<string, GooglePlayInAppProduct['default_price']>();
+  for (const p of allPrices) byRegion.set(p.region_code, p);
+
+  const regionalPricingAndAvailabilityConfigs = Array.from(byRegion.values()).map((p) => ({
+    regionCode: p.region_code,
+    price: priceToMoney(p.price, p.currency_code),
+    availability: 'AVAILABLE',
+  }));
 
   const body: Record<string, unknown> = {
     packageName,
-    sku: product.sku,
-    status: 'active',
-    purchaseType: product.purchase_type ?? 'managedUser',
-    defaultLanguage: product.default_language,
+    productId: product.sku,
     listings,
-    defaultPrice: {
-      priceMicros: (BigInt(priceToMoney(product.default_price.price, product.default_price.currency_code).units) * 1_000_000n + BigInt(Math.round(priceToMoney(product.default_price.price, product.default_price.currency_code).nanos / 1000))).toString(),
-      currency: product.default_price.currency_code,
-    },
-    prices,
+    purchaseOptions: [
+      {
+        purchaseOptionId: 'default',
+        buyOption: { legacyCompatible: true },
+        regionalPricingAndAvailabilityConfigs,
+      },
+    ],
   };
 
+  // Note: patch path is lowercase `onetimeproducts` even though list/get use
+  // camelCase `oneTimeProducts`. Matches Google's v3 discovery document.
+  const result = await apiRequest({
+    method: 'PATCH',
+    path: `/applications/${encodeURIComponent(packageName)}/onetimeproducts/${encodeURIComponent(product.sku)}`,
+    query: {
+      allowMissing: 'true',
+      'regionsVersion.version': REGIONS_VERSION,
+      updateMask: 'listings,purchaseOptions',
+    },
+    body,
+    label: `Creating one-time product: ${product.sku}`,
+    allowFailure: true,
+  });
+
+  if (!result.ok) {
+    logger.warn(`Could not create one-time product ${product.sku}.`);
+    return;
+  }
+
+  // New purchase options land in DRAFT state — activate so buyers can see it.
+  await activatePurchaseOption(packageName, product.sku, 'default');
+}
+
+async function activatePurchaseOption(
+  packageName: string,
+  productId: string,
+  purchaseOptionId: string,
+): Promise<void> {
   await apiRequest({
     method: 'POST',
-    path: `/applications/${encodeURIComponent(packageName)}/inappproducts`,
-    body,
-    label: `Creating in-app product: ${product.sku}`,
+    path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts/${encodeURIComponent(productId)}/purchaseOptions:batchUpdateStates`,
+    body: {
+      requests: [
+        {
+          activatePurchaseOptionRequest: {
+            packageName,
+            productId,
+            purchaseOptionId,
+            latencyTolerance: 'PRODUCT_UPDATE_LATENCY_TOLERANCE_LATENCY_SENSITIVE',
+          },
+        },
+      ],
+    },
+    label: `Activating purchase option ${productId}/${purchaseOptionId}`,
     allowFailure: true,
   });
 }

@@ -7,7 +7,6 @@ import { loadConfig } from '../utils/config.js';
 import type {
   GooglePlayAppDetails,
   GooglePlayListing,
-  GooglePlayDataSafetyForm,
 } from '../types/googleplay.js';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -178,13 +177,17 @@ export async function apiRequest<T = unknown>(options: ApiRequestOptions): Promi
 
 /**
  * Probe whether an app exists on Play Console WITHOUT starting an edit.
- * Uses GET /inappproducts which requires the app to exist but doesn't mutate
- * state. Returns true on 200, false on 404, exits fatal on any other error.
+ * Uses GET /subscriptions (the new monetization API) which is read-only and
+ * works on apps that have been migrated to the new publishing API. The older
+ * `/inappproducts` endpoint returns 403 "Please migrate to the new publishing
+ * API" for such apps, so we avoid it here.
+ *
+ * Returns true on 200, false on 404, exits fatal on any other error.
  */
 export async function checkAppExists(packageName: string): Promise<boolean> {
   const result = await apiRequest({
     method: 'GET',
-    path: `/applications/${encodeURIComponent(packageName)}/inappproducts`,
+    path: `/applications/${encodeURIComponent(packageName)}/subscriptions`,
     label: `Checking ${packageName} on Play Console`,
     allowFailure: true,
   });
@@ -251,6 +254,106 @@ export async function commitEdit(packageName: string, editId: string): Promise<v
   });
 }
 
+export async function deleteEdit(packageName: string, editId: string): Promise<void> {
+  await apiRequest({
+    method: 'DELETE',
+    path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}`,
+    label: 'Discarding Play Console edit',
+    allowFailure: true,
+  });
+}
+
+export interface PlayAppDetails {
+  defaultLanguage?: string;
+  contactWebsite?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+}
+
+/**
+ * Read current app details (default language + contact info) inside an existing
+ * edit. Used to discover the app's actual default language before pushing
+ * subscriptions — Play rejects subscriptions that don't have a listing in that
+ * language, so the caller needs to ensure one exists.
+ */
+export async function getEditDetails(packageName: string, editId: string): Promise<PlayAppDetails | null> {
+  const result = await apiRequest<PlayAppDetails>({
+    method: 'GET',
+    path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}/details`,
+    label: 'Fetching current app details',
+    allowFailure: true,
+  });
+  return result.ok ? (result.data ?? null) : null;
+}
+
+/**
+ * Probe Play Console for the app's current default language via a short-lived
+ * edit (insert → get details → delete). Returns null if the probe fails so
+ * callers can fall back to whatever default they had in their config.
+ */
+export async function fetchDefaultLanguage(packageName: string): Promise<string | null> {
+  const state = await fetchAppState(packageName);
+  return state?.defaultLanguage ?? null;
+}
+
+export interface PlayAppState {
+  defaultLanguage: string | null;
+  hasUploadedBuild: boolean;
+  tracksWithReleases: string[];
+}
+
+interface PlayTracksResponse {
+  tracks?: Array<{
+    track?: string;
+    releases?: Array<{ versionCodes?: string[]; status?: string }>;
+  }>;
+}
+
+/**
+ * One-shot probe that starts an edit, reads the details and tracks, and
+ * discards the edit — returns everything the orchestrator needs to know about
+ * the app's current state in a single transaction. Useful for pre-flight
+ * checks before monetization writes.
+ *
+ * Graceful: returns null if the probe fails (no network, restricted service
+ * account, etc.).
+ */
+export async function fetchAppState(packageName: string): Promise<PlayAppState | null> {
+  let editId: string | null = null;
+  try {
+    editId = await insertEdit(packageName);
+    const details = await getEditDetails(packageName, editId);
+    const tracksResult = await apiRequest<PlayTracksResponse>({
+      method: 'GET',
+      path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks`,
+      label: 'Fetching tracks and releases',
+      allowFailure: true,
+    });
+
+    const tracksWithReleases: string[] = [];
+    if (tracksResult.ok && tracksResult.data?.tracks) {
+      for (const track of tracksResult.data.tracks) {
+        const hasRelease = (track.releases ?? []).some(
+          (r) => (r.versionCodes?.length ?? 0) > 0,
+        );
+        if (hasRelease && track.track) tracksWithReleases.push(track.track);
+      }
+    }
+
+    return {
+      defaultLanguage: details?.defaultLanguage ?? null,
+      hasUploadedBuild: tracksWithReleases.length > 0,
+      tracksWithReleases,
+    };
+  } catch {
+    return null;
+  } finally {
+    if (editId) {
+      await deleteEdit(packageName, editId);
+    }
+  }
+}
+
 export async function withEdit<T>(
   packageName: string,
   fn: (editId: string) => Promise<T>,
@@ -307,14 +410,26 @@ export async function updateListing(
 
 // ── Data safety (standalone, not inside edit) ────────────────────────
 
+/**
+ * Upload a Play Console Data Safety declaration. The API does NOT take
+ * structured JSON — it takes a JSON object with a single `safetyLabels` field
+ * whose value is the raw CSV content exported from Play Console:
+ *
+ *   POST /applications/{pkg}/dataSafety
+ *   body: { "safetyLabels": "<csv file contents as string>" }
+ *
+ * The CSV is app-specific (Google generates different question sets based on
+ * the app's category/permissions), so callers must provide the contents of a
+ * real CSV exported from this app's Play Console page.
+ */
 export async function updateDataSafety(
   packageName: string,
-  safetyLabels: GooglePlayDataSafetyForm,
+  csvContents: string,
 ): Promise<void> {
   await apiRequest({
     method: 'POST',
     path: `/applications/${encodeURIComponent(packageName)}/dataSafety`,
-    body: safetyLabels,
+    body: { safetyLabels: csvContents },
     label: 'Updating data safety declaration',
     allowFailure: true,
   });

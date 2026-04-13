@@ -105,15 +105,64 @@ export async function validateAscAuth(): Promise<void> {
   }
 }
 
-export async function createBundleId(bundleId: string, name: string, platform: string): Promise<void> {
+/**
+ * Default capabilities enabled on every new bundle ID. These match the
+ * standard KAppMaker app requirements (subscriptions, push, Apple Sign In).
+ */
+const BUNDLE_ID_CAPABILITIES = ['IN_APP_PURCHASE', 'PUSH_NOTIFICATIONS', 'APPLE_ID_AUTH'];
+
+export async function createBundleId(bundleId: string, _name: string, platform: string): Promise<void> {
+  // Name follows Apple convention: "XC com measify archgee" for "com.measify.archgee"
+  const derivedName = `XC ${bundleId.replace(/\./g, ' ')}`;
+
   const result = await run(
     'asc',
-    ['bundle-ids', 'create', '--identifier', bundleId, '--name', name, '--platform', platform],
+    ['bundle-ids', 'create', '--identifier', bundleId, '--name', derivedName, '--platform', platform],
     { label: `Creating bundle ID: ${bundleId}`, allowFailure: true },
   );
   if (result.exitCode !== 0) {
     logger.info(`Bundle ID "${bundleId}" may already exist, continuing...`);
   }
+
+  // Find the bundle ID's resource ID (needed for capabilities API)
+  const resourceId = await findBundleIdResourceId(bundleId);
+  if (!resourceId) {
+    logger.warn('Could not find bundle ID resource ID — skipping capability setup.');
+    return;
+  }
+
+  // Enable capabilities: Sign in with Apple, In-App Purchases, Push Notifications
+  for (const capability of BUNDLE_ID_CAPABILITIES) {
+    await run('asc', [
+      'bundle-ids', 'capabilities', 'add',
+      '--bundle', resourceId,
+      '--capability', capability,
+    ], {
+      label: `Enabling ${capability} on ${bundleId}`,
+      allowFailure: true,
+    });
+  }
+}
+
+async function findBundleIdResourceId(identifier: string): Promise<string | null> {
+  const result = await run('asc', ['bundle-ids', 'list', '--output', 'json'], {
+    label: 'Looking up bundle ID resource ID',
+    allowFailure: true,
+  });
+  if (result.exitCode !== 0 || !result.stdout) return null;
+  try {
+    const data = JSON.parse(result.stdout);
+    const bundles = data?.data ?? data ?? [];
+    for (const b of bundles) {
+      const attrs = b.attributes ?? b;
+      if (attrs.identifier === identifier || attrs.bundleId === identifier) {
+        return b.id;
+      }
+    }
+  } catch {
+    // Fall through
+  }
+  return null;
 }
 
 export async function createApp(config: AppStoreAppConfig): Promise<string> {

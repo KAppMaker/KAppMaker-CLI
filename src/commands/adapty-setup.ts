@@ -263,13 +263,14 @@ function fillProductDefaults(config: AdaptyConfig): void {
     if (!product.ios_product_id) {
       product.ios_product_id = `${appNameLower}.premium.${suffix}.v1.${priceTag}.v1`;
     }
-    // Android product ID: appname.premium.weekly.v1
+    // Android product ID (matches what `create-play-app` creates on Play): appname.premium.weekly.v1
     if (!product.android_product_id) {
       product.android_product_id = `${appNameLower}.premium.${suffix}.v1`;
     }
-    // Android base plan ID: autorenew-weekly-price-v1
-    if (!product.android_base_plan_id) {
-      product.android_base_plan_id = `autorenew-${suffix}-price-v1`;
+    // Android base plan ID (matches what `create-play-app` creates on Play): autorenew-weekly-699-v1
+    // Normalizes the legacy `autorenew-<period>-price-v1` form so old configs get upgraded automatically.
+    if (!product.android_base_plan_id || product.android_base_plan_id === `autorenew-${suffix}-price-v1`) {
+      product.android_base_plan_id = `autorenew-${suffix}-${priceTag}-v1`;
     }
   }
 }
