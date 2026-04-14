@@ -273,11 +273,11 @@ kappmaker gpc
 3. Review summary and confirm
 4. Verify app exists on Play Console (fails fast with a deep link if not — Google does not allow app creation via the public API)
 5. Update app details (default language + contact website/email/phone) inside an edit
-6. Update store listings per locale (title, short/full description, video)
+6. Update store listings per locale (title, short/full description, video). Empty listing titles are auto-filled from `config.app.name`
 7. Commit the edit
-8. Create subscriptions via the new monetization API (`subscriptions` → base plans → activate)
+8. Create subscriptions via the new monetization API (`subscriptions` → base plans → activate). Base plans are made available to all ~175 Play regions; regions without explicit prices get auto-converted pricing from Google
 9. Create one-time in-app products via the new monetization API (`monetization.onetimeproducts.*`) with an activated `default` purchase option
-10. Update data safety declaration. Converts user-facing JSON (`data_safety.answers`) to Google's CSV format via `buildDataSafetyCsv()`, using a bundled canonical template at `src/templates/data-safety-template.json` (extracted from the [fastlane-plugin-google_data_safety](https://github.com/owenbean400/fastlane-plugin-google_data_safety) canonical helper). KAppMaker's default answers mirror the iOS App Store privacy set (USER_ID/DEVICE_ID collected for app functionality, CRASH_DATA/PERFORMANCE_DATA/DIAGNOSTICS/USER_INTERACTION collected for analytics). Escape hatch: `data_safety_csv_path` → path to a Play-Console-exported CSV, uploaded verbatim.
+10. Update data safety declaration. Converts user-facing JSON (`data_safety.answers`) to Google's CSV format via `buildDataSafetyCsv()`, using a bundled canonical template at `src/templates/data-safety-template.json` (extracted from the [fastlane-plugin-google_data_safety](https://github.com/owenbean400/fastlane-plugin-google_data_safety) canonical helper). KAppMaker's default answers mirror the iOS App Store privacy set (USER_ID collected for app functionality + account management; DEVICE_ID collected for app functionality + advertising + account management; CRASH_DATA/PERFORMANCE_DATA/DIAGNOSTICS/USER_INTERACTION collected for analytics). Escape hatch: `data_safety_csv_path` → path to a Play-Console-exported CSV, uploaded verbatim.
     - **Account creation:** `PSL_ACM_NONE` (no account creation)
     - **Data deletion:** omitted (optional question)
     - **App activity:** only App interactions (`PSL_USER_INTERACTION`), NOT "Other app activity"

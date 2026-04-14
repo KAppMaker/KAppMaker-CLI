@@ -27,8 +27,8 @@ const rows = template as unknown as TemplateRow[];
  * as the Play Data Safety schema allows. Review before publishing to production.
  *
  * iOS → Play mapping:
- *   USER_ID               → PSL_USER_ACCOUNT           (Personal info, App functionality)
- *   DEVICE_ID             → PSL_DEVICE_ID              (Identifiers, Analytics)
+ *   USER_ID               → PSL_USER_ACCOUNT           (Personal info, App functionality + Account management)
+ *   DEVICE_ID             → PSL_DEVICE_ID              (Identifiers, App functionality + Advertising + Account management)
  *   CRASH_DATA            → PSL_CRASH_LOGS             (App info, Analytics)
  *   PERFORMANCE_DATA      → PSL_OTHER_PERFORMANCE      (App info, Analytics)
  *   OTHER_DIAGNOSTIC_DATA → PSL_PERFORMANCE_DIAGNOSTICS(App info, Analytics)
@@ -64,6 +64,7 @@ const KAPPMAKER_DEFAULTS: Record<string, boolean | string> = {
   'PSL_DATA_USAGE_RESPONSES:PSL_USER_ACCOUNT:PSL_DATA_USAGE_EPHEMERAL': true,
   'PSL_DATA_USAGE_RESPONSES:PSL_USER_ACCOUNT:DATA_USAGE_USER_CONTROL/PSL_DATA_USAGE_USER_CONTROL_REQUIRED': true,
   'PSL_DATA_USAGE_RESPONSES:PSL_USER_ACCOUNT:DATA_USAGE_COLLECTION_PURPOSE/PSL_APP_FUNCTIONALITY': true,
+  'PSL_DATA_USAGE_RESPONSES:PSL_USER_ACCOUNT:DATA_USAGE_COLLECTION_PURPOSE/PSL_ACCOUNT_MANAGEMENT': true,
 
   // ── Data type: Identifiers / Device ID ────────────────────────────
   'PSL_DATA_TYPES_IDENTIFIERS/PSL_DEVICE_ID': true,
@@ -71,8 +72,9 @@ const KAPPMAKER_DEFAULTS: Record<string, boolean | string> = {
   'PSL_DATA_USAGE_RESPONSES:PSL_DEVICE_ID:PSL_DATA_USAGE_COLLECTION_AND_SHARING/PSL_DATA_USAGE_ONLY_COLLECTED': true,
   'PSL_DATA_USAGE_RESPONSES:PSL_DEVICE_ID:PSL_DATA_USAGE_EPHEMERAL': true,
   'PSL_DATA_USAGE_RESPONSES:PSL_DEVICE_ID:DATA_USAGE_USER_CONTROL/PSL_DATA_USAGE_USER_CONTROL_REQUIRED': true,
-  'PSL_DATA_USAGE_RESPONSES:PSL_DEVICE_ID:DATA_USAGE_COLLECTION_PURPOSE/PSL_ANALYTICS': true,
   'PSL_DATA_USAGE_RESPONSES:PSL_DEVICE_ID:DATA_USAGE_COLLECTION_PURPOSE/PSL_APP_FUNCTIONALITY': true,
+  'PSL_DATA_USAGE_RESPONSES:PSL_DEVICE_ID:DATA_USAGE_COLLECTION_PURPOSE/PSL_ADVERTISING': true,
+  'PSL_DATA_USAGE_RESPONSES:PSL_DEVICE_ID:DATA_USAGE_COLLECTION_PURPOSE/PSL_ACCOUNT_MANAGEMENT': true,
 
   // ── Data type: App info / Crash logs ──────────────────────────────
   'PSL_DATA_TYPES_APP_PERFORMANCE/PSL_CRASH_LOGS': true,

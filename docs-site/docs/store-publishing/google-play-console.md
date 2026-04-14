@@ -30,8 +30,8 @@ kappmaker gpc setup --config ./my-config.json
 4. Verify app exists on Play Console (fails fast with a deep link if not)
 5. Start a Play Console edit (skipped if default-language listing has no title)
 6. Update app details (default language + contact website/email/phone)
-7. Update store listings per locale (title, short/full description, video); commits the edit
-8. Create subscriptions via the new monetization API. Idempotent — existing product IDs are skipped. Skipped if no build is uploaded to any track
+7. Update store listings per locale (title, short/full description, video); commits the edit. Empty listing titles are auto-filled from the app name
+8. Create subscriptions via the new monetization API. Base plans are available to all ~175 Play regions (not just the regions with explicit prices — Google auto-converts pricing for the rest). Idempotent — existing product IDs are skipped. Skipped if no build is uploaded to any track
 9. Create one-time in-app products via the new monetization API. Idempotent
 10. Update the data safety declaration (JSON → CSV conversion using bundled canonical template)
 11. Print a checklist of manual-only Play Console declarations that have no REST endpoints
@@ -126,14 +126,14 @@ kappmaker gpc data-safety push
 
 Default data types collected:
 
-| Data type | Play Question / Response |
-|---|---|
-| User IDs | `PSL_DATA_TYPES_PERSONAL/PSL_USER_ACCOUNT` |
-| Device ID | `PSL_DATA_TYPES_IDENTIFIERS/PSL_DEVICE_ID` |
-| Crash logs | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_CRASH_LOGS` |
-| Diagnostics | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_PERFORMANCE_DIAGNOSTICS` |
-| Other performance | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_OTHER_PERFORMANCE` |
-| App interactions | `PSL_DATA_TYPES_APP_ACTIVITY/PSL_USER_INTERACTION` |
+| Data type | Play Question / Response | Collection purposes |
+|---|---|---|
+| User IDs | `PSL_DATA_TYPES_PERSONAL/PSL_USER_ACCOUNT` | App functionality, Account management |
+| Device ID | `PSL_DATA_TYPES_IDENTIFIERS/PSL_DEVICE_ID` | App functionality, Advertising or marketing, Account management |
+| Crash logs | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_CRASH_LOGS` | Analytics |
+| Diagnostics | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_PERFORMANCE_DIAGNOSTICS` | Analytics |
+| Other performance | `PSL_DATA_TYPES_APP_PERFORMANCE/PSL_OTHER_PERFORMANCE` | Analytics |
+| App interactions | `PSL_DATA_TYPES_APP_ACTIVITY/PSL_USER_INTERACTION` | Analytics |
 
 Default data handling: collected only (not shared), processed ephemerally, collection is required, encrypted in transit.
 

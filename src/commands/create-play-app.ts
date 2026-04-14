@@ -176,6 +176,7 @@ async function loadPlayConfig(configPath?: string): Promise<{ config: GooglePlay
     const config = await fs.readJson(savePath) as GooglePlayConfig;
     migrateLegacyConfig(config);
     await detectAndApplyDefaultLanguage(config);
+    fillListingDefaults(config);
     fillSubscriptionDefaults(config);
     await fs.writeJson(savePath, config, { spaces: 2 });
     return { config, configPath: savePath };
@@ -202,6 +203,7 @@ async function loadPlayConfig(configPath?: string): Promise<{ config: GooglePlay
   // Detect Play's actual default language so the template's en-US placeholder
   // gets rewritten to whatever Play Console reports for the real app.
   await detectAndApplyDefaultLanguage(template);
+  fillListingDefaults(template);
   fillSubscriptionDefaults(template);
 
   await fs.ensureDir(path.dirname(savePath));
@@ -366,6 +368,21 @@ function migrateLegacyConfig(config: GooglePlayConfig): void {
       if (match) {
         sub.product_id = match[1];
       }
+    }
+  }
+}
+
+/**
+ * Auto-fill empty store listing titles from config.app.name. Without a title,
+ * updateListing skips the locale and Play Console falls back to displaying
+ * the package name (e.g. "com.measify.myapp") instead of the app's display name.
+ */
+function fillListingDefaults(config: GooglePlayConfig): void {
+  const appName = config.app.name;
+  if (!appName) return;
+  for (const listing of config.listings) {
+    if (!listing.title || listing.title.trim().length === 0) {
+      listing.title = appName;
     }
   }
 }
