@@ -1,11 +1,11 @@
 ---
 sidebar_position: 6
-title: Image Processing (Split, Remove BG, Enhance)
+title: Image Processing (Split, Remove BG, Enhance, WebP)
 ---
 
 # Image Processing
 
-Split grid images, remove backgrounds, and enhance image quality — all powered by AI. A fal.ai API key is prompted on first use if not already configured.
+Split grid images, remove backgrounds, enhance image quality, and convert images to WebP. AI-powered tools require a fal.ai API key (prompted on first use); the WebP converter runs entirely locally.
 
 ## image-split
 
@@ -62,3 +62,28 @@ kappmaker image-enhance photo.jpg --output improved.png
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--output <path>` | Custom output path | `<filename>_enhanced.png` |
+
+---
+
+## convert-webp
+
+Converts images (PNG, JPG, JPEG, BMP, TIFF, GIF) to WebP format — similar to Android Studio's built-in converter. Runs entirely locally using sharp, no API key needed.
+
+```bash
+kappmaker convert-webp icon.png                                      # Single file
+kappmaker convert-webp app/src/main/res/drawable --recursive         # Entire directory tree
+kappmaker convert-webp assets/ --quality 90 --recursive              # Custom quality
+kappmaker convert-webp assets/ --recursive --delete-originals        # Remove originals after conversion
+kappmaker convert-webp assets/ --output converted/                   # Output to a different directory
+```
+
+Shows before/after file sizes and percentage saved for each file, with a total at the end.
+
+### Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--quality <n>` | WebP quality (0–100) | `75` |
+| `--recursive` | Search directories recursively | `false` |
+| `--delete-originals` | Delete original files after conversion | `false` |
+| `--output <dir>` | Output directory (default: same as source) | — |

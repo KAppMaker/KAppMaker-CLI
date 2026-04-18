@@ -103,6 +103,7 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [`gpc`](#gpc) — Google Play Console management
   - [`adapty setup`](#adapty-setup)
   - [Image Tools](#image-tools)
+  - [`convert-webp`](#convert-webp-source)
   - [`translate-screenshots`](#translate-screenshots-source-dir)
   - [`generate-screenshots`](#generate-screenshots)
   - [`fastlane configure`](#fastlane-configure)
@@ -132,6 +133,7 @@ Claude will check your config, verify API keys are set, and walk you through any
 | [`kappmaker image-split <image>`](#image-split-source) | Split a grid image into individual tiles |
 | [`kappmaker image-remove-bg <image>`](#image-remove-bg-source) | Remove background from an image (fal.ai) |
 | [`kappmaker image-enhance <image>`](#image-enhance-source) | Upscale and enhance image quality (fal.ai) |
+| [`kappmaker convert-webp <source>`](#convert-webp-source) | Convert images (PNG, JPG, BMP, TIFF, GIF) to WebP |
 | [`kappmaker translate-screenshots [dir]`](#translate-screenshots-source-dir) | Translate screenshots to multiple locales (fal.ai) |
 | [`kappmaker generate-screenshots`](#generate-screenshots) | Generate marketing screenshots with AI (OpenAI + fal.ai) |
 | [`kappmaker fastlane configure`](#fastlane-configure) | Set up Fastlane in the mobile app directory |
@@ -155,7 +157,7 @@ These commands are standalone and don't depend on any specific boilerplate:
 - **Google Play Console setup** — Push store listings, subscriptions (new monetization API), one-time in-app products, and the data safety declaration via a built-in wrapper around the Play Publisher API — no external CLI, no extra dependencies
 - **Adapty subscription setup** — Create products, paywalls, and placements for iOS and Android
 - **Version bumping** — Increment Android and iOS version codes and names in one command
-- **Image tools** — Split grids, remove backgrounds, enhance quality
+- **Image tools** — Split grids, remove backgrounds, enhance quality, convert to WebP
 
 ### KAppMaker boilerplate-specific
 
@@ -730,6 +732,31 @@ kappmaker image-enhance photo.jpg --output improved.png
 
 ---
 
+## `convert-webp <source>`
+
+Converts images (PNG, JPG, JPEG, BMP, TIFF, GIF) to WebP format using sharp — similar to Android Studio's built-in PNG-to-WebP converter. No API key needed; runs entirely locally.
+
+```bash
+kappmaker convert-webp icon.png                                      # Single file
+kappmaker convert-webp app/src/main/res/drawable --recursive         # Entire directory tree
+kappmaker convert-webp assets/ --quality 90 --recursive              # Custom quality
+kappmaker convert-webp assets/ --recursive --delete-originals        # Remove originals after conversion
+kappmaker convert-webp assets/ --output converted/                   # Output to a different directory
+```
+
+Shows before/after file sizes and percentage saved for each file, with a total at the end.
+
+### Options
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--quality <n>` | WebP quality (0–100) | `75` |
+| `--recursive` | Search directories recursively | `false` |
+| `--delete-originals` | Delete original files after conversion | `false` |
+| `--output <dir>` | Output directory (default: same directory as source) | — |
+
+---
+
 ## `translate-screenshots [source-dir]`
 
 Translates app screenshots into multiple locales using fal.ai and saves to Fastlane distribution directories.
@@ -1060,6 +1087,7 @@ src/
     split.ts                # Grid image splitter
     remove-bg.ts            # Background removal
     enhance.ts              # Image quality enhancement
+    convert-webp.ts         # PNG/JPG/BMP/TIFF/GIF to WebP conversion
     translate-screenshots.ts # Screenshot translation
     generate-screenshots.ts # AI screenshot generation
     fastlane-configure.ts   # Set up Fastlane (Gemfile + Fastfile + bundle install)

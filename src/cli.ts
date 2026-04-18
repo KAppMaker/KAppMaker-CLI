@@ -27,6 +27,7 @@ import { generateKeystoreCommand } from './commands/generate-keystore.js';
 import { androidReleaseBuild } from './commands/android-release-build.js';
 import { publishCommand } from './commands/publish.js';
 import { fastlaneConfigure } from './commands/fastlane-configure.js';
+import { convertWebp } from './commands/convert-webp.js';
 
 export function createCli(): Command {
   const program = new Command();
@@ -34,7 +35,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('0.1.0');
+    .version('1.3.0');
 
   program
     .command('create')
@@ -168,6 +169,23 @@ export function createCli(): Command {
         resolution: options.resolution,
         outputFormat: options.outputFormat,
         reference: options.reference,
+      });
+    });
+
+  program
+    .command('convert-webp')
+    .description('Convert images (PNG, JPG, BMP, TIFF, GIF) to WebP format')
+    .argument('<source>', 'Path to an image file or directory containing images')
+    .option('--quality <n>', 'WebP quality (0-100, default 75)', '75')
+    .option('--recursive', 'Search directories recursively', false)
+    .option('--delete-originals', 'Delete original PNG files after conversion', false)
+    .option('--output <dir>', 'Output directory (default: same directory as source)')
+    .action(async (source: string, options) => {
+      await convertWebp(source, {
+        quality: options.quality,
+        recursive: options.recursive,
+        deleteOriginals: options.deleteOriginals,
+        output: options.output,
       });
     });
 

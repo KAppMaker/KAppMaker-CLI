@@ -1,6 +1,6 @@
 ---
 name: kappmaker
-description: KAppMaker CLI - automate mobile app bootstrapping, AI logo/screenshot generation, App Store Connect setup, Google Play Console setup, Adapty subscriptions, image tools, Android builds, store publishing, package refactoring, and version bumping. Use when the user wants to create a mobile app, generate logos, screenshots, translate screenshots, set up App Store Connect, configure Google Play Console (listings, subscriptions, IAPs, data safety), configure Adapty, process images, build Android releases, generate keystores, publish to Play Store or App Store, refactor package names, or bump versions.
+description: KAppMaker CLI - automate mobile app bootstrapping, AI logo/screenshot generation, App Store Connect setup, Google Play Console setup, Adapty subscriptions, image tools, Android builds, store publishing, package refactoring, and version bumping. Use when the user wants to create a mobile app, generate logos, screenshots, translate screenshots, set up App Store Connect, configure Google Play Console (listings, subscriptions, IAPs, data safety), configure Adapty, process images, convert images to WebP, build Android releases, generate keystores, publish to Play Store or App Store, refactor package names, or bump versions.
 argument-hint: "[command or description]"
 ---
 
@@ -32,6 +32,7 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 | Split a grid image | `kappmaker image-split <image>` |
 | Remove image background | `kappmaker image-remove-bg <image>` |
 | Enhance image quality | `kappmaker image-enhance <image>` |
+| Convert images to WebP | `kappmaker convert-webp <source>` |
 | Set up Fastlane | `kappmaker fastlane configure` |
 | Publish to Play Store / App Store | `kappmaker publish` |
 | Generate Android keystore | `kappmaker generate-keystore` |
@@ -299,6 +300,22 @@ All three systems (ASC, Play, Adapty) use the same generator so the IDs align au
 **Syntax**: `kappmaker image-enhance <source> [--output <path>]`
 
 **Prerequisites**: `falApiKey` (prompted on first use if not set).
+
+---
+
+### convert-webp — Image to WebP Conversion
+
+**Syntax**: `kappmaker convert-webp <source> [options]`
+
+**Options**:
+- `--quality <n>` — WebP quality, 0–100 (default: 75)
+- `--recursive` — Search directories recursively (default: false)
+- `--delete-originals` — Delete original files after conversion (default: false)
+- `--output <dir>` — Output directory (default: same directory as source)
+
+**Prerequisites**: None (uses local sharp library, no API key needed).
+
+**What it does**: Converts PNG, JPG, JPEG, BMP, TIFF, and GIF images to WebP format — similar to Android Studio's built-in converter. Shows before/after file sizes and percentage saved for each file. Works on single files or entire directories (with `--recursive`).
 
 ---
 

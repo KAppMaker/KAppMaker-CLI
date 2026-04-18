@@ -65,6 +65,8 @@ npx tsx src/index.ts refactor --app-id com.example.myapp --app-name MyApp  # Ful
 npx tsx src/index.ts refactor --app-id com.example.myapp --app-name MyApp --skip-package-rename  # IDs only
 npx tsx src/index.ts update-version                # Bump patch version + versionCode on both platforms
 npx tsx src/index.ts update-version -v 2.0.0       # Set explicit version name
+npx tsx src/index.ts convert-webp <image-or-dir>                           # Convert PNG/JPG/BMP/TIFF/GIF to WebP
+npx tsx src/index.ts convert-webp <dir> --recursive --quality 90           # Batch convert recursively
 ```
 
 ## Custom Template Support
@@ -131,6 +133,7 @@ src/
     split.ts                # image-split — grid image splitter
     remove-bg.ts            # image-remove-bg — background removal (fal.ai bria)
     enhance.ts              # image-enhance — upscale quality (fal.ai nano-banana-2/edit)
+    convert-webp.ts         # convert-webp — PNG/JPG/BMP/TIFF/GIF to WebP (sharp, no API key needed)
     translate-screenshots.ts  # Screenshot translation to multiple locales (fal.ai)
     generate-screenshots.ts   # AI screenshot generation (OpenAI + fal.ai)
     fastlane-configure.ts   # Set up Fastlane (Gemfile + Fastfile + bundle install)
