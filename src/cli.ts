@@ -19,6 +19,7 @@ import {
   gpcDataSafetyPush,
 } from './commands/gpc.js';
 import { generateScreenshots } from './commands/generate-screenshots.js';
+import { generateImage } from './commands/generate-image.js';
 import { adaptySetup } from './commands/adapty-setup.js';
 import { updateVersion } from './commands/update-version.js';
 import { refactorCommand } from './commands/refactor.js';
@@ -48,6 +49,7 @@ export function createCli(): Command {
   program
     .command('create-logo')
     .description('Generate an app logo using AI (fal.ai)')
+    .option('--prompt <text>', 'App idea / concept (skips the interactive prompt)')
     .option('--output <path>', 'Custom output path for the logo')
     .action(async (options) => {
       await createLogo(options);
@@ -144,6 +146,28 @@ export function createCli(): Command {
         rows: parseInt(options.rows, 10),
         cols: parseInt(options.cols, 10),
         pollInterval: parseInt(options.pollInterval, 10),
+      });
+    });
+
+  program
+    .command('generate-image')
+    .description('Generate an image using AI (fal.ai nano-banana-2)')
+    .requiredOption('--prompt <text>', 'Text prompt describing the image to generate')
+    .option('--output <path>', 'Output file or directory (default: Assets/generated.png)')
+    .option('--num-images <n>', 'Number of images to generate (1-8)', '1')
+    .option('--aspect-ratio <ratio>', 'Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9, 9:21, auto', '1:1')
+    .option('--resolution <res>', 'Resolution: 1K, 2K, 4K', '2K')
+    .option('--output-format <fmt>', 'Output format: png, jpg, webp', 'png')
+    .option('--reference <paths...>', 'Reference images: file paths, directories, or HTTP URLs (switches to edit mode, max 10)')
+    .action(async (options) => {
+      await generateImage({
+        prompt: options.prompt,
+        output: options.output,
+        numImages: parseInt(options.numImages, 10),
+        aspectRatio: options.aspectRatio,
+        resolution: options.resolution,
+        outputFormat: options.outputFormat,
+        reference: options.reference,
       });
     });
 

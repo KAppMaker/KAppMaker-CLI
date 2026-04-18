@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'fs-extra';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
-import type { FalQueueResponse } from '../types/index.js';
+import type { FalQueueResponse, ImageGenerationParams } from '../types/index.js';
 
 const FAL_NANO_BANANA_URL = 'https://queue.fal.run/fal-ai/nano-banana-2';
 const FAL_NANO_BANANA_EDIT_URL = 'https://queue.fal.run/fal-ai/nano-banana-2/edit';
@@ -41,6 +41,63 @@ export async function submitGeneration(
   }
 
   return (await response.json()) as FalQueueResponse;
+}
+
+// ── Generic image generation (with optional reference images) ──────
+
+export async function submitImageGeneration(
+  apiKey: string,
+  params: ImageGenerationParams,
+): Promise<FalQueueResponse> {
+  const hasRefs = params.imageUrls && params.imageUrls.length > 0;
+  const endpoint = hasRefs ? FAL_NANO_BANANA_EDIT_URL : FAL_NANO_BANANA_URL;
+
+  const payload: Record<string, unknown> = {
+    prompt: params.prompt,
+    num_images: params.numImages ?? 1,
+    resolution: params.resolution ?? '2K',
+    output_format: params.outputFormat ?? 'png',
+    aspect_ratio: params.aspectRatio ?? '1:1',
+    safety_tolerance: '6',
+  };
+
+  if (hasRefs) {
+    payload.image_urls = params.imageUrls;
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: headers(apiKey),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    logger.fatal(`fal.ai image generation failed (${response.status}): ${body}`);
+    process.exit(1);
+  }
+
+  return (await response.json()) as FalQueueResponse;
+}
+
+export async function fetchAllResults(
+  apiKey: string,
+  responseUrl: string,
+): Promise<string[]> {
+  const res = await fetch(responseUrl, { headers: headers(apiKey) });
+  if (!res.ok) {
+    logger.fatal(`Failed to fetch result (${res.status})`);
+    process.exit(1);
+  }
+
+  const data = (await res.json()) as { images?: { url: string }[]; image?: { url: string } };
+  const urls = data.images?.map((i) => i.url) ?? (data.image ? [data.image.url] : []);
+  if (urls.length === 0) {
+    logger.fatal('No image URLs in fal.ai response');
+    process.exit(1);
+  }
+
+  return urls;
 }
 
 // ── Screenshot generation (with optional reference images) ──────────

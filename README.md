@@ -15,7 +15,7 @@ A single `kappmaker create` command can:
 - Set up the build environment (Android SDK, CocoaPods)
 - Produce a signed Android release build (AAB) via Fastlane, ready to upload to Google Play
 
-On top of that, standalone commands let you generate marketing screenshots from a text description, translate screenshots to 48+ locales in parallel, remove image backgrounds, enhance image quality, and split grid images — all powered by AI.
+On top of that, standalone commands let you generate marketing screenshots from a text description, translate screenshots to 48+ locales in parallel, generate arbitrary images with AI, remove image backgrounds, enhance image quality, and split grid images — all powered by AI.
 
 By default it uses the [KAppMaker](https://kappmaker.com) boilerplate (Kotlin Multiplatform), but you can bring your own template repository via `--template-repo` or `kappmaker config set templateRepo <your-repo-url>`. Boilerplate-specific steps (Gradle refactor, Fastlane build, CocoaPods) are automatically detected and skipped with a warning when using a custom template.
 
@@ -98,6 +98,7 @@ Claude will check your config, verify API keys are set, and walk you through any
 - [Commands](#commands)
   - [`create <app-name>`](#create-app-name)
   - [`create-logo`](#create-logo)
+  - [`generate-image`](#generate-image)
   - [`create-appstore-app`](#create-appstore-app)
   - [`gpc`](#gpc) — Google Play Console management
   - [`adapty setup`](#adapty-setup)
@@ -119,6 +120,7 @@ Claude will check your config, verify API keys are set, and walk you through any
 |---------|-------------|
 | [`kappmaker create <app-name>`](#create-app-name) | Full end-to-end app setup (Firebase, logo, App Store Connect, Google Play Console, Adapty, release build) |
 | [`kappmaker create-logo`](#create-logo) | Generate an app logo with AI (fal.ai) |
+| [`kappmaker generate-image`](#generate-image) | Generate an arbitrary image with AI — generic wrapper around fal.ai nano-banana-2 |
 | [`kappmaker create-appstore-app`](#create-appstore-app) | Set up an app on App Store Connect (metadata, subscriptions, privacy) |
 | [`kappmaker gpc setup`](#gpc) | Set up an existing app on Google Play Console (listings, subscriptions, IAPs, data safety) |
 | [`kappmaker gpc listings push`](#gpc) | Push store listings from the Google Play config file |
@@ -331,11 +333,12 @@ Generates an app logo using fal.ai's nano-banana-2 model.
 
 ```bash
 kappmaker create-logo
+kappmaker create-logo --prompt "A minimalist fitness tracker for runners"
 kappmaker create-logo --output ./custom/path/logo.png
 ```
 
 **Flow:**
-1. Prompts for app idea / description
+1. Reads app idea from `--prompt` (or prompts interactively if omitted)
 2. Generates a 4x4 grid of 16 logo variations (2K, 1:1)
 3. Opens grid in Preview.app for review
 4. Pick a logo (1-16) or R to regenerate — optional: `5 --zoom 1.1 --gap 3`
@@ -347,7 +350,42 @@ Requires a fal.ai API key (prompted on first use if not set, or set manually: `k
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--prompt <text>` | App idea / concept (skips the interactive prompt) | — |
 | `--output <path>` | Custom output path | `Assets/app_logo.png` |
+
+---
+
+## `generate-image`
+
+Generic AI image generator — a thin wrapper around fal.ai's `nano-banana-2` (text-to-image) and `nano-banana-2/edit` (with reference images). Use this any time you need a one-off image without the logo-grid selection flow.
+
+```bash
+kappmaker generate-image --prompt "A minimalist mountain landscape at sunset"
+kappmaker generate-image --prompt "Hero banner for a meditation app" --aspect-ratio 16:9 --resolution 4K
+kappmaker generate-image --prompt "Product render" --num-images 4 --output Assets/hero
+kappmaker generate-image --prompt "Put this logo on a black t-shirt" --reference Assets/app_logo.png
+kappmaker generate-image --prompt "Blend these into a single composition" --reference Assets/moodboard
+kappmaker generate-image --prompt "Match this product shot" --reference https://example.com/ref.jpg
+```
+
+**Reference images (edit mode):** Passing `--reference` switches the endpoint from `nano-banana-2` (text-to-image) to `nano-banana-2/edit` (reference-guided). Each entry can be a **file path**, a **directory** (all png/jpg/jpeg/webp inside are picked up, sorted, non-recursive), or an **HTTP(S) URL**. Max 10 references total. If `imgbbApiKey` is configured, local files are uploaded to imgbb for reliable URLs; otherwise they are sent inline as data URIs (fine for small images, can fail on very large ones).
+
+**Output path behavior:**
+- No `--output` → `Assets/generated.png` (single) or `Assets/generated_1.png`, `_2.png`… (multi)
+- `--output <dir>` (no extension) → saves into that directory
+- `--output <file.png>` → single image uses path verbatim; multi-image appends `_1`, `_2` before extension
+
+Requires a fal.ai API key (prompted on first use if not set).
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--prompt <text>` | Text description of the image (required) | — |
+| `--output <path>` | Output file or directory | `Assets/generated.png` |
+| `--num-images <n>` | Number of images to generate (1–8) | `1` |
+| `--aspect-ratio <ratio>` | `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9`, `9:21`, `auto` | `1:1` |
+| `--resolution <res>` | `1K`, `2K`, `4K` | `2K` |
+| `--output-format <fmt>` | `png`, `jpg`, `webp` | `png` |
+| `--reference <paths...>` | Reference images — file paths, directories, or HTTP URLs (edit mode, max 10) | — |
 
 ---
 
@@ -1013,7 +1051,8 @@ src/
   cli.ts                    # Command registration (Commander.js)
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
-    create-logo.ts          # AI logo generation
+    create-logo.ts          # AI logo generation (accepts --prompt or interactive)
+    generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator)
     create-play-app.ts      # Google Play Console setup (11-step orchestrator, aliased by `gpc setup`)
     gpc.ts                  # kappmaker gpc subcommands (setup, listings, subscriptions, iap, data-safety, app-check)

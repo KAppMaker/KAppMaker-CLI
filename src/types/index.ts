@@ -40,6 +40,7 @@ export interface KAppMakerConfig {
 
 export interface CreateLogoOptions {
   output?: string;
+  prompt?: string;
 }
 
 export interface SplitOptions {
@@ -90,4 +91,23 @@ export interface FalQueueResponse {
   request_id: string;
   status_url: string;
   response_url: string;
+}
+
+export interface GenerateImageOptions {
+  prompt: string;
+  output?: string;
+  numImages?: number;
+  aspectRatio?: string;
+  resolution?: string;
+  outputFormat?: string;
+  reference?: string[];
+}
+
+export interface ImageGenerationParams {
+  prompt: string;
+  imageUrls?: string[];
+  numImages?: number;
+  resolution?: string;
+  aspectRatio?: string;
+  outputFormat?: string;
 }

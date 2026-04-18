@@ -36,7 +36,8 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 npm run dev          # Run with tsx (no build needed)
 npm run build        # Compile TypeScript to dist/
 npx tsx src/index.ts create <AppName>              # Full end-to-end app setup (13 steps)
-npx tsx src/index.ts create-logo                   # Logo generation
+npx tsx src/index.ts create-logo [--prompt "..."]  # Logo generation (--prompt skips interactive input)
+npx tsx src/index.ts generate-image --prompt "..." # Generic AI image generator (fal.ai nano-banana-2)
 npx tsx src/index.ts image-split <image> [opts]    # Split grid image (--keep 1,3 to filter)
 npx tsx src/index.ts image-remove-bg <image>       # Remove background
 npx tsx src/index.ts image-enhance <image>         # Enhance quality
@@ -121,7 +122,8 @@ src/
   cli.ts                    # Commander.js program setup
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
-    create-logo.ts          # Logo generation (fal.ai + sharp)
+    create-logo.ts          # Logo generation (fal.ai + sharp); accepts --prompt to skip interactive input
+    generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2; --prompt, --num-images, --aspect-ratio, --resolution, --reference)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator via asc CLI)
     create-play-app.ts      # Google Play Console setup (11-step orchestrator via direct Publisher API)
     gpc.ts                  # kappmaker gpc subcommands: setup, app-check, listings, subscriptions, iap, data-safety

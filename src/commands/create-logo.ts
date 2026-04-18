@@ -27,8 +27,10 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
     logger.success('falApiKey saved to config.');
   }
 
-  const appIdea = await promptInput('Describe your app idea (concept, audience, style preferences): ');
-  if (!appIdea.trim()) {
+  const appIdea = options.prompt?.trim()
+    ? options.prompt.trim()
+    : (await promptInput('Describe your app idea (concept, audience, style preferences): ')).trim();
+  if (!appIdea) {
     logger.fatal('App idea cannot be empty.');
     process.exit(1);
   }
@@ -46,7 +48,7 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
   while (selection === null) {
     // Generate
     logger.step(1, 3, 'Generating logo grid');
-    const prompt = buildLogoPrompt(appIdea.trim());
+    const prompt = buildLogoPrompt(appIdea);
     const queue = await fal.submitGeneration(config.falApiKey, prompt);
     await fal.pollUntilComplete(config.falApiKey, queue.status_url, {
       label: 'Generating logos — this usually takes 1–2 minutes',
