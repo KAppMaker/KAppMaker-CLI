@@ -1,0 +1,14 @@
+{
+  "name": "KAppMaker-CLI",
+  "owner": {
+    "name": "KAppMaker",
+    "url": "https://kappmaker.com"
+  },
+  "plugins": [
+    {
+      "name": "kappmaker",
+      "source": "./",
+      "description": "KAppMaker CLI skill for Claude Code — automate mobile app bootstrapping, AI logo/image/screenshot generation, App Store Connect setup, Google Play Console setup, Adapty subscriptions, Android builds, and store publishing."
+    }
+  ]
+}
