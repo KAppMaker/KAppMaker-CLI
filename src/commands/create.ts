@@ -104,11 +104,16 @@ export async function createApp(
     logger.step(5, TOTAL_STEPS, 'Enabling anonymous authentication');
     await firebase.enableAnonymousAuth(config.firebaseProject);
 
-    // Step 6: Download SDK configs
+    // Step 6: Download SDK configs.
+    // AGP 9 split: google-services.json must live in the :androidApp module (where the
+    // google-services plugin is applied). Fall back to the legacy :composeApp location
+    // for projects that still combine KMP + com.android.application in one module.
     logger.step(6, TOTAL_STEPS, 'Downloading Firebase SDK configs');
-    const androidConfigPath = path.join(
-      ctx.mobileDir, 'composeApp', 'google-services.json',
-    );
+    const androidAppDir = path.join(ctx.mobileDir, 'androidApp');
+    const composeAppDir = path.join(ctx.mobileDir, 'composeApp');
+    const androidConfigPath = (await fs.pathExists(androidAppDir))
+      ? path.join(androidAppDir, 'google-services.json')
+      : path.join(composeAppDir, 'google-services.json');
     const iosConfigPath = path.join(
       ctx.mobileDir, 'iosApp', 'iosApp', 'GoogleService-Info.plist',
     );

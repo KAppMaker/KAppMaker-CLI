@@ -28,10 +28,10 @@ Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` 
 
 ## Full Refactor (default)
 
-1. Renames Kotlin package names in all source sets (commonMain, androidMain, iosMain, etc.)
-2. Moves package directories to match the new package structure
-3. Updates Gradle build files, Firebase configs, iOS project files, and GitHub workflows
-4. Updates the app display name in manifests, settings, and platform-specific files
+1. Renames Kotlin package names in all source sets (`commonMain`, `androidMain`, `iosMain`, `jvmMain`, `webMain`, etc.) plus standalone entry-point modules' `src/main/kotlin` and `src/wasmJsMain/kotlin` (post-AGP-9 Path C layout).
+2. Moves package directories to match the new package structure across every Gradle module: `shared` (the KMP library), `androidApp`, `desktopApp`, `webApp`, `designsystem`, and the `libs/auth/*`, `libs/subscription/*` libraries. Pre-rename projects with `composeApp/` are walked too so the same command works on either layout.
+3. Updates Gradle build files, Firebase configs (`androidApp/google-services.json` on AGP 9, `composeApp/google-services.json` on legacy projects), iOS project files, and GitHub workflows.
+4. Updates the app display name in manifests (`androidApp/src/main/AndroidManifest.xml`), the web entry HTML (`webApp/src/wasmJsMain/resources/index.html`), settings, and platform-specific files.
 
 ## Skip-Package-Rename Mode
 

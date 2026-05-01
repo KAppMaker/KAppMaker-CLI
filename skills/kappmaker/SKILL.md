@@ -380,7 +380,7 @@ Run from the project root or inside `MobileApp/`.
 
 **What it does**:
 1. Generates keystore if `distribution/android/keystore/keystore.properties` doesn't exist
-2. Builds AAB via `./gradlew :composeApp:bundleRelease`
+2. Builds AAB via `./gradlew :androidApp:bundleRelease`
 3. Copies AAB to output directory
 4. Logs path to the built AAB
 
@@ -420,7 +420,7 @@ kappmaker refactor --app-id com.new.app --app-name NewApp --old-app-id com.previ
 **Prerequisites**: None. Run from the project root (containing `MobileApp/`) or inside `MobileApp/`.
 
 **What it updates**:
-- Android: `versionCode` (+1) and `versionName` in `composeApp/build.gradle.kts`
+- Android: `versionCode` (+1) and `versionName` in `androidApp/build.gradle.kts`
 - iOS: `CURRENT_PROJECT_VERSION` (+1) and `MARKETING_VERSION` in `project.pbxproj` + `Info.plist`
 
 If a platform's files are missing, that platform is skipped with a warning.

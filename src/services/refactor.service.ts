@@ -17,14 +17,31 @@ const SOURCE_DIRS = [
   'src/nonWebMain/kotlin',
   'src/jsMain/kotlin',
   'src/wasmJsMain/kotlin',
+  // AGP 9 split: :androidApp is a plain Android application module that uses
+  // the standard `src/main/kotlin` layout (not KMP source sets).
+  'src/main/kotlin',
 ];
 
 const FILE_EXTENSIONS = ['kt', 'kts', 'gradle', 'xml', 'json'];
 
 // All Gradle modules that may contain Kotlin sources needing refactoring.
 // Each module gets its source directories renamed and imports updated.
+//
+// AGP 9 migration (Path C from the JetBrains kotlin-tooling-agp9-migration skill):
+// each platform entry point now lives in its own module:
+//   - androidApp  — Android Application (MainActivity, AndroidApp, AndroidManifest.xml,
+//                   google-services.json, signing/buildTypes, applicationId)
+//   - desktopApp  — JVM Desktop Application (main.kt, compose.desktop.application config)
+//   - webApp      — Wasm/JS browser entry (main.kt, index.html, webpack/devServer config)
+//   - shared      — Shared KMP library (com.android.kotlin.multiplatform.library) holding
+//                   commonMain + per-platform actuals. Older KAppMaker templates called
+//                   this `composeApp`; both names are walked so refactor works on either.
 const REFACTOR_MODULES = [
+  'shared',
   'composeApp',
+  'androidApp',
+  'desktopApp',
+  'webApp',
   'designsystem',
   'libs/auth/auth-api',
   'libs/auth/auth-firebase',
@@ -118,23 +135,35 @@ async function updateGradleFiles(
 async function updateApplicationIdOnly(
   mobileDir: string, newId: string,
 ): Promise<void> {
-  const buildFile = path.join(mobileDir, 'composeApp', 'build.gradle.kts');
-  if (!(await fs.pathExists(buildFile))) return;
-  const content = await fs.readFile(buildFile, 'utf8');
-  const updated = content.replace(
-    /applicationId\s*=\s*["'][^"']+["']/,
-    'applicationId = "' + newId + '"',
-  );
-  if (content !== updated) {
-    await fs.writeFile(buildFile, updated, 'utf8');
-    logger.info('Updated applicationId in build.gradle.kts');
+  // AGP 9 split: applicationId now lives in :androidApp/build.gradle.kts. Fall back to the
+  // legacy :composeApp location for projects that haven't been migrated yet.
+  const candidates = [
+    path.join(mobileDir, 'androidApp', 'build.gradle.kts'),
+    path.join(mobileDir, 'composeApp', 'build.gradle.kts'),
+  ];
+  for (const buildFile of candidates) {
+    if (!(await fs.pathExists(buildFile))) continue;
+    const content = await fs.readFile(buildFile, 'utf8');
+    if (!/applicationId\s*=/.test(content)) continue;
+    const updated = content.replace(
+      /applicationId\s*=\s*["'][^"']+["']/,
+      'applicationId = "' + newId + '"',
+    );
+    if (content !== updated) {
+      await fs.writeFile(buildFile, updated, 'utf8');
+      logger.info('Updated applicationId in ' + path.relative(mobileDir, buildFile));
+    }
+    return;
   }
 }
 
 async function updateFirebaseConfigs(
   mobileDir: string, oldId: string, newId: string,
 ): Promise<void> {
+  // AGP 9 split moves google-services.json from :composeApp to :androidApp. Touch both so
+  // newer projects (AGP 9) and legacy ones both refactor cleanly.
   const files = [
+    'androidApp/google-services.json',
     'composeApp/google-services.json',
     'iosApp/iosApp/GoogleService-Info.plist',
   ];
@@ -193,14 +222,26 @@ async function cleanUpOldDirectories(
 async function updateAppName(
   mobileDir: string, oldName: string, newName: string,
 ): Promise<void> {
+  // Path C of the JetBrains AGP 9 migration moved manifests/main.kt out of the shared library
+  // (`shared/`, formerly `composeApp/`) into dedicated entry-point modules. Touch every old
+  // and new location so the refactor stays idempotent across all three layouts:
+  //   - latest:    shared/ + androidApp/ + desktopApp/ + webApp/
+  //   - mid-AGP9:  composeApp/ + androidApp/ + desktopApp/ + webApp/
+  //   - legacy:    composeApp/ alone (KMP + com.android.application in one module)
   const files = [
+    // Latest Path C locations
+    'androidApp/src/main/AndroidManifest.xml',
+    'desktopApp/src/main/kotlin/com/measify/kappmaker/main.kt',
+    'webApp/src/wasmJsMain/resources/index.html',
+    'shared/src/jvmMain/kotlin/com/measify/kappmaker/util/AppUtilImpl.jvm.kt',
+    // Pre-rename / legacy fallbacks
     'composeApp/src/androidMain/AndroidManifest.xml',
-    'settings.gradle.kts',
-    'iosApp/iosApp.xcodeproj/project.pbxproj',
-    '.github/workflows/publish_ios_appstore.yml',
     'composeApp/src/webMain/resources/index.html',
     'composeApp/src/jvmMain/kotlin/com/measify/kappmaker/main.kt',
     'composeApp/src/jvmMain/kotlin/com/measify/kappmaker/util/AppUtilImpl.jvm.kt',
+    'settings.gradle.kts',
+    'iosApp/iosApp.xcodeproj/project.pbxproj',
+    '.github/workflows/publish_ios_appstore.yml',
   ];
   for (const f of files) {
     if (await replaceInFile(path.join(mobileDir, f), oldName, newName)) {

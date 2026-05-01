@@ -37,14 +37,21 @@ export async function androidReleaseBuild(options: AndroidReleaseBuildOptions): 
     await generateKeystore(mobileDir, firstName, organization || '', options.output);
   }
 
+  // AGP 9: Android application moved from :composeApp to :androidApp. Pick whichever
+  // module exists so the CLI works on both new and legacy layouts.
+  const useAndroidApp = await fs.pathExists(path.join(mobileDir, 'androidApp', 'build.gradle.kts'));
+  const appModule = useAndroidApp ? 'androidApp' : 'composeApp';
+
   // Build AAB
-  await run('./gradlew', [':composeApp:bundleRelease'], {
+  await run('./gradlew', [`:${appModule}:bundleRelease`], {
     cwd: mobileDir,
     label: 'Building Android release AAB (this may take a few minutes)',
   });
 
   // Copy AAB to output directory
-  const builtAab = path.join(mobileDir, 'composeApp', 'build', 'outputs', 'bundle', 'release', 'composeApp-release.aab');
+  const builtAab = path.join(
+    mobileDir, appModule, 'build', 'outputs', 'bundle', 'release', `${appModule}-release.aab`,
+  );
   if (!(await fs.pathExists(builtAab))) {
     logger.error(`AAB not found at expected path: ${builtAab}`);
     process.exit(1);

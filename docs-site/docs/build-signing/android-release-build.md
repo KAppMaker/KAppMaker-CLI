@@ -28,7 +28,7 @@ Run from the project root (containing `MobileApp/`) or inside `MobileApp/` direc
 ## What it Does
 
 1. Generates keystore if `distribution/android/keystore/keystore.properties` doesn't exist
-2. Runs `./gradlew :composeApp:bundleRelease`
+2. Runs `./gradlew :androidApp:bundleRelease` (falls back to `:composeApp:bundleRelease` for legacy pre-AGP-9 layouts)
 3. Copies the AAB to the output directory
 
 **Output:** `distribution/android/app-release.aab` (or custom `--output` path)

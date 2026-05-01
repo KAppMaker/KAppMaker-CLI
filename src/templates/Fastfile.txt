@@ -2,12 +2,22 @@ platform :android do
   desc "Build and upload Android app to Google Play"
 
   root_dir = File.expand_path("..", __dir__)
-  gradle_file = File.read(File.join(root_dir, "composeApp/build.gradle.kts"))
-  package_name = gradle_file[/applicationId\s*=\s*"([^"]+)"/, 1]
+  # AGP 9 split: applicationId now lives in :androidApp/build.gradle.kts. Fall back to
+  # the legacy :composeApp location for projects that haven't been migrated yet.
+  android_build_candidates = [
+    File.join(root_dir, "androidApp/build.gradle.kts"),
+    File.join(root_dir, "composeApp/build.gradle.kts"),
+  ]
+  android_build_file = android_build_candidates.find { |f| File.exist?(f) }
+  UI.user_error!("Could not find Android build.gradle.kts in androidApp/ or composeApp/") if android_build_file.nil?
+  package_name = File.read(android_build_file)[/applicationId\s*=\s*"([^"]+)"/, 1]
 
   if package_name.nil?
-    UI.user_error!("Could not detect applicationId from composeApp/build.gradle.kts")
+    UI.user_error!("Could not detect applicationId from #{android_build_file}")
   end
+
+  # Determine which Gradle module owns the Android application.
+  android_app_module = android_build_file.include?("/androidApp/") ? "androidApp" : "composeApp"
 
   UI.message("Detected package name: #{package_name}")
 
@@ -65,10 +75,10 @@ platform :android do
 
     # Step 2: Build AAB
     UI.message("Building Android AAB...")
-    sh("cd #{root_dir} && ./gradlew :composeApp:bundleRelease")
+    sh("cd #{root_dir} && ./gradlew :#{android_app_module}:bundleRelease")
 
     # Step 3: Copy AAB to distribution/android
-    built_aab = File.join(root_dir, "composeApp/build/outputs/bundle/release/composeApp-release.aab")
+    built_aab = File.join(root_dir, "#{android_app_module}/build/outputs/bundle/release/#{android_app_module}-release.aab")
     UI.user_error!("No AAB found at #{built_aab}") unless File.exist?(built_aab)
 
     FileUtils.mkdir_p(aab_output_dir)
@@ -101,10 +111,10 @@ platform :android do
 
     # Build AAB
     UI.message("Building Android AAB...")
-    sh("cd #{root_dir} && ./gradlew :composeApp:bundleRelease")
+    sh("cd #{root_dir} && ./gradlew :#{android_app_module}:bundleRelease")
 
     # Find generated AAB
-    aab_path = File.join(root_dir, "composeApp/build/outputs/bundle/release/composeApp-release.aab")
+    aab_path = File.join(root_dir, "#{android_app_module}/build/outputs/bundle/release/#{android_app_module}-release.aab")
     UI.user_error!("No AAB found at #{aab_path}") unless File.exist?(aab_path)
 
     # Upload to Google Play
