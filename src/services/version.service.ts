@@ -10,14 +10,19 @@ export interface VersionResult {
 }
 
 export function resolveMobileDir(): string {
+  // AGP 9: a project may now have :androidApp instead of (or alongside) :shared.
+  // `composeApp` is the pre-rename name of the shared library; accept it as a fallback so
+  // older KAppMaker projects still resolve.
+  const markers = ['shared', 'composeApp', 'androidApp', 'iosApp'];
+  const isMobileRoot = (dir: string): boolean =>
+    markers.some((m) => fs.existsSync(path.join(dir, m)));
+
   const mobileApp = path.resolve('MobileApp');
-  if (fs.existsSync(path.join(mobileApp, 'composeApp')) || fs.existsSync(path.join(mobileApp, 'iosApp'))) {
-    return mobileApp;
-  }
+  if (isMobileRoot(mobileApp)) return mobileApp;
+
   const cwd = path.resolve('.');
-  if (fs.existsSync(path.join(cwd, 'composeApp')) || fs.existsSync(path.join(cwd, 'iosApp'))) {
-    return cwd;
-  }
+  if (isMobileRoot(cwd)) return cwd;
+
   logger.error('Could not find mobile app directory. Run from the project root or MobileApp/ folder.');
   process.exit(1);
 }
@@ -32,8 +37,14 @@ export async function updateAndroidVersion(
   mobileDir: string,
   newVersionName?: string,
 ): Promise<VersionResult | null> {
-  const buildFile = path.join(mobileDir, 'composeApp', 'build.gradle.kts');
-  if (!fs.existsSync(buildFile)) {
+  // AGP 9 split: versionCode/versionName live in :androidApp/build.gradle.kts.
+  // Fall back to legacy :composeApp/build.gradle.kts for not-yet-migrated projects.
+  const candidates = [
+    path.join(mobileDir, 'androidApp', 'build.gradle.kts'),
+    path.join(mobileDir, 'composeApp', 'build.gradle.kts'),
+  ];
+  const buildFile = candidates.find((p) => fs.existsSync(p));
+  if (!buildFile) {
     logger.warn('Android build file not found — skipping Android version update');
     return null;
   }

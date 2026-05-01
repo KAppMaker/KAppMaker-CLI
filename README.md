@@ -310,7 +310,7 @@ kappmaker create Remimi
 | 5 | Enable anonymous auth | If brand-new project, prompts user to click "Get started" in Firebase Console, then enables via API |
 | 6 | Download SDK configs | `google-services.json` + `GoogleService-Info.plist` (verifies package match, falls back to `Assets/`) |
 | 7 | Logo generation | *Optional* — AI logo + automatic background removal |
-| 8 | Package refactor | Renames packages, IDs, app name across all modules (composeApp, designsystem, libs) |
+| 8 | Package refactor | Renames packages, IDs, app name across all modules (shared, androidApp, desktopApp, webApp, designsystem, libs; also walks legacy `composeApp/` for pre-rename projects) |
 | 9 | Build environment | `local.properties`, CocoaPods, generates signing keystore if missing |
 | 10 | Git remotes | Renames origin to upstream |
 | | *Pre-store reminder* | *Prompts user to create Google Play Console app; App Store Connect is created automatically* |
@@ -929,7 +929,7 @@ Run from the project root (containing `MobileApp/`) or inside `MobileApp/` direc
 
 **What it does:**
 1. Generates keystore if `distribution/android/keystore/keystore.properties` doesn't exist
-2. Runs `./gradlew :composeApp:bundleRelease`
+2. Runs `./gradlew :androidApp:bundleRelease` (falls back to `:composeApp:bundleRelease` for legacy pre-AGP-9 layouts)
 3. Copies the AAB to the output directory
 
 **Output:** `distribution/android/app-release.aab` (or custom `--output` path)
@@ -985,7 +985,7 @@ kappmaker update-version -v 2.0.0     # Set explicit version name, versionCode +
 
 | Platform | File | Fields |
 |----------|------|--------|
-| Android | `composeApp/build.gradle.kts` | `versionCode`, `versionName` |
+| Android | `androidApp/build.gradle.kts` (AGP 9+) or legacy `composeApp/build.gradle.kts` | `versionCode`, `versionName` |
 | iOS | `iosApp/iosApp.xcodeproj/project.pbxproj` | `CURRENT_PROJECT_VERSION`, `MARKETING_VERSION` |
 | iOS | `iosApp/iosApp/Info.plist` | `CFBundleVersion`, `CFBundleShortVersionString` |
 

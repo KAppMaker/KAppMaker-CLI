@@ -14,14 +14,21 @@ export async function firstTimeBuild(
     await generateKeystore(mobileDir, '', organization);
   }
 
+  // AGP 9: Android application moved from :composeApp to :androidApp. Pick whichever
+  // module exists so the CLI works on both new and legacy layouts.
+  const useAndroidApp = await fs.pathExists(path.join(mobileDir, 'androidApp', 'build.gradle.kts'));
+  const appModule = useAndroidApp ? 'androidApp' : 'composeApp';
+
   // Build AAB
-  await run('./gradlew', [':composeApp:bundleRelease'], {
+  await run('./gradlew', [`:${appModule}:bundleRelease`], {
     cwd: mobileDir,
     label: 'Building Android release AAB (this may take a few minutes)',
   });
 
   // Copy AAB to distribution
-  const builtAab = path.join(mobileDir, 'composeApp', 'build', 'outputs', 'bundle', 'release', 'composeApp-release.aab');
+  const builtAab = path.join(
+    mobileDir, appModule, 'build', 'outputs', 'bundle', 'release', `${appModule}-release.aab`,
+  );
   if (await fs.pathExists(builtAab)) {
     const outputDir = path.join(mobileDir, 'distribution', 'android');
     await fs.ensureDir(outputDir);
@@ -34,8 +41,14 @@ export async function firstTimeBuild(
 export async function findAabPath(mobileDir: string): Promise<string | null> {
   const searchDirs = [
     path.join(mobileDir, 'distribution', 'android'),
+    // AGP 9 location (Path C: dedicated androidApp module — applies to both `:shared` and
+    // legacy `:composeApp` library layouts since the AAB always lives in :androidApp)
+    path.join(mobileDir, 'androidApp', 'build', 'outputs', 'bundle', 'release'),
+    path.join(mobileDir, 'androidApp', 'build', 'outputs', 'bundle'),
+    // Legacy pre-AGP-9 KMP-as-application location (composeApp combined library + app plugins)
     path.join(mobileDir, 'composeApp', 'build', 'outputs', 'bundle', 'release'),
     path.join(mobileDir, 'composeApp', 'build', 'outputs', 'bundle'),
+    // Vanilla `app` Android Studio template
     path.join(mobileDir, 'app', 'build', 'outputs', 'bundle', 'release'),
   ];
 

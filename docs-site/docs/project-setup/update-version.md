@@ -24,7 +24,7 @@ kappmaker update-version -v 2.0.0     # Set explicit version name, versionCode +
 
 | Platform | File | Fields |
 |----------|------|--------|
-| Android | `composeApp/build.gradle.kts` | `versionCode`, `versionName` |
+| Android | `androidApp/build.gradle.kts` (AGP 9+) or legacy `composeApp/build.gradle.kts` | `versionCode`, `versionName` |
 | iOS | `iosApp/iosApp.xcodeproj/project.pbxproj` | `CURRENT_PROJECT_VERSION`, `MARKETING_VERSION` |
 | iOS | `iosApp/iosApp/Info.plist` | `CFBundleVersion`, `CFBundleShortVersionString` |
 
