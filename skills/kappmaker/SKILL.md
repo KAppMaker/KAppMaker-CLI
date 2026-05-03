@@ -240,12 +240,14 @@ All three systems (ASC, Play, Adapty) use the same generator so the IDs align au
 - `--style <id>` — Style preset 1-8 (default: 1)
 - `--output <dir>` — Output directory (default: `Assets/screenshots`)
 - `--resolution <res>` — AI resolution: 1K, 2K, 4K (default: 2K)
-- `--rows <n>` — Grid rows (default: 2)
-- `--cols <n>` — Grid columns (default: 4)
+- `--rows <n>` — Grid rows (default: 2) — **leave at default**
+- `--cols <n>` — Grid columns (default: 4) — **leave at default**
 
 **Prerequisites**: `openaiApiKey`, `falApiKey`, `imgbbApiKey` — all prompted on first use if not set.
 
 **What it does**: Calls OpenAI to generate a detailed screenshot prompt, then fal.ai to generate 8 marketing screenshots in a grid, splits them into individual 1284x2778 images, saves to appstore/playstore directories.
+
+**IMPORTANT — do NOT override `--rows`/`--cols`**: These flags describe the AI's output grid, not the number of reference images. The AI always produces a fixed 2×4 grid of 8 screenshots regardless of how many references the user supplies. Passing e.g. `--rows 1 --cols 2` will cause the splitter to slice the 2×4 output into 2 halves (each containing 4 screenshots as a 2×2 sub-grid) instead of 8 individual screenshots. Always omit these flags unless the user explicitly asks for a different grid shape.
 
 **Style presets** (1-8): Different visual styles for the screenshots. Ask the user what style they prefer if not specified.
 
@@ -284,6 +286,15 @@ All three systems (ASC, Play, Adapty) use the same generator so the IDs align au
 - `--keep <indices>` — Comma-separated tile indices to keep (e.g., `1,3,5`)
 
 **Prerequisites**: None (uses local sharp library).
+
+**Common use cases — ALWAYS pass explicit `--rows`/`--cols`/`--width`/`--height` matching the source grid. The defaults (4×4, 512×512) are tuned for logo grids only — using them on a screenshot grid will produce a wrong split (e.g. 2 half-images each containing a 2×2 sub-grid of screenshots).**
+
+| Use case | Source layout | Recommended args |
+|---|---|---|
+| Logo grid (from `create-logo`) | 4 rows × 4 cols, 16 cells | defaults are fine, or `--rows 4 --cols 4 --width 512 --height 512` |
+| **Marketing screenshot grid (from `generate-image` or fal.ai)** | **2 rows × 4 cols, 8 cells** | **`--rows 2 --cols 4 --width 1284 --height 2778`** |
+
+Note: `generate-screenshots` already splits its own output internally into `appstore/` and `playstore/` directories — you do **not** need to run `image-split` after it. Only run `image-split` on a screenshot grid if the user generated it some other way (e.g. via `generate-image` with `--reference`).
 
 ---
 
