@@ -134,8 +134,6 @@ export function createCli(): Command {
     .option('--style <id>', 'Style preset ID', '1')
     .option('--output <dir>', 'Output base directory (default: Assets/screenshots)')
     .option('--resolution <res>', 'AI resolution (1K, 2K, 4K)', '2K')
-    .option('--rows <n>', 'Grid rows', '2')
-    .option('--cols <n>', 'Grid columns', '4')
     .option('--poll-interval <seconds>', 'Seconds between status checks', '10')
     .action(async (options) => {
       await generateScreenshots({
@@ -144,8 +142,6 @@ export function createCli(): Command {
         style: parseInt(options.style, 10),
         output: options.output,
         resolution: options.resolution,
-        rows: parseInt(options.rows, 10),
-        cols: parseInt(options.cols, 10),
         pollInterval: parseInt(options.pollInterval, 10),
       });
     });

@@ -240,14 +240,10 @@ All three systems (ASC, Play, Adapty) use the same generator so the IDs align au
 - `--style <id>` — Style preset 1-8 (default: 1)
 - `--output <dir>` — Output directory (default: `Assets/screenshots`)
 - `--resolution <res>` — AI resolution: 1K, 2K, 4K (default: 2K)
-- `--rows <n>` — Grid rows (default: 2) — **leave at default**
-- `--cols <n>` — Grid columns (default: 4) — **leave at default**
 
 **Prerequisites**: `openaiApiKey`, `falApiKey`, `imgbbApiKey` — all prompted on first use if not set.
 
-**What it does**: Calls OpenAI to generate a detailed screenshot prompt, then fal.ai to generate 8 marketing screenshots in a grid, splits them into individual 1284x2778 images, saves to appstore/playstore directories.
-
-**IMPORTANT — do NOT override `--rows`/`--cols`**: These flags describe the AI's output grid, not the number of reference images. The AI always produces a fixed 2×4 grid of 8 screenshots regardless of how many references the user supplies. Passing e.g. `--rows 1 --cols 2` will cause the splitter to slice the 2×4 output into 2 halves (each containing 4 screenshots as a 2×2 sub-grid) instead of 8 individual screenshots. Always omit these flags unless the user explicitly asks for a different grid shape.
+**What it does**: Calls OpenAI to generate a detailed screenshot prompt, then fal.ai to generate 8 marketing screenshots in a fixed 2×4 grid, splits them into 8 individual 1284×2778 images, saves to appstore/playstore directories. Grid shape is fixed by design — number of reference images does not change the output count.
 
 **Style presets** (1-8): Different visual styles for the screenshots. Ask the user what style they prefer if not specified.
 

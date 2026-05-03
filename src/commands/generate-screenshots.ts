@@ -43,8 +43,8 @@ export async function generateScreenshots(
     logger.success('falApiKey saved to config.');
   }
 
-  const rows = options.rows ?? 2;
-  const cols = options.cols ?? 4;
+  const rows = 2;
+  const cols = 4;
   const resolution = options.resolution ?? '2K';
   const styleId = options.style ?? 1;
   const pollIntervalMs = (options.pollInterval ?? 10) * 1000;

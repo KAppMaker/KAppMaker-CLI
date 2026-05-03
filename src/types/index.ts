@@ -82,8 +82,6 @@ export interface GenerateScreenshotsOptions {
   style?: number;
   output?: string;
   resolution?: string;
-  rows?: number;
-  cols?: number;
   pollInterval?: number;
 }
 
