@@ -13,7 +13,7 @@ const APPSTORE_DEFAULTS_FILE = path.join(CONFIG_DIR, 'appstore-defaults.json');
 const ADAPTY_DEFAULTS_FILE = path.join(CONFIG_DIR, 'adapty-defaults.json');
 
 const DEFAULT_CONFIG: KAppMakerConfig = {
-  templateRepo: 'git@github.com:KAppMaker/KAppMaker-MobileAppAndWeb.git',
+  templateRepo: 'git@github.com:KAppMaker/KAppMaker-All.git',
   bundleIdPrefix: '',
   androidSdkPath: path.join(os.homedir(), 'Library', 'Android', 'sdk'),
   organization: '',

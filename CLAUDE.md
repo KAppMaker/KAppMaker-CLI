@@ -202,7 +202,7 @@ User config file: `~/.config/kappmaker/config.json` (managed via `src/utils/conf
 
 | Key | Default | Used by |
 |-----|---------|---------|
-| `templateRepo` | `git@github.com:KAppMaker/KAppMaker-MobileAppAndWeb.git` | `create.ts` → template clone |
+| `templateRepo` | `git@github.com:KAppMaker/KAppMaker-All.git` | `create.ts` → template clone |
 | `bundleIdPrefix` | `""` (empty = `com.<appname>`) | `create.ts` → package/bundle ID |
 | `androidSdkPath` | `~/Library/Android/sdk` | `gradle.service.ts` → `local.properties` |
 | `organization` | `""` (empty = app name) | `fastlane.service.ts` → keystore signing |
@@ -302,6 +302,6 @@ kappmaker gpc
 
 ## Defaults
 
-- Template repo: `git@github.com:KAppMaker/KAppMaker-MobileAppAndWeb.git`
+- Template repo: `git@github.com:KAppMaker/KAppMaker-All.git`
 - Package pattern: `com.measify.<appname>` (when `bundleIdPrefix` is set to `com.measify`)
 - After cloning, origin is renamed to upstream (user adds their own origin later)
