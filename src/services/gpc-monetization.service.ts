@@ -33,51 +33,20 @@ export function priceToMoney(price: string, currencyCode: string): Money {
   };
 }
 
-function buildRegionalConfigs(prices: GooglePlayRegionalPrice[]): Record<string, { newSubscriberAvailability: boolean; price?: Money }> {
-  // Build explicit prices from the config.
-  const explicit = new Map<string, Money>();
+function buildRegionalConfigs(prices: GooglePlayRegionalPrice[]): Record<string, { newSubscriberAvailability: boolean; price: Money }> {
+  // Only include regions with explicit prices. Google Play auto-converts
+  // pricing for unlisted regions — listing a region WITHOUT a price causes
+  // a 400 ("Expected AED but got XXX") because the API treats the missing
+  // price as currency code XXX.
+  const out: Record<string, { newSubscriberAvailability: boolean; price: Money }> = {};
   for (const p of prices) {
-    explicit.set(p.region_code, priceToMoney(p.price, p.currency_code));
-  }
-
-  // Include ALL Play Store regions so the subscription is available globally.
-  // Regions without an explicit price get auto-converted by Google Play.
-  const out: Record<string, { newSubscriberAvailability: boolean; price?: Money }> = {};
-  for (const region of ALL_PLAY_REGIONS) {
-    const entry: { newSubscriberAvailability: boolean; price?: Money } = {
+    out[p.region_code] = {
       newSubscriberAvailability: true,
+      price: priceToMoney(p.price, p.currency_code),
     };
-    const explicitPrice = explicit.get(region);
-    if (explicitPrice) entry.price = explicitPrice;
-    out[region] = entry;
   }
   return out;
 }
-
-// ── Google Play supported regions ────────────────────────────────────
-// All ~175 ISO 3166-1 alpha-2 region codes supported by Google Play for
-// app/subscription distribution. Used to make subscriptions available
-// globally (not just the regions with explicit prices in the config).
-
-const ALL_PLAY_REGIONS = [
-  'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AR', 'AT', 'AU',
-  'AW', 'AZ', 'BA', 'BB', 'BD', 'BE', 'BF', 'BG', 'BH', 'BJ', 'BM',
-  'BN', 'BO', 'BR', 'BS', 'BT', 'BW', 'BY', 'BZ', 'CA', 'CD', 'CF',
-  'CH', 'CI', 'CL', 'CM', 'CO', 'CR', 'CV', 'CW', 'CY', 'CZ', 'DE',
-  'DJ', 'DK', 'DM', 'DO', 'DZ', 'EC', 'EE', 'EG', 'ER', 'ES', 'ET',
-  'FI', 'FJ', 'FM', 'FR', 'GA', 'GB', 'GD', 'GE', 'GH', 'GR', 'GT',
-  'GW', 'GY', 'HK', 'HN', 'HR', 'HT', 'HU', 'ID', 'IE', 'IL', 'IN',
-  'IQ', 'IS', 'IT', 'JM', 'JO', 'JP', 'KE', 'KG', 'KH', 'KN', 'KR',
-  'KW', 'KZ', 'LA', 'LB', 'LC', 'LI', 'LK', 'LR', 'LT', 'LU', 'LV',
-  'MA', 'MC', 'MD', 'ME', 'MG', 'MK', 'ML', 'MM', 'MN', 'MO', 'MR',
-  'MT', 'MU', 'MV', 'MW', 'MX', 'MY', 'MZ', 'NA', 'NE', 'NG', 'NI',
-  'NL', 'NO', 'NP', 'NR', 'NZ', 'OM', 'PA', 'PE', 'PG', 'PH', 'PK',
-  'PL', 'PS', 'PT', 'PW', 'PY', 'QA', 'RO', 'RS', 'RU', 'RW', 'SA',
-  'SB', 'SC', 'SE', 'SG', 'SI', 'SK', 'SL', 'SN', 'SR', 'ST', 'SV',
-  'SX', 'TD', 'TG', 'TH', 'TJ', 'TL', 'TM', 'TN', 'TO', 'TR', 'TT',
-  'TW', 'TZ', 'UA', 'UG', 'US', 'UY', 'UZ', 'VC', 'VE', 'VG', 'VN',
-  'VU', 'WS', 'ZA', 'ZM', 'ZW',
-];
 
 // ── Subscriptions ────────────────────────────────────────────────────
 
@@ -194,14 +163,11 @@ function buildBasePlanBody(basePlan: GooglePlayBasePlan): Record<string, unknown
       ...(basePlan.grace_period ? { gracePeriodDuration: basePlan.grace_period } : {}),
     },
     regionalConfigs: Object.entries(buildRegionalConfigs(basePlan.regional_configs)).map(
-      ([region, cfg]) => {
-        const entry: Record<string, unknown> = {
-          regionCode: region,
-          newSubscriberAvailability: cfg.newSubscriberAvailability,
-        };
-        if (cfg.price) entry.price = cfg.price;
-        return entry;
-      },
+      ([region, cfg]) => ({
+        regionCode: region,
+        newSubscriberAvailability: cfg.newSubscriberAvailability,
+        price: cfg.price,
+      }),
     ),
   };
   return body;
