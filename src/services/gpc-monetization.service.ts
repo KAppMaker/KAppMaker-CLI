@@ -169,6 +169,9 @@ function buildBasePlanBody(basePlan: GooglePlayBasePlan): Record<string, unknown
         price: cfg.price,
       }),
     ),
+    // Make the subscription available in ALL regions, not just those with
+    // explicit prices. Google Play auto-converts pricing for these regions.
+    otherRegionsConfig: { newSubscriberAvailability: true },
   };
   return body;
 }
@@ -285,6 +288,9 @@ async function createInAppProduct(
         purchaseOptionId: 'default',
         buyOption: { legacyCompatible: true },
         regionalPricingAndAvailabilityConfigs,
+        // Make available in all regions not explicitly listed — Google
+        // auto-converts pricing for those regions.
+        otherRegionsConfig: { availability: 'AVAILABLE' },
       },
     ],
   };
