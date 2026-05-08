@@ -9,8 +9,14 @@ const SOURCE_DIRS = [
   'src/commonMain/kotlin',
   'src/commonTest/kotlin',
   'src/androidMain/kotlin',
+  // Roborazzi / ComposablePreviewScanner screenshot tests added with the AGP 9 testing
+  // additions — must be walked so test files referencing `com.measify.kappmaker` get rewritten
+  // and the `com/measify/kappmaker/...` directory is moved into the new package.
+  'src/androidHostTest/kotlin',
   'src/iosMain/kotlin',
   'src/jvmMain/kotlin',
+  // Compose UI tests via runComposeUiTest (sample at shared/src/jvmTest/.../SampleComposeUiTest.kt)
+  'src/jvmTest/kotlin',
   'src/nonMobileMain/kotlin',
   'src/mobileMain/kotlin',
   'src/webMain/kotlin',
@@ -121,9 +127,10 @@ async function updateGradleFiles(
 ): Promise<void> {
   const files = [
     ...REFACTOR_MODULES.map((m) => m + '/build.gradle.kts'),
-    'gradle/scripts/generateNewScreen.gradle.kts',
     'scripts/make_local.sh',
     'scripts/create_module.sh',
+    'scripts/generate_screen.sh',
+    'scripts/generate_store_screenshots.sh',
   ];
   for (const f of files) {
     if (await replaceInFile(path.join(mobileDir, f), oldId, newId)) {
@@ -191,14 +198,41 @@ async function updateIosFiles(
 async function updateGithubWorkflows(
   mobileDir: string, oldId: string, newId: string,
 ): Promise<void> {
+  // `.github/` lives at the cloned repo root (one level above MobileApp/) in the current
+  // KAppMaker-All template. Probe both locations so legacy templates that nested it inside
+  // MobileApp/ still get refactored.
+  const roots = [path.dirname(mobileDir), mobileDir];
   const files = [
     '.github/workflows/publish_android_playstore.yml',
     '.github/workflows/publish_ios_appstore.yml',
   ];
-  for (const f of files) {
-    if (await replaceInFile(path.join(mobileDir, f), oldId, newId)) {
-      logger.info('Updated: ' + f);
+  for (const root of roots) {
+    for (const f of files) {
+      if (await replaceInFile(path.join(root, f), oldId, newId)) {
+        logger.info('Updated: ' + path.relative(mobileDir, path.join(root, f)));
+      }
     }
+  }
+}
+
+// Roborazzi snapshot PNGs embed the fully-qualified preview class in their filename
+// (e.g. `com.measify.kappmaker.designsystem.components.ButtonKt_AppButtonPreviews.png`).
+// Without renaming them, `verifyRoborazziAndroidHostTest` would look for
+// `<newPackage>.<...>.png` but only find the old-named files, and every preview would
+// fail as "missing golden". Mirrors `renameRoborazziSnapshots` in the boilerplate's
+// gradle/scripts/refactorPackage.gradle.kts.
+async function renameRoborazziSnapshots(
+  moduleDir: string, oldId: string, newId: string,
+): Promise<void> {
+  const snapshotsDir = path.join(moduleDir, 'src/androidHostTest/snapshots');
+  if (!(await fs.pathExists(snapshotsDir))) return;
+  const entries = await fs.readdir(snapshotsDir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.includes(oldId)) continue;
+    const oldPath = path.join(snapshotsDir, entry.name);
+    const newPath = path.join(snapshotsDir, entry.name.replaceAll(oldId, newId));
+    await fs.rename(oldPath, newPath);
+    logger.info('Renamed snapshot: ' + entry.name + ' -> ' + path.basename(newPath));
   }
 }
 
@@ -220,32 +254,50 @@ async function cleanUpOldDirectories(
 }
 
 async function updateAppName(
-  mobileDir: string, oldName: string, newName: string,
+  mobileDir: string, oldName: string, newName: string, currentPkgId: string,
 ): Promise<void> {
-  // Path C of the JetBrains AGP 9 migration moved manifests/main.kt out of the shared library
-  // (`shared/`, formerly `composeApp/`) into dedicated entry-point modules. Touch every old
-  // and new location so the refactor stays idempotent across all three layouts:
-  //   - latest:    shared/ + androidApp/ + desktopApp/ + webApp/
-  //   - mid-AGP9:  composeApp/ + androidApp/ + desktopApp/ + webApp/
-  //   - legacy:    composeApp/ alone (KMP + com.android.application in one module)
-  const files = [
+  // Path C of the JetBrains AGP 9 migration moved manifests / Main.kt out of the shared
+  // library (`shared/`, formerly `composeApp/`) into dedicated entry-point modules. The
+  // current template uses capital `Main.kt`, `webApp/src/webMain/resources/index.html`
+  // (NOT `wasmJsMain`), and `KAppMakerAllModules` is also returned from
+  // `AppUtilImpl.web.kt` (added with the AGP 9 testing/web work).
+  //
+  // `currentPkgId` is the package id *as it currently lives on disk* — when called after
+  // a package rename it is the NEW id, so paths like `desktopApp/src/main/kotlin/<pkg>/Main.kt`
+  // resolve to the moved location instead of the original `com/measify/kappmaker` path.
+  const pkgPath = currentPkgId.replace(/\./g, '/');
+  const mobileFiles = [
     // Latest Path C locations
     'androidApp/src/main/AndroidManifest.xml',
-    'desktopApp/src/main/kotlin/com/measify/kappmaker/main.kt',
+    `desktopApp/src/main/kotlin/${pkgPath}/Main.kt`,
+    'webApp/src/webMain/resources/index.html',
+    `shared/src/jvmMain/kotlin/${pkgPath}/util/AppUtilImpl.jvm.kt`,
+    `shared/src/webMain/kotlin/${pkgPath}/util/AppUtilImpl.web.kt`,
+    // Pre-rename / lowercase fallbacks
+    `desktopApp/src/main/kotlin/${pkgPath}/main.kt`,
     'webApp/src/wasmJsMain/resources/index.html',
-    'shared/src/jvmMain/kotlin/com/measify/kappmaker/util/AppUtilImpl.jvm.kt',
-    // Pre-rename / legacy fallbacks
     'composeApp/src/androidMain/AndroidManifest.xml',
     'composeApp/src/webMain/resources/index.html',
-    'composeApp/src/jvmMain/kotlin/com/measify/kappmaker/main.kt',
-    'composeApp/src/jvmMain/kotlin/com/measify/kappmaker/util/AppUtilImpl.jvm.kt',
+    `composeApp/src/jvmMain/kotlin/${pkgPath}/Main.kt`,
+    `composeApp/src/jvmMain/kotlin/${pkgPath}/main.kt`,
+    `composeApp/src/jvmMain/kotlin/${pkgPath}/util/AppUtilImpl.jvm.kt`,
     'settings.gradle.kts',
     'iosApp/iosApp.xcodeproj/project.pbxproj',
-    '.github/workflows/publish_ios_appstore.yml',
   ];
-  for (const f of files) {
+  for (const f of mobileFiles) {
     if (await replaceInFile(path.join(mobileDir, f), oldName, newName)) {
       logger.info('Updated app name in: ' + f);
+    }
+  }
+
+  // .github/ is at the repo root (one level above MobileApp/) in current templates.
+  const repoRoot = path.dirname(mobileDir);
+  const repoFiles = ['.github/workflows/publish_ios_appstore.yml'];
+  for (const f of repoFiles) {
+    for (const root of [repoRoot, mobileDir]) {
+      if (await replaceInFile(path.join(root, f), oldName, newName)) {
+        logger.info('Updated app name in: ' + path.relative(mobileDir, path.join(root, f)));
+      }
     }
   }
 }
@@ -272,6 +324,7 @@ export async function refactor(
       logger.info('Moving package directories in ' + mod + '...');
       await movePackageDirectories(moduleDir, oldAppId, newAppId);
 
+      await renameRoborazziSnapshots(moduleDir, oldAppId, newAppId);
       await cleanUpOldDirectories(moduleDir, oldAppId, newAppId);
     }
 
@@ -279,14 +332,17 @@ export async function refactor(
     await updateFirebaseConfigs(mobileDir, oldAppId, newAppId);
     await updateIosFiles(mobileDir, oldAppId, newAppId);
     await updateGithubWorkflows(mobileDir, oldAppId, newAppId);
-    await updateAppName(mobileDir, oldAppName, newAppName);
+    // After package rename, on-disk paths use newAppId — pass it so updateAppName
+    // resolves entry points (Main.kt, AppUtilImpl.{jvm,web}.kt) to their new location.
+    await updateAppName(mobileDir, oldAppName, newAppName, newAppId);
   } else {
     logger.info('Skipping package rename -- updating IDs and app name only...');
     await updateApplicationIdOnly(mobileDir, newAppId);
     await updateFirebaseConfigs(mobileDir, oldAppId, newAppId);
     await updateIosFiles(mobileDir, oldAppId, newAppId);
     await updateGithubWorkflows(mobileDir, oldAppId, newAppId);
-    await updateAppName(mobileDir, oldAppName, newAppName);
+    // Package paths are unchanged in this mode — files still live under oldAppId.
+    await updateAppName(mobileDir, oldAppName, newAppName, oldAppId);
   }
 
   logger.success('Package refactoring completed.');
