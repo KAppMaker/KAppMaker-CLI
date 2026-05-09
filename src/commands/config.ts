@@ -18,11 +18,13 @@ import {
   loadAppStoreDefaults,
   saveAppStoreDefaults,
   getAdaptyDefaultsPath,
+  getAdaptyTemplate,
   loadAdaptyDefaults,
   saveAdaptyDefaults,
 } from '../utils/config.js';
 import { promptInput, confirm } from '../utils/prompt.js';
 import type { AppStoreConfig } from '../types/appstore.js';
+import type { AdaptyConfig } from '../types/adapty.js';
 
 export async function configList(): Promise<void> {
   const config = await loadConfig();
@@ -109,13 +111,28 @@ export async function configInit(): Promise<void> {
   const existingDefaults = await loadAppStoreDefaults();
   if (!existingDefaults) {
     console.log('');
-    const setupAppStore = await confirm('  Initialize global App Store defaults? (review contact, privacy, encryption, etc.)');
+    const setupAppStore = await confirm('  Initialize global App Store defaults? (review contact, privacy, encryption, default subscriptions + credit-pack IAPs)');
     if (setupAppStore) {
       await initAppStoreDefaults();
     }
   } else {
     console.log(chalk.gray(`\n  App Store defaults already exist at ${defaultsPath}`));
-    console.log(chalk.gray('  Edit directly or re-save with: kappmaker config appstore-defaults --save <file>\n'));
+    console.log(chalk.gray('  Edit directly or re-init with: kappmaker config appstore-defaults --init'));
+    console.log(chalk.gray('  (re-init backfills any missing credit-pack IAPs from the template)\n'));
+  }
+
+  // Offer to initialize Adapty defaults if not already set
+  const adaptyDefaultsPath = getAdaptyDefaultsPath();
+  const existingAdapty = await loadAdaptyDefaults();
+  if (!existingAdapty) {
+    console.log('');
+    const setupAdapty = await confirm('  Initialize global Adapty defaults? (default subs, credit-pack products, Credits Paywall, credits_pack placement)');
+    if (setupAdapty) {
+      await initAdaptyDefaults();
+    }
+  } else {
+    console.log(chalk.gray(`\n  Adapty defaults already exist at ${adaptyDefaultsPath}`));
+    console.log(chalk.gray('  Edit directly or re-init with: kappmaker config adapty-defaults --init\n'));
   }
 }
 
@@ -123,6 +140,22 @@ async function initAppStoreDefaults(): Promise<void> {
   const existing = await loadAppStoreDefaults() as unknown as AppStoreConfig | null;
   const template: AppStoreConfig = existing ?? getAppStoreTemplate() as unknown as AppStoreConfig;
   const config = await loadConfig();
+
+  // Backfill credit-pack IAPs from the built-in template when an existing
+  // (pre-1.4) defaults file has them empty/missing — keeps the saved file
+  // consistent with what `create-appstore-app` would produce on a fresh run.
+  if (existing) {
+    const builtIn = getAppStoreTemplate() as unknown as AppStoreConfig;
+    if (
+      (!existing.in_app_purchases || existing.in_app_purchases.length === 0)
+      && builtIn.in_app_purchases?.length
+    ) {
+      template.in_app_purchases = builtIn.in_app_purchases;
+      console.log(chalk.gray(
+        `  Added ${builtIn.in_app_purchases.length} default credit-pack IAPs from the template.`,
+      ));
+    }
+  }
 
   console.log(chalk.bold('\n  App Store Defaults Setup\n'));
   console.log(chalk.gray('  Press Enter to keep the current value.\n'));
@@ -237,8 +270,65 @@ export async function configAppStoreDefaults(options: { save?: string; init?: bo
   console.log('');
 }
 
-export async function configAdaptyDefaults(options: { save?: string }): Promise<void> {
+async function initAdaptyDefaults(): Promise<void> {
+  const existing = await loadAdaptyDefaults() as unknown as AdaptyConfig | null;
+  const template: AdaptyConfig = existing ?? getAdaptyTemplate() as unknown as AdaptyConfig;
+
+  // Backfill credit-pack products + Credits Paywall + credits_pack placement
+  // from the built-in template when existing defaults predate them. We touch
+  // each array independently so a user's customisations are preserved.
+  if (existing) {
+    const builtIn = getAdaptyTemplate() as unknown as AdaptyConfig;
+    const note: string[] = [];
+
+    // Migrate legacy `access_level` (singular) to `access_levels` (plural).
+    if (!Array.isArray(existing.access_levels)) existing.access_levels = [];
+    if (existing.access_level && !existing.access_levels.some((l) => l.sdk_id === existing.access_level!.sdk_id)) {
+      existing.access_levels.unshift(existing.access_level);
+      note.push('migrated legacy access_level → access_levels');
+    }
+    delete existing.access_level;
+    template.access_levels = existing.access_levels;
+
+    // Backfill any access levels missing from the template (e.g. credit_pack_access on upgrade).
+    for (const tplLevel of builtIn.access_levels ?? []) {
+      if (!template.access_levels.some((l) => l.sdk_id === tplLevel.sdk_id)) {
+        template.access_levels.push(tplLevel);
+        note.push(`added access level "${tplLevel.sdk_id}"`);
+      }
+    }
+
+    if ((!existing.products || existing.products.length === 0) && builtIn.products?.length) {
+      template.products = builtIn.products;
+      note.push(`${builtIn.products.length} products`);
+    }
+    if ((!existing.paywalls || existing.paywalls.length === 0) && builtIn.paywalls?.length) {
+      template.paywalls = builtIn.paywalls;
+      note.push(`${builtIn.paywalls.length} paywalls`);
+    }
+    if ((!existing.placements || existing.placements.length === 0) && builtIn.placements?.length) {
+      template.placements = builtIn.placements;
+      note.push(`${builtIn.placements.length} placements`);
+    }
+    if (note.length > 0) {
+      console.log(chalk.gray(`  Backfilled from template: ${note.join('; ')}.`));
+    }
+  }
+
+  await saveAdaptyDefaults(template as unknown as Record<string, unknown>);
   const defaultsPath = getAdaptyDefaultsPath();
+  console.log('');
+  logger.success(`Adapty defaults saved to ${defaultsPath}`);
+  console.log(chalk.gray('  Edit the defaults file directly to customize products, paywalls, placements.\n'));
+}
+
+export async function configAdaptyDefaults(options: { save?: string; init?: boolean }): Promise<void> {
+  const defaultsPath = getAdaptyDefaultsPath();
+
+  if (options.init) {
+    await initAdaptyDefaults();
+    return;
+  }
 
   if (options.save) {
     const sourcePath = options.save;

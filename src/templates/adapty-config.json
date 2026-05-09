@@ -5,15 +5,22 @@
     "package_id": "",
     "app_id": ""
   },
-  "access_level": {
-    "sdk_id": "Premium",
-    "title": "Premium"
-  },
+  "access_levels": [
+    {
+      "sdk_id": "Premium",
+      "title": "Premium"
+    },
+    {
+      "sdk_id": "credit_pack_access",
+      "title": "Credit Pack Access"
+    }
+  ],
   "products": [
     {
       "title": "Weekly Premium",
       "period": "weekly",
       "price": "6.99",
+      "access_level_sdk_id": "Premium",
       "ios_product_id": "",
       "android_product_id": "",
       "android_base_plan_id": ""
@@ -22,6 +29,37 @@
       "title": "Yearly Premium",
       "period": "annual",
       "price": "29.99",
+      "access_level_sdk_id": "Premium",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Basic Credit Pack",
+      "period": "consumable",
+      "price": "4.99",
+      "credits": 10,
+      "access_level_sdk_id": "credit_pack_access",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Pro Credit Pack",
+      "period": "consumable",
+      "price": "9.99",
+      "credits": 30,
+      "access_level_sdk_id": "credit_pack_access",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Ultimate Credit Pack",
+      "period": "consumable",
+      "price": "19.99",
+      "credits": 80,
+      "access_level_sdk_id": "credit_pack_access",
       "ios_product_id": "",
       "android_product_id": "",
       "android_base_plan_id": ""
@@ -35,6 +73,10 @@
     {
       "title": "Onboarding Paywall",
       "product_titles": ["Weekly Premium", "Yearly Premium"]
+    },
+    {
+      "title": "Credits Paywall",
+      "product_titles": ["Basic Credit Pack", "Pro Credit Pack", "Ultimate Credit Pack"]
     }
   ],
   "placements": [
@@ -45,6 +87,10 @@
     {
       "title": "Onboarding",
       "developer_id": "onboarding"
+    },
+    {
+      "title": "Credits",
+      "developer_id": "credits_pack"
     }
   ]
 }

@@ -565,6 +565,20 @@ Layers are deep-merged (later overrides earlier):
 
 Auto-generated naming: group `{appname}.premium.v1`, ref name `{AppName} Premium Weekly v1 (6.99)`.
 
+### Default in-app purchases (credit packs)
+
+The template also ships three CONSUMABLE in-app purchases shaped as credit packs. Auto-fill triggers on any `in_app_purchases[]` entry with a `credits` numeric field.
+
+| Pack | Credits | Price | Product ID |
+|------|---------|-------|------------|
+| Basic Credit Pack | 10 | $4.99 | `credit_pack_10_499_{appname}` |
+| Pro Credit Pack | 30 | $9.99 | `credit_pack_30_999_{appname}` |
+| Ultimate Credit Pack | 80 | $19.99 | `credit_pack_80_1999_{appname}` |
+
+Format: `credit_pack_{credits}_{priceDigits}_{appname}`. The same ID is used on Google Play and Adapty so app code can reference one constant per platform pair.
+
+Created via the same one-shot `asc iap setup` workflow that drives subscription setup. Reruns are idempotent — already-existing product IDs are skipped with an info log.
+
 ### Default privacy
 
 | Data Category | Purpose | Protection |
@@ -670,6 +684,14 @@ kappmaker gpc iap push
 ```
 
 Uses the **new** monetization API: `PATCH /applications/{pkg}/onetimeproducts/{id}?allowMissing=true` to create/update the product, then `purchaseOptions:batchUpdateStates` with an `activatePurchaseOptionRequest` to activate the default purchase option so it's available to buyers. Replaces the legacy `/inappproducts` endpoint, which Google now rejects with "Please migrate to the new publishing API" on migrated apps.
+
+**Default credit packs** ship in `Assets/googleplay-config.json`. Auto-fill triggers on any `in_app_products[]` entry with a `credits` numeric field — SKU is set to `credit_pack_{credits}_{priceDigits}_{appname}` (matches the ASC and Adapty IDs):
+
+| Pack | Credits | Price | SKU |
+|------|---------|-------|-----|
+| Basic Credit Pack | 10 | $4.99 | `credit_pack_10_499_{appname}` |
+| Pro Credit Pack | 30 | $9.99 | `credit_pack_30_999_{appname}` |
+| Ultimate Credit Pack | 80 | $19.99 | `credit_pack_80_1999_{appname}` |
 
 ### `gpc data-safety push`
 
@@ -781,14 +803,37 @@ kappmaker adapty setup --config ./my-config.json
 6. Create paywalls (linking products)
 7. Create placements (linking paywalls)
 
+### Default access levels
+
+| sdk_id | Title | Used by |
+|---|---|---|
+| `Premium` | Premium | Subscriptions (Weekly + Yearly Premium) |
+| `credit_pack_access` | Credit Pack Access | All 3 default credit pack products |
+
+Subscriptions and consumable credit packs are routed to **separate access levels** — buying a credit pack does not unlock recurring premium features and vice versa. Each entry in `products[]` has an `access_level_sdk_id` that points to one of the access levels above; the orchestrator creates each access level once and links each product accordingly. Add more access levels in `Assets/adapty-config.json` if you need them.
+
+Existing configs that use the legacy `access_level` (singular) field are auto-migrated to `access_levels` (plural) the next time you run `kappmaker adapty setup`.
+
 ### Default products
 
-| Product | Period | Price | iOS Product ID | Android Product ID | Android Base Plan ID |
-|---------|--------|-------|----------------|--------------------|-----------------------|
-| Weekly Premium | `weekly` | $6.99 | `{appname}.premium.weekly.v1.699.v1` | `{appname}.premium.weekly.v1` | `autorenew-weekly-699-v1` |
-| Yearly Premium | `annual` | $29.99 | `{appname}.premium.yearly.v1.2999.v1` | `{appname}.premium.yearly.v1` | `autorenew-yearly-2999-v1` |
+| Product | Period | Price | Access Level | iOS Product ID | Android Product ID | Android Base Plan ID |
+|---------|--------|-------|--------------|----------------|--------------------|-----------------------|
+| Weekly Premium | `weekly` | $6.99 | `Premium` | `{appname}.premium.weekly.v1.699.v1` | `{appname}.premium.weekly.v1` | `autorenew-weekly-699-v1` |
+| Yearly Premium | `annual` | $29.99 | `Premium` | `{appname}.premium.yearly.v1.2999.v1` | `{appname}.premium.yearly.v1` | `autorenew-yearly-2999-v1` |
+| Basic Credit Pack | `consumable` | $4.99 | `credit_pack_access` | `credit_pack_10_499_{appname}` | `credit_pack_10_499_{appname}` | _(none — IAP)_ |
+| Pro Credit Pack | `consumable` | $9.99 | `credit_pack_access` | `credit_pack_30_999_{appname}` | `credit_pack_30_999_{appname}` | _(none — IAP)_ |
+| Ultimate Credit Pack | `consumable` | $19.99 | `credit_pack_access` | `credit_pack_80_1999_{appname}` | `credit_pack_80_1999_{appname}` | _(none — IAP)_ |
 
-iOS product IDs match the App Store Connect format, and Android IDs match what `kappmaker gpc setup` writes to Google Play Console — so all three systems link automatically without extra configuration.
+iOS product IDs match the App Store Connect format, and Android IDs match what `kappmaker gpc setup` writes to Google Play Console — so all three systems link automatically without extra configuration. Credit packs (entries with a `credits` numeric field) get the consumable-IAP product ID format on both platforms; subscriptions get the `{appname}.premium.{period}.v1.x.v1` family.
+
+> **Note on the `consumable` period:** the Adapty CLI v0.1.5 hardcodes a period whitelist (`weekly`, `monthly`, `two_months`, `trimonthly`, `semiannual`, `annual`, `lifetime`) that excludes `consumable`. The Adapty REST API does accept it, so KAppMaker creates credit pack products via a direct API call (using the auth token already cached at `~/.config/adapty/config.json`). Subscriptions and lifetime products still go through the CLI as before. If a future Adapty CLI release accepts `consumable`, this will become a no-op.
+
+> **Note on prices in the Adapty dashboard:** the `price` field in `adapty-config.json` is used by KAppMaker to generate product IDs (e.g. `699` digits in `democli5.premium.weekly.v1.699.v1`) and to mirror prices into App Store Connect / Google Play Console — Adapty itself **does not accept developer-set prices** via its API. The `OPTIONS /products/` metadata explicitly says: _"Strips response to plan-specified fields (id, title, vendor_products)"_, and probing with seven different price-field shapes confirms they're all silently dropped. Prices appear in the Adapty dashboard only after you connect store integrations there (one-time, dashboard-only step):
+>
+> - **App Store Connect** — paste the same `.p8` / Key ID / Issuer ID you already have configured for `kappmaker create-appstore-app`
+> - **Google Play** — upload the same service-account JSON used by `kappmaker gpc setup`
+>
+> Connect both at the Adapty dashboard → Settings → Integrations. The Adapty mobile SDK fetches prices directly from the native store APIs at runtime, so the in-app behaviour is correct even before you connect dashboard integrations — only the dashboard view is affected.
 
 ### Default paywalls and placements
 
@@ -796,6 +841,9 @@ iOS product IDs match the App Store Connect format, and Android IDs match what `
 |---------|----------|-----------|-------------|
 | Default Paywall | Weekly + Yearly | Default | `default` |
 | Onboarding Paywall | Weekly + Yearly | Onboarding | `onboarding` |
+| Credits Paywall | Basic + Pro + Ultimate Credit Pack | Credits | `credits_pack` |
+
+Fetch credit packs in app code with `Adapty.getPaywall("credits_pack")`.
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -1158,9 +1206,10 @@ kappmaker config set <key> <value>                       # Set a value
 kappmaker config get <key>                               # Get a value
 kappmaker config path                                    # Show config file path
 kappmaker config appstore-defaults                       # View App Store defaults
-kappmaker config appstore-defaults --init                # Set up API key + review contact
+kappmaker config appstore-defaults --init                # Set up API key + review contact (backfills credit-pack IAPs from template)
 kappmaker config appstore-defaults --save ./config.json  # Save as global defaults
 kappmaker config adapty-defaults                         # View Adapty defaults
+kappmaker config adapty-defaults --init                  # Initialize from template (subs + 3 credit packs + Credits Paywall + credits_pack placement)
 kappmaker config adapty-defaults --save ./config.json    # Save as global defaults
 ```
 
@@ -1186,10 +1235,12 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 
 | File | Used by | Manage with |
 |------|---------|-------------|
-| `~/.config/kappmaker/appstore-defaults.json` | `create-appstore-app` | `config appstore-defaults` |
-| `~/.config/kappmaker/adapty-defaults.json` | `adapty setup` | `config adapty-defaults` |
+| `~/.config/kappmaker/appstore-defaults.json` | `create-appstore-app` | `config appstore-defaults --init` (interactive) or `--save <file>` |
+| `~/.config/kappmaker/adapty-defaults.json` | `adapty setup` | `config adapty-defaults --init` (template-based) or `--save <file>` |
 
-Global defaults are merged as a base layer so shared settings (review contact, privacy, subscriptions, etc.) don't need to be re-entered per app.
+Global defaults are merged as a base layer so shared settings (review contact, privacy, subscriptions, credit-pack IAPs, paywalls, placements, etc.) don't need to be re-entered per app.
+
+**Re-init backfills missing entries.** Re-running `--init` against an existing defaults file (e.g. one saved before the credit-pack templates landed) auto-adds any missing arrays from the built-in template — credit-pack IAPs for App Store, products / paywalls / placements for Adapty. Empty arrays in your saved defaults no longer wipe out the template content during a `create-appstore-app` or `adapty setup` run either; the CLI preserves template entries when globals have an empty array.
 
 ---
 

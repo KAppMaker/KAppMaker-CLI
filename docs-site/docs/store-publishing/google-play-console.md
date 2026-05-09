@@ -103,6 +103,20 @@ kappmaker gpc iap push
 
 Uses the new monetization API (`PATCH /onetimeproducts/{id}?allowMissing=true`), replacing the legacy `/inappproducts` endpoint.
 
+### Default credit packs
+
+The `Assets/googleplay-config.json` template ships with three default consumable IAPs (credit packs) that match the App Store Connect and Adapty templates:
+
+| Pack | Credits | Price | SKU |
+|------|---------|-------|-----|
+| Basic Credit Pack | 10 | $4.99 | `credit_pack_10_499_{appname}` |
+| Pro Credit Pack | 30 | $9.99 | `credit_pack_30_999_{appname}` |
+| Ultimate Credit Pack | 80 | $19.99 | `credit_pack_80_1999_{appname}` |
+
+**Format:** `credit_pack_{credits}_{priceDigits}_{appname}`. The same product ID is used across ASC, Play, and Adapty so app code only needs one constant.
+
+**Auto-fill:** triggers on any `in_app_products[]` entry with a `credits` numeric field. Custom IAPs without a `credits` field keep whatever `sku` you write.
+
 ---
 
 ## gpc data-safety push

@@ -143,6 +143,8 @@ export interface AppStoreInAppPurchase {
   ref_name: string;
   product_id: string;
   family_sharable: boolean;
+  /** When set, marks this entry as a credit pack and triggers product_id auto-generation as `credit_pack_{credits}_{priceDigits}_{appname}`. */
+  credits?: number;
   prices: AppStoreSubscriptionPrice[];
   localizations: AppStoreSubscriptionLocalization[];
 }

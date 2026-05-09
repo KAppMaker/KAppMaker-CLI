@@ -1,8 +1,13 @@
+import path from 'node:path';
+import os from 'node:os';
+import fs from 'fs-extra';
 import { execa } from 'execa';
 import { run, runStreaming } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
 import { confirm } from '../utils/prompt.js';
 import type { AdaptyProduct } from '../types/adapty.js';
+
+const ADAPTY_API_BASE = 'https://api-admin.adapty.io/api/v1/developer';
 
 export async function validateAdaptyInstalled(): Promise<void> {
   try {
@@ -113,6 +118,59 @@ export async function createApp(
   }
 }
 
+export async function listProducts(appId: string): Promise<Array<{ id: string; title: string }>> {
+  const result = await run('adapty', ['products', 'list', '--app', appId, '--json'], {
+    label: 'Listing existing products',
+    allowFailure: true,
+  });
+  if (result.exitCode !== 0) return [];
+  try {
+    const data = JSON.parse(result.stdout);
+    const products = data?.data ?? data ?? [];
+    return products.map((p: Record<string, unknown>) => ({
+      id: (p.id ?? p.product_id ?? '') as string,
+      title: (p.title ?? '') as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function listPaywalls(appId: string): Promise<Array<{ id: string; title: string }>> {
+  const result = await run('adapty', ['paywalls', 'list', '--app', appId, '--json'], {
+    label: 'Listing existing paywalls',
+    allowFailure: true,
+  });
+  if (result.exitCode !== 0) return [];
+  try {
+    const data = JSON.parse(result.stdout);
+    const paywalls = data?.data ?? data ?? [];
+    return paywalls.map((p: Record<string, unknown>) => ({
+      id: (p.id ?? p.paywall_id ?? '') as string,
+      title: (p.title ?? '') as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function listPlacements(appId: string): Promise<Array<{ developer_id: string }>> {
+  const result = await run('adapty', ['placements', 'list', '--app', appId, '--json'], {
+    label: 'Listing existing placements',
+    allowFailure: true,
+  });
+  if (result.exitCode !== 0) return [];
+  try {
+    const data = JSON.parse(result.stdout);
+    const placements = data?.data ?? data ?? [];
+    return placements.map((p: Record<string, unknown>) => ({
+      developer_id: (p.developer_id ?? '') as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function listAccessLevels(appId: string): Promise<Array<{ id: string; sdk_id: string; title: string }>> {
   const result = await run('adapty', ['access-levels', 'list', '--app', appId, '--json'], {
     label: 'Listing access levels',
@@ -171,6 +229,13 @@ export async function createProduct(
   product: AdaptyProduct,
   accessLevelId: string,
 ): Promise<string> {
+  // The Adapty CLI v0.1.5 hardcodes a period whitelist that excludes "consumable",
+  // even though the underlying REST API accepts it. Route consumables through the
+  // API directly so credit packs can be marked as such instead of "lifetime".
+  if (product.period === 'consumable') {
+    return createProductViaApi(appId, product, accessLevelId);
+  }
+
   const args = [
     'products', 'create',
     '--app', appId,
@@ -206,6 +271,73 @@ export async function createProduct(
   }
 
   logger.info(`Product "${product.title}" may already exist, continuing...`);
+  return '';
+}
+
+async function getAdaptyAuthToken(): Promise<string | null> {
+  if (process.env.ADAPTY_TOKEN) return process.env.ADAPTY_TOKEN;
+  const configPath = path.join(os.homedir(), '.config', 'adapty', 'config.json');
+  try {
+    const cfg = await fs.readJson(configPath);
+    return cfg?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Direct REST-API path for periods the CLI doesn't accept (currently just "consumable"). */
+async function createProductViaApi(
+  appId: string,
+  product: AdaptyProduct,
+  accessLevelId: string,
+): Promise<string> {
+  const token = await getAdaptyAuthToken();
+  if (!token) {
+    logger.warn(`Skipping "${product.title}" — could not read Adapty auth token. Run "adapty auth login" and retry.`);
+    return '';
+  }
+
+  const body: Record<string, unknown> = {
+    access_level_id: accessLevelId,
+    period: product.period,
+    title: product.title,
+  };
+  if (product.ios_product_id) body.ios_product_id = product.ios_product_id;
+  if (product.android_product_id) body.android_product_id = product.android_product_id;
+  if (product.android_base_plan_id) body.android_base_plan_id = product.android_base_plan_id;
+
+  const url = `${ADAPTY_API_BASE}/apps/${appId}/products/`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    logger.warn(`Could not create "${product.title}" via Adapty API: ${(err as Error).message}`);
+    return '';
+  }
+
+  if (response.ok) {
+    try {
+      const data = await response.json() as { id?: string; product_id?: string };
+      logger.info(`Creating product: ${product.title} (consumable, via API) — id ${data.id ?? data.product_id ?? '?'}`);
+      return data.id ?? data.product_id ?? '';
+    } catch {
+      return '';
+    }
+  }
+
+  const errText = await response.text().catch(() => '');
+  if (errText.includes('already exists') || errText.includes('Duplicate')) {
+    logger.info(`Product "${product.title}" already exists, skipping.`);
+    return '';
+  }
+  logger.warn(`Adapty API rejected "${product.title}" (HTTP ${response.status}): ${errText.slice(0, 200)}`);
   return '';
 }
 

@@ -237,7 +237,9 @@ The full `create` orchestrator calls these five commands internally for steps 2�
 **Config file**: Looks for `./Assets/appstore-config.json`. If not found, prompts interactively.
 - Global defaults at `~/.config/kappmaker/appstore-defaults.json` are used as base layer.
 
-**What it does** (13 steps): Register bundle ID + enable capabilities (Sign in with Apple, In-App Purchases, Push Notifications), create/find app (fully automated — no manual ASC step needed), set content rights, create version, set categories, age rating, localizations, pricing, subscriptions, privacy, encryption, review contact.
+**What it does** (13 steps): Register bundle ID + enable capabilities (Sign in with Apple, In-App Purchases, Push Notifications), create/find app (fully automated — no manual ASC step needed), set content rights, create version, set categories, age rating, localizations, pricing, subscriptions, **consumable in-app purchases (credit packs)**, privacy, encryption, review contact.
+
+**Default credit packs**: 3 CONSUMABLE IAPs ship in the template (`Basic` 10 credits / $4.99, `Pro` 30 / $9.99, `Ultimate` 80 / $19.99). Auto-fill turns each into `credit_pack_{credits}_{priceDigits}_{appname}` (e.g. `credit_pack_10_499_myapp`) — same product ID is used on Google Play and Adapty so the app code only needs one constant. Credit-pack auto-fill triggers on any `in_app_purchases[]` entry with a `credits` numeric field; other custom IAPs are left alone (the user's `product_id` wins). Created via `asc iap setup` — idempotent on rerun.
 
 **Tip**: Before running, you can help the user review or create the `Assets/appstore-config.json` file. Read the existing config and explain each section. The user can edit it before running.
 
@@ -276,12 +278,15 @@ The full `create` orchestrator calls these five commands internally for steps 2�
 11. Print warnings for Play Console-only items (content rating / IARC, app pricing tier)
 
 **Product ID formats**:
-- ASC / iOS: `{appname}.premium.{period}.v1.{price}.v1` (e.g. `myapp.premium.weekly.v1.699.v1`)
+- ASC / iOS subscription: `{appname}.premium.{period}.v1.{price}.v1` (e.g. `myapp.premium.weekly.v1.699.v1`)
 - Play / Android subscription `productId`: `{appname}.premium.{period}.v1` (e.g. `myapp.premium.weekly.v1`)
 - Play / Android `basePlanId`: `autorenew-{period}-{priceDigits}-v1` (e.g. `autorenew-weekly-699-v1`)
 - Subscription title (shown on Play checkout): `{AppName} Premium {PeriodLabel}` (e.g. `MyApp Premium Weekly`)
+- **Credit packs (one-time IAP)** — same ID on ASC + Play + Adapty: `credit_pack_{credits}_{priceDigits}_{appname}` (e.g. `credit_pack_10_499_myapp`)
 
 All three systems (ASC, Play, Adapty) use the same generator so the IDs align automatically without extra configuration.
+
+**Default credit pack IAPs** ship in `Assets/googleplay-config.json` (and the parallel ASC/Adapty templates): Basic 10/$4.99, Pro 30/$9.99, Ultimate 80/$19.99. Auto-fill triggers on `in_app_products[]` entries with a `credits` numeric field. Step 9 of `gpc setup` calls `setupInAppProducts` against the new monetization API to create them.
 
 **When to use individual subcommands instead of `setup`**:
 - User changed listing copy → `gpc listings push`
@@ -310,7 +315,21 @@ All three systems (ASC, Play, Adapty) use the same generator so the IDs align au
 
 **What it does** (8 steps): Create/find app, set access level, create products (with iOS/Android IDs), create paywalls, create placements.
 
-**Product ID format**: Aligned with App Store Connect AND Google Play Console so Adapty links them across all three systems automatically. `ios_product_id` = `{appname}.premium.{period}.v1.{price}.v1`, `android_product_id` = `{appname}.premium.{period}.v1`, `android_base_plan_id` = `autorenew-{period}-{priceDigits}-v1` (e.g. `autorenew-weekly-699-v1`).
+**Product ID format**: Aligned with App Store Connect AND Google Play Console so Adapty links them across all three systems automatically.
+
+For subscriptions: `ios_product_id` = `{appname}.premium.{period}.v1.{price}.v1`, `android_product_id` = `{appname}.premium.{period}.v1`, `android_base_plan_id` = `autorenew-{period}-{priceDigits}-v1`. Routed to access level `Premium`.
+
+For credit pack IAPs (entries with `credits` field): `ios_product_id` = `android_product_id` = `credit_pack_{credits}_{priceDigits}_{appname}`. `android_base_plan_id` is left empty (IAPs have no base plan). **Period is `consumable`** and the product is routed to a separate `credit_pack_access` access level (so buying a credit pack does not grant the recurring `Premium` entitlement).
+
+**Adapty CLI consumable-period workaround**: the Adapty CLI v0.1.5 hardcodes a period whitelist that excludes `consumable`. KAppMaker bypasses this for credit packs by hitting Adapty's REST API directly (using the auth token cached at `~/.config/adapty/config.json` or `ADAPTY_TOKEN` env var). Subscriptions and lifetime products still go through the CLI. No user-visible difference; just a transparent fallback.
+
+**Prices are not developer-set in Adapty**: the `price` field in `Assets/adapty-config.json` only drives ID generation (and mirrors into ASC/GPC). Adapty's developer API explicitly strips price fields from product creation — verified via OPTIONS metadata ("Strips response to plan-specified fields (id, title, vendor_products)"). Prices appear in the Adapty dashboard only after the user connects App Store Connect and Google Play integrations there (dashboard-only step; not exposed via CLI/API). When users complain that prices are missing in Adapty, point them to: Adapty dashboard → Settings → Integrations → connect ASC (paste the same `.p8` / Key ID / Issuer ID they used for `kappmaker create-appstore-app`) and Google Play (upload the same service-account JSON used by `kappmaker gpc setup`). The mobile Adapty SDK already shows correct prices in-app — it fetches them from native store APIs at runtime regardless of dashboard state.
+
+**Multi-access-level config shape**: `access_levels: [...]` (plural) replaces the legacy single `access_level`. Each product has an `access_level_sdk_id` field linking it to one of the access levels. Existing configs with the legacy field auto-migrate on load.
+
+**Default Credits Paywall + placement**: The Adapty template ships with a `Credits Paywall` containing the 3 default credit packs and a `Credits` placement (developer_id `credits_pack`). App code fetches it with `Adapty.getPaywall("credits_pack")`.
+
+**Idempotent re-runs**: `adapty setup` lists existing products / paywalls / placements first and skips ones already present. Safe to rerun at any time.
 
 **Prerequisite ordering**: If the user wants Adapty on Android, the Play Console products must exist first. The `create` orchestrator handles this automatically (step 8 runs `gpc setup` before step 9 runs Adapty), but if invoked standalone, tell the user to run `kappmaker gpc setup` (or at least `gpc subscriptions push`) before `kappmaker adapty setup`.
 
@@ -527,9 +546,10 @@ If a platform's files are missing, that platform is skipped with a warning.
 - `kappmaker config get <key>` — Get a specific value
 - `kappmaker config set <key> <value>` — Set a value
 - `kappmaker config path` — Show config file path
-- `kappmaker config init` — Interactive setup wizard (has prompts)
-- `kappmaker config appstore-defaults --init` — Interactive App Store defaults setup
+- `kappmaker config init` — Interactive setup wizard (has prompts). Also offers to initialize global App Store and Adapty defaults at the end.
+- `kappmaker config appstore-defaults --init` — Interactive App Store defaults setup. Backfills missing credit-pack IAPs from the template on re-run (useful after upgrading from pre-1.4 defaults).
 - `kappmaker config appstore-defaults --save <file>` — Save JSON as global defaults
+- `kappmaker config adapty-defaults --init` — Initialize Adapty defaults from the built-in template (subs + 3 credit packs + Credits Paywall + `credits_pack` placement). Backfills any of `products` / `paywalls` / `placements` that are empty/missing on re-run.
 - `kappmaker config adapty-defaults --save <file>` — Save Adapty JSON as global defaults
 
 **Valid config keys**: `templateRepo`, `bundleIdPrefix`, `androidSdkPath`, `organization`, `falApiKey`, `imgbbApiKey`, `openaiApiKey`, `ascAuthName`, `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath`, `appleId`, `googleServiceAccountPath`.

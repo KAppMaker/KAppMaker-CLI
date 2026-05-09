@@ -111,6 +111,8 @@ export interface GooglePlayInAppProduct {
   default_price: GooglePlayRegionalPrice;
   /** Optional regional overrides */
   prices?: GooglePlayRegionalPrice[];
+  /** When set, marks this entry as a credit pack and triggers sku auto-generation as `credit_pack_{credits}_{priceDigits}_{appname}`. */
+  credits?: number;
 }
 
 export interface GooglePlayInAppProductListing {

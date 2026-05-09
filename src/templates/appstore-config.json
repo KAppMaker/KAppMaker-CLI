@@ -169,7 +169,59 @@
       }
     ]
   },
-  "in_app_purchases": [],
+  "in_app_purchases": [
+    {
+      "type": "CONSUMABLE",
+      "ref_name": "",
+      "product_id": "",
+      "family_sharable": false,
+      "credits": 10,
+      "prices": [
+        { "territory": "USA", "price": "4.99" }
+      ],
+      "localizations": [
+        {
+          "locale": "en-US",
+          "name": "Basic Credit Pack",
+          "description": "10 credits to use in the app."
+        }
+      ]
+    },
+    {
+      "type": "CONSUMABLE",
+      "ref_name": "",
+      "product_id": "",
+      "family_sharable": false,
+      "credits": 30,
+      "prices": [
+        { "territory": "USA", "price": "9.99" }
+      ],
+      "localizations": [
+        {
+          "locale": "en-US",
+          "name": "Pro Credit Pack",
+          "description": "30 credits to use in the app."
+        }
+      ]
+    },
+    {
+      "type": "CONSUMABLE",
+      "ref_name": "",
+      "product_id": "",
+      "family_sharable": false,
+      "credits": 80,
+      "prices": [
+        { "territory": "USA", "price": "19.99" }
+      ],
+      "localizations": [
+        {
+          "locale": "en-US",
+          "name": "Ultimate Credit Pack",
+          "description": "80 credits to use in the app."
+        }
+      ]
+    }
+  ],
   "encryption": {
     "contains_proprietary_cryptography": false,
     "contains_third_party_cryptography": false,

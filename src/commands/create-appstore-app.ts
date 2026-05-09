@@ -7,6 +7,7 @@ import { loadConfig, getAppStoreTemplate, loadAppStoreDefaults } from '../utils/
 import { configAppStoreDefaults } from './config.js';
 import * as asc from '../services/asc.service.js';
 import * as ascMoney from '../services/asc-monetization.service.js';
+import { creditPackProductId } from '../services/credit-pack.defaults.js';
 import type { AppStoreConfig, CreateAppStoreOptions } from '../types/appstore.js';
 
 const CONFIG_FILENAME = 'Assets/appstore-config.json';
@@ -59,6 +60,13 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
     for (const sub of group.subscriptions) {
       const price = sub.prices[0]?.price ?? '?';
       console.log(`    ${chalk.gray('•')} ${sub.ref_name} → ${sub.product_id} ($${price})`);
+    }
+  }
+  if (config.in_app_purchases && config.in_app_purchases.length > 0) {
+    console.log(`  ${chalk.cyan('IAPs:')}      ${config.in_app_purchases.length}`);
+    for (const iap of config.in_app_purchases) {
+      const price = iap.prices[0]?.price ?? '?';
+      console.log(`    ${chalk.gray('•')} ${iap.ref_name} → ${iap.product_id} ($${price})`);
     }
   }
   console.log(`  ${chalk.cyan('Review:')}     ${config.review_info.contact_email || chalk.gray('(not set)')}`);
@@ -120,8 +128,8 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
     await asc.updateLocalization(versionId, appId, loc);
   }
 
-  // Step 10: Set Pricing & Subscriptions
-  logger.step(10, TOTAL_STEPS, 'Setting pricing and subscriptions');
+  // Step 10: Set Pricing & Subscriptions & In-App Purchases
+  logger.step(10, TOTAL_STEPS, 'Setting pricing, subscriptions, and in-app purchases');
   await ascMoney.createPricing(appId, config.pricing);
   if (config.subscriptions.groups.length > 0) {
     for (const group of config.subscriptions.groups) {
@@ -130,6 +138,7 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
   } else {
     logger.info('No subscriptions configured, skipping.');
   }
+  await ascMoney.setupInAppPurchases(appId, config.in_app_purchases ?? []);
 
   // Step 11: Set Privacy
   logger.step(11, TOTAL_STEPS, 'Setting privacy data usages');
@@ -178,6 +187,7 @@ async function loadAppStoreConfig(configPath?: string): Promise<{ config: AppSto
     logger.info(`Using config: ${savePath}`);
     const config: AppStoreConfig = await fs.readJson(savePath);
     fillSubscriptionDefaults(config);
+    fillIapDefaults(config);
     // Re-save with filled defaults
     await fs.writeJson(savePath, config, { spaces: 2 });
     return { config, configPath: savePath };
@@ -227,8 +237,9 @@ async function loadAppStoreConfig(configPath?: string): Promise<{ config: AppSto
     config.privacy.data_usages.push(...contentUsages);
   }
 
-  // Auto-fill subscription defaults
+  // Auto-fill subscription + IAP defaults
   fillSubscriptionDefaults(config);
+  fillIapDefaults(config);
 
   await fs.ensureDir(path.dirname(savePath));
   await fs.writeJson(savePath, config, { spaces: 2 });
@@ -251,6 +262,10 @@ function deepMerge(base: any, override: any): any {
     const val = override[key];
     if (val === undefined || val === '') continue;
     if (Array.isArray(val)) {
+      // Empty arrays in global defaults shouldn't wipe out template entries —
+      // pre-1.4 defaults have `in_app_purchases: []` baked in but the template
+      // now ships with the 3 credit packs. Preserve template content in that case.
+      if (val.length === 0 && Array.isArray(base[key]) && base[key].length > 0) continue;
       result[key] = val;
     } else if (val && typeof val === 'object') {
       result[key] = deepMerge(base[key] ?? {}, val);
@@ -305,6 +320,34 @@ function fillSubscriptionDefaults(config: AppStoreConfig): void {
       if (!sub.product_id) {
         sub.product_id = `${appNameLower}.premium.${suffix}.v1.${priceTag}.v1`;
       }
+    }
+  }
+}
+
+/**
+ * Auto-fill IAP product IDs and reference names for credit-pack-shaped entries.
+ * An entry is considered a credit pack when it has a `credits` field set —
+ * other custom IAPs are left alone (the user's product_id wins).
+ *
+ *   product_id: credit_pack_{credits}_{priceDigits}_{appname}
+ *   ref_name:   {AppName} {Title} v1 ({price})    — e.g. "Mangit Basic Credit Pack v1 (4.99)"
+ */
+function fillIapDefaults(config: AppStoreConfig): void {
+  if (!config.in_app_purchases) return;
+  const appName = config.app.name;
+  const appNameLower = appName.toLowerCase().replace(/\s+/g, '');
+  if (!appNameLower) return;
+
+  for (const iap of config.in_app_purchases) {
+    if (typeof iap.credits !== 'number') continue;
+    const price = iap.prices[0]?.price ?? '0';
+    const localizedName = iap.localizations[0]?.name ?? `${iap.credits} Credits`;
+
+    if (!iap.product_id) {
+      iap.product_id = creditPackProductId(iap.credits, price, appNameLower);
+    }
+    if (!iap.ref_name) {
+      iap.ref_name = `${appName} ${localizedName} v1 (${price})`;
     }
   }
 }

@@ -44,7 +44,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.4.0');
+    .version('1.5.0');
 
   program
     .command('create')
@@ -512,6 +512,7 @@ export function createCli(): Command {
     .command('adapty-defaults')
     .description('Save or view global Adapty defaults (reused across all apps)')
     .option('--save <path>', 'Save a JSON file as global Adapty defaults')
+    .option('--init', 'Initialize Adapty defaults from the template (subs + credit packs + Credits Paywall + credits_pack placement). Backfills missing entries on re-run.')
     .action(async (options) => {
       await configAdaptyDefaults(options);
     });

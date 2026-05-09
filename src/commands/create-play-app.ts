@@ -7,6 +7,7 @@ import { loadConfig, getGooglePlayTemplate } from '../utils/config.js';
 import * as gpc from '../services/gpc.service.js';
 import * as gpcMoney from '../services/gpc-monetization.service.js';
 import { buildDataSafetyCsv } from '../services/gpc-data-safety.service.js';
+import { creditPackProductId } from '../services/credit-pack.defaults.js';
 import type { GooglePlayConfig, CreatePlayAppOptions } from '../types/googleplay.js';
 
 const CONFIG_FILENAME = 'Assets/googleplay-config.json';
@@ -48,6 +49,10 @@ export async function createPlayApp(options: CreatePlayAppOptions): Promise<void
     }
   }
   console.log(`  ${chalk.cyan('IAPs:')}         ${config.in_app_products.length}`);
+  for (const iap of config.in_app_products) {
+    const priceLabel = `$${iap.default_price.price}`;
+    console.log(`    ${chalk.gray('•')} ${iap.sku} (${priceLabel})`);
+  }
   let dsSummary: string;
   if (config.data_safety_csv_path) dsSummary = `CSV file: ${config.data_safety_csv_path}`;
   else if (config.data_safety) dsSummary = `JSON (apply_defaults=${config.data_safety.apply_defaults !== false})`;
@@ -178,6 +183,7 @@ async function loadPlayConfig(configPath?: string): Promise<{ config: GooglePlay
     await detectAndApplyDefaultLanguage(config);
     fillListingDefaults(config);
     fillSubscriptionDefaults(config);
+    fillIapDefaults(config);
     await fs.writeJson(savePath, config, { spaces: 2 });
     return { config, configPath: savePath };
   }
@@ -205,6 +211,7 @@ async function loadPlayConfig(configPath?: string): Promise<{ config: GooglePlay
   await detectAndApplyDefaultLanguage(template);
   fillListingDefaults(template);
   fillSubscriptionDefaults(template);
+  fillIapDefaults(template);
 
   await fs.ensureDir(path.dirname(savePath));
   await fs.writeJson(savePath, template, { spaces: 2 });
@@ -454,6 +461,29 @@ function fillSubscriptionDefaults(config: GooglePlayConfig): void {
       if (!listing.title || LEGACY_TITLES.has(listing.title)) {
         listing.title = `${appName} Premium ${label}`;
       }
+    }
+  }
+}
+
+/**
+ * Auto-fill in-app product SKUs for credit-pack-shaped entries.
+ * An entry is considered a credit pack when it has a `credits` field set;
+ * other custom IAPs are left alone. SKU format matches ASC + Adapty so the
+ * same product ID works on all three platforms:
+ *
+ *   sku: credit_pack_{credits}_{priceDigits}_{appname}
+ */
+function fillIapDefaults(config: GooglePlayConfig): void {
+  if (!config.in_app_products) return;
+  const appName = config.app.name;
+  const appNameLower = appName.toLowerCase().replace(/\s+/g, '');
+  if (!appNameLower) return;
+
+  for (const iap of config.in_app_products) {
+    if (typeof iap.credits !== 'number') continue;
+    const price = iap.default_price?.price ?? '0';
+    if (!iap.sku) {
+      iap.sku = creditPackProductId(iap.credits, price, appNameLower);
     }
   }
 }

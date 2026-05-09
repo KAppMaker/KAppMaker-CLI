@@ -67,5 +67,33 @@
       ]
     }
   ],
-  "in_app_products": []
+  "in_app_products": [
+    {
+      "sku": "",
+      "default_language": "en-US",
+      "credits": 10,
+      "default_price": { "region_code": "US", "price": "4.99", "currency_code": "USD" },
+      "listings": [
+        { "locale": "en-US", "title": "Basic Credit Pack", "description": "10 credits to use in the app." }
+      ]
+    },
+    {
+      "sku": "",
+      "default_language": "en-US",
+      "credits": 30,
+      "default_price": { "region_code": "US", "price": "9.99", "currency_code": "USD" },
+      "listings": [
+        { "locale": "en-US", "title": "Pro Credit Pack", "description": "30 credits to use in the app." }
+      ]
+    },
+    {
+      "sku": "",
+      "default_language": "en-US",
+      "credits": 80,
+      "default_price": { "region_code": "US", "price": "19.99", "currency_code": "USD" },
+      "listings": [
+        { "locale": "en-US", "title": "Ultimate Credit Pack", "description": "80 credits to use in the app." }
+      ]
+    }
+  ]
 }

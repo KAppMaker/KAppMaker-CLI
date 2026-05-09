@@ -5,6 +5,7 @@ import type {
   AppStoreSubscriptionGroup,
   AppStoreSubscription,
   AppStoreAvailability,
+  AppStoreInAppPurchase,
 } from '../types/appstore.js';
 
 export async function createPricing(appId: string, pricing: AppStorePricingConfig): Promise<void> {
@@ -255,6 +256,74 @@ async function setupSubscription(
         allowFailure: true,
         timeout: 2 * 60_000,
       });
+    }
+  }
+}
+
+// ── In-app purchases (consumable / non-consumable / non-renewing) ───
+//
+// Mirrors `setupSubscriptions` but for the `asc iap` family. Each entry is
+// created via `asc iap setup --type ... --product-id ... --price ... --base-territory ...`
+// in one call — mirroring the one-shot subscription pattern. Idempotent:
+// "already been used" / "already exists" responses are downgraded to info logs
+// so reruns are safe.
+
+export async function setupInAppPurchases(
+  appId: string,
+  iaps: AppStoreInAppPurchase[],
+): Promise<void> {
+  if (iaps.length === 0) {
+    logger.info('No in-app purchases configured, skipping.');
+    return;
+  }
+
+  for (const iap of iaps) {
+    await setupInAppPurchase(appId, iap);
+  }
+}
+
+async function setupInAppPurchase(appId: string, iap: AppStoreInAppPurchase): Promise<void> {
+  const args = [
+    'iap', 'setup',
+    '--app', appId,
+    '--type', iap.type,
+    '--reference-name', iap.ref_name,
+    '--product-id', iap.product_id,
+  ];
+
+  if (iap.family_sharable) args.push('--family-sharable');
+
+  const loc = iap.localizations[0];
+  if (loc) {
+    args.push('--locale', loc.locale);
+    args.push('--display-name', loc.name);
+    if (loc.description) args.push('--description', loc.description);
+  }
+
+  const price = iap.prices[0];
+  if (price) {
+    if (price.price) {
+      args.push('--price', price.price);
+    } else if (price.tier) {
+      args.push('--tier', price.tier);
+    }
+    if (price.territory) args.push('--base-territory', price.territory);
+  }
+
+  args.push('--output', 'json');
+
+  const result = await run('asc', args, {
+    label: `Setting up IAP: ${iap.ref_name}`,
+    allowFailure: true,
+  });
+
+  if (result.exitCode !== 0) {
+    const combined = result.stdout + result.stderr;
+    if (combined.includes('already been used') || combined.includes('already exists')) {
+      logger.info(`IAP "${iap.ref_name}" (${iap.product_id}) already exists, skipping.`);
+    } else {
+      const errMsg = result.stderr || result.stdout;
+      logger.warn(`Could not create IAP "${iap.ref_name}": ${errMsg.slice(0, 150)}`);
     }
   }
 }

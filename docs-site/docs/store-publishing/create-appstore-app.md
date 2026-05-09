@@ -62,6 +62,20 @@ Layers are deep-merged (later overrides earlier):
 
 Auto-generated naming: group `{appname}.premium.v1`, ref name `{AppName} Premium Weekly v1 (6.99)`.
 
+## Default In-App Purchases (Credit Packs)
+
+The template also ships three CONSUMABLE in-app purchases — credit packs — that get created via the same `asc iap setup` one-shot workflow.
+
+| Pack | Credits | Price | Product ID |
+|------|---------|-------|------------|
+| Basic Credit Pack | 10 | $4.99 | `credit_pack_10_499_{appname}` |
+| Pro Credit Pack | 30 | $9.99 | `credit_pack_30_999_{appname}` |
+| Ultimate Credit Pack | 80 | $19.99 | `credit_pack_80_1999_{appname}` |
+
+**Format:** `credit_pack_{credits}_{priceDigits}_{appname}`. The same product ID is used on Google Play and Adapty so app code can reference one constant per platform pair.
+
+**Auto-fill:** triggers on any `in_app_purchases[]` entry with a `credits` numeric field. Custom IAPs without a `credits` field are left untouched (the user's `product_id` wins). Reruns are idempotent — already-existing IAPs are skipped with an info log.
+
 ## Default Privacy
 
 | Data Category | Purpose | Protection |
