@@ -1,9 +1,8 @@
 import { run, runStreaming } from '../utils/exec.js';
-import type { DerivedConfig } from '../types/index.js';
 
-export async function cloneTemplate(config: DerivedConfig): Promise<void> {
-  await runStreaming('git', ['clone', config.templateRepo, config.targetDir], {
-    label: `Cloning template into ${config.targetDir}`,
+export async function cloneTemplate(templateRepo: string, targetDir: string): Promise<void> {
+  await runStreaming('git', ['clone', templateRepo, targetDir], {
+    label: `Cloning template into ${targetDir}`,
   });
 }
 

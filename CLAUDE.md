@@ -36,6 +36,13 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 npm run dev          # Run with tsx (no build needed)
 npm run build        # Compile TypeScript to dist/
 npx tsx src/index.ts create <AppName>              # Full end-to-end app setup (13 steps)
+npx tsx src/index.ts clone <AppName>               # Step 1 only — clone template into <AppName>-All
+npx tsx src/index.ts git setup-upstream [path]     # Step 10 only — rename origin to upstream (default: cwd)
+npx tsx src/index.ts firebase login                                                       # Step 2 — `firebase login`
+npx tsx src/index.ts firebase project --app-name <Name>                                   # Step 3 — create Firebase project (or --project-id <id>)
+npx tsx src/index.ts firebase apps --project <id> --app-name <Name> --package-name <pkg>  # Step 4 — create Android + iOS apps
+npx tsx src/index.ts firebase auth-anonymous --project <id>                               # Step 5 — enable anonymous auth
+npx tsx src/index.ts firebase configs --project <id> --app-name <Name> [--package-name <pkg>]  # Step 6 — download SDK configs
 npx tsx src/index.ts create-logo [--prompt "..."]  # Logo generation (--prompt skips interactive input)
 npx tsx src/index.ts generate-image --prompt "..." # Generic AI image generator (fal.ai nano-banana-2)
 npx tsx src/index.ts image-split <image> [opts]    # Split grid image (--keep 1,3 to filter)
@@ -124,6 +131,9 @@ src/
   cli.ts                    # Commander.js program setup
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
+    clone.ts                # `kappmaker clone <AppName>` — step 1 of create as a standalone command (also called by create.ts)
+    git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone command (also called by create.ts)
+    firebase.ts             # `kappmaker firebase` subcommands: login, project, apps, auth-anonymous, configs (steps 2-6 of create as standalones; also called by create.ts)
     create-logo.ts          # Logo generation (fal.ai + sharp); accepts --prompt to skip interactive input
     generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2; --prompt, --num-images, --aspect-ratio, --resolution, --reference)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator via asc CLI)

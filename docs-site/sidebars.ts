@@ -10,6 +10,9 @@ const sidebars: SidebarsConfig = {
       link: {type: 'generated-index', description: 'Create, configure, and manage your mobile app project.'},
       items: [
         'project-setup/create',
+        'project-setup/clone',
+        'project-setup/git-setup-upstream',
+        'project-setup/firebase',
         'project-setup/refactor',
         'project-setup/update-version',
       ],

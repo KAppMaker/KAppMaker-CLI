@@ -63,3 +63,31 @@ Each is optional and prompted. They call the same logic as the standalone comman
 - Step 11: [App Store Connect Setup](/store-publishing/create-appstore-app)
 - Step 12: [Google Play Console Setup](/store-publishing/google-play-console) (builds + uploads AAB first)
 - Step 13: [Subscription Management (Adapty)](/store-publishing/adapty-setup)
+
+## Running Steps Individually
+
+Every step of `create` is also exposed as a standalone command, so you can run partial flows without going through the full 13-step wizard. Use these when you only need a subset (e.g. "just clone and refactor", or "set up Firebase for an existing project").
+
+| Step | Standalone command |
+|------|--------------------|
+| 1 | [`kappmaker clone <AppName>`](/project-setup/clone) |
+| 2 | `kappmaker firebase login` ([Firebase Setup](/project-setup/firebase)) |
+| 3 | `kappmaker firebase project --app-name <Name>` |
+| 4 | `kappmaker firebase apps --project <id> --app-name <Name> --package-name <pkg>` |
+| 5 | `kappmaker firebase auth-anonymous --project <id>` |
+| 6 | `kappmaker firebase configs --project <id> --app-name <Name> --package-name <pkg>` |
+| 7 | [`kappmaker create-logo`](/ai-image-tools/create-logo) |
+| 8 | [`kappmaker refactor`](/project-setup/refactor) |
+| 9 | [`kappmaker generate-keystore`](/build-signing/generate-keystore) |
+| 10 | [`kappmaker git setup-upstream`](/project-setup/git-setup-upstream) |
+| 11 | [`kappmaker create-appstore-app`](/store-publishing/create-appstore-app) |
+| 12 | [`kappmaker gpc setup`](/store-publishing/google-play-console) |
+| 13 | [`kappmaker adapty setup`](/store-publishing/adapty-setup) |
+
+### Minimal flow (clone + refactor only)
+
+```bash
+kappmaker clone MyApp
+cd MyApp-All/MobileApp
+kappmaker refactor --app-id com.example.myapp --app-name MyApp
+```

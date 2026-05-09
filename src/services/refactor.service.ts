@@ -9,13 +9,9 @@ const SOURCE_DIRS = [
   'src/commonMain/kotlin',
   'src/commonTest/kotlin',
   'src/androidMain/kotlin',
-  // Roborazzi / ComposablePreviewScanner screenshot tests added with the AGP 9 testing
-  // additions — must be walked so test files referencing `com.measify.kappmaker` get rewritten
-  // and the `com/measify/kappmaker/...` directory is moved into the new package.
   'src/androidHostTest/kotlin',
   'src/iosMain/kotlin',
   'src/jvmMain/kotlin',
-  // Compose UI tests via runComposeUiTest (sample at shared/src/jvmTest/.../SampleComposeUiTest.kt)
   'src/jvmTest/kotlin',
   'src/nonMobileMain/kotlin',
   'src/mobileMain/kotlin',
@@ -23,25 +19,12 @@ const SOURCE_DIRS = [
   'src/nonWebMain/kotlin',
   'src/jsMain/kotlin',
   'src/wasmJsMain/kotlin',
-  // AGP 9 split: :androidApp is a plain Android application module that uses
-  // the standard `src/main/kotlin` layout (not KMP source sets).
   'src/main/kotlin',
 ];
 
 const FILE_EXTENSIONS = ['kt', 'kts', 'gradle', 'xml', 'json'];
 
-// All Gradle modules that may contain Kotlin sources needing refactoring.
-// Each module gets its source directories renamed and imports updated.
-//
-// AGP 9 migration (Path C from the JetBrains kotlin-tooling-agp9-migration skill):
-// each platform entry point now lives in its own module:
-//   - androidApp  — Android Application (MainActivity, AndroidApp, AndroidManifest.xml,
-//                   google-services.json, signing/buildTypes, applicationId)
-//   - desktopApp  — JVM Desktop Application (main.kt, compose.desktop.application config)
-//   - webApp      — Wasm/JS browser entry (main.kt, index.html, webpack/devServer config)
-//   - shared      — Shared KMP library (com.android.kotlin.multiplatform.library) holding
-//                   commonMain + per-platform actuals. Older KAppMaker templates called
-//                   this `composeApp`; both names are walked so refactor works on either.
+// `composeApp` is the pre-AGP-9 module name; kept so the refactor works on legacy templates too.
 const REFACTOR_MODULES = [
   'shared',
   'composeApp',
@@ -142,8 +125,6 @@ async function updateGradleFiles(
 async function updateApplicationIdOnly(
   mobileDir: string, newId: string,
 ): Promise<void> {
-  // AGP 9 split: applicationId now lives in :androidApp/build.gradle.kts. Fall back to the
-  // legacy :composeApp location for projects that haven't been migrated yet.
   const candidates = [
     path.join(mobileDir, 'androidApp', 'build.gradle.kts'),
     path.join(mobileDir, 'composeApp', 'build.gradle.kts'),
@@ -167,8 +148,6 @@ async function updateApplicationIdOnly(
 async function updateFirebaseConfigs(
   mobileDir: string, oldId: string, newId: string,
 ): Promise<void> {
-  // AGP 9 split moves google-services.json from :composeApp to :androidApp. Touch both so
-  // newer projects (AGP 9) and legacy ones both refactor cleanly.
   const files = [
     'androidApp/google-services.json',
     'composeApp/google-services.json',
@@ -198,9 +177,7 @@ async function updateIosFiles(
 async function updateGithubWorkflows(
   mobileDir: string, oldId: string, newId: string,
 ): Promise<void> {
-  // `.github/` lives at the cloned repo root (one level above MobileApp/) in the current
-  // KAppMaker-All template. Probe both locations so legacy templates that nested it inside
-  // MobileApp/ still get refactored.
+  // .github/ lives at the repo root (one level above MobileApp/); legacy templates nested it inside.
   const roots = [path.dirname(mobileDir), mobileDir];
   const files = [
     '.github/workflows/publish_android_playstore.yml',
@@ -215,12 +192,8 @@ async function updateGithubWorkflows(
   }
 }
 
-// Roborazzi snapshot PNGs embed the fully-qualified preview class in their filename
-// (e.g. `com.measify.kappmaker.designsystem.components.ButtonKt_AppButtonPreviews.png`).
-// Without renaming them, `verifyRoborazziAndroidHostTest` would look for
-// `<newPackage>.<...>.png` but only find the old-named files, and every preview would
-// fail as "missing golden". Mirrors `renameRoborazziSnapshots` in the boilerplate's
-// gradle/scripts/refactorPackage.gradle.kts.
+// Roborazzi snapshot PNGs embed the FQCN in their filename, so `verifyRoborazziAndroidHostTest`
+// fails as "missing golden" unless the files are renamed alongside the package move.
 async function renameRoborazziSnapshots(
   moduleDir: string, oldId: string, newId: string,
 ): Promise<void> {
@@ -256,24 +229,15 @@ async function cleanUpOldDirectories(
 async function updateAppName(
   mobileDir: string, oldName: string, newName: string, currentPkgId: string,
 ): Promise<void> {
-  // Path C of the JetBrains AGP 9 migration moved manifests / Main.kt out of the shared
-  // library (`shared/`, formerly `composeApp/`) into dedicated entry-point modules. The
-  // current template uses capital `Main.kt`, `webApp/src/webMain/resources/index.html`
-  // (NOT `wasmJsMain`), and `KAppMakerAllModules` is also returned from
-  // `AppUtilImpl.web.kt` (added with the AGP 9 testing/web work).
-  //
-  // `currentPkgId` is the package id *as it currently lives on disk* — when called after
-  // a package rename it is the NEW id, so paths like `desktopApp/src/main/kotlin/<pkg>/Main.kt`
-  // resolve to the moved location instead of the original `com/measify/kappmaker` path.
+  // currentPkgId reflects the package id on disk: newAppId after a rename, oldAppId in skip-rename mode.
   const pkgPath = currentPkgId.replace(/\./g, '/');
   const mobileFiles = [
-    // Latest Path C locations
     'androidApp/src/main/AndroidManifest.xml',
     `desktopApp/src/main/kotlin/${pkgPath}/Main.kt`,
     'webApp/src/webMain/resources/index.html',
     `shared/src/jvmMain/kotlin/${pkgPath}/util/AppUtilImpl.jvm.kt`,
     `shared/src/webMain/kotlin/${pkgPath}/util/AppUtilImpl.web.kt`,
-    // Pre-rename / lowercase fallbacks
+    // Legacy fallbacks (lowercase main.kt, wasmJsMain dir, composeApp module).
     `desktopApp/src/main/kotlin/${pkgPath}/main.kt`,
     'webApp/src/wasmJsMain/resources/index.html',
     'composeApp/src/androidMain/AndroidManifest.xml',
@@ -290,7 +254,6 @@ async function updateAppName(
     }
   }
 
-  // .github/ is at the repo root (one level above MobileApp/) in current templates.
   const repoRoot = path.dirname(mobileDir);
   const repoFiles = ['.github/workflows/publish_ios_appstore.yml'];
   for (const f of repoFiles) {
@@ -332,8 +295,6 @@ export async function refactor(
     await updateFirebaseConfigs(mobileDir, oldAppId, newAppId);
     await updateIosFiles(mobileDir, oldAppId, newAppId);
     await updateGithubWorkflows(mobileDir, oldAppId, newAppId);
-    // After package rename, on-disk paths use newAppId — pass it so updateAppName
-    // resolves entry points (Main.kt, AppUtilImpl.{jvm,web}.kt) to their new location.
     await updateAppName(mobileDir, oldAppName, newAppName, newAppId);
   } else {
     logger.info('Skipping package rename -- updating IDs and app name only...');
@@ -341,7 +302,6 @@ export async function refactor(
     await updateFirebaseConfigs(mobileDir, oldAppId, newAppId);
     await updateIosFiles(mobileDir, oldAppId, newAppId);
     await updateGithubWorkflows(mobileDir, oldAppId, newAppId);
-    // Package paths are unchanged in this mode — files still live under oldAppId.
     await updateAppName(mobileDir, oldAppName, newAppName, oldAppId);
   }
 

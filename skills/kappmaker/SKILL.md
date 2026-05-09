@@ -16,7 +16,14 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 
 | Intent | Command |
 |--------|---------|
-| Create/bootstrap a new app | `kappmaker create <AppName>` |
+| Create/bootstrap a new app (full 13 steps) | `kappmaker create <AppName>` |
+| Clone the template only (skip Firebase, ASC, etc.) | `kappmaker clone <AppName>` |
+| Rename `origin` → `upstream` after a manual clone | `kappmaker git setup-upstream` |
+| Authenticate the Firebase CLI | `kappmaker firebase login` |
+| Create a Firebase project | `kappmaker firebase project --app-name <Name>` |
+| Create Firebase Android + iOS apps | `kappmaker firebase apps --project <id> --app-name <Name> --package-name <pkg>` |
+| Enable anonymous auth | `kappmaker firebase auth-anonymous --project <id>` |
+| Download Firebase SDK configs | `kappmaker firebase configs --project <id> --app-name <Name>` |
 | Generate a logo | `kappmaker create-logo` |
 | Generate an arbitrary image with AI | `kappmaker generate-image --prompt "..."` |
 | Set up App Store Connect | `kappmaker create-appstore-app` |
@@ -92,6 +99,85 @@ And where to get it (see API Key Sources section).
 - Whether they plan to use the optional steps (logo, ASC, Google Play Console, Adapty) so they know what to expect. The build + refactor happens BEFORE store setup (steps 8-11), then the CLI pauses and reminds the user to create their app in App Store Connect and/or Google Play Console before continuing. Google Play Console setup (step 13) auto-uploads the AAB to the internal track first.
 
 Run the command and let the user interact with it directly.
+
+---
+
+### clone — Clone Template Only (step 1 of `create`)
+
+**Syntax**: `kappmaker clone <AppName> [--template-repo <url>] [--target-dir <path>]`
+
+**Prerequisites**: `git`, plus a `templateRepo` value in config (default: KAppMaker boilerplate).
+
+**App name rules**: PascalCase, starts uppercase, alphanumeric only — same rules as `create`.
+
+**What it does**:
+1. Triggers `config init` if `~/.config/kappmaker/config.json` doesn't exist yet
+2. Prompts to delete + start fresh if the target directory already exists
+3. Runs `git clone <templateRepo> <targetDir>`
+
+**When to suggest this over `create`**: If the user explicitly says they only want to clone, scaffold, or "set up the project without Firebase / store stuff," reach for `clone` instead of the full `create`. Common minimal flow:
+
+```bash
+kappmaker clone MyApp
+cd MyApp-All/MobileApp
+kappmaker refactor --app-id com.example.myapp --app-name MyApp
+```
+
+`clone` is also what the full `create` calls under the hood for step 1 — same overwrite prompt and config-init-on-first-run behavior.
+
+---
+
+### git setup-upstream — Rename origin to upstream (step 10 of `create`)
+
+**Syntax**: `kappmaker git setup-upstream [path]`
+
+**Prerequisites**: The target directory must be a git repository.
+
+**What it does**: Runs `git remote rename origin upstream` so the template repo is preserved as the upstream remote, leaving the user free to add their own `origin` later. Exits non-zero if the path isn't a git repo.
+
+**When to suggest this**: After the user has manually cloned the template (or used `kappmaker clone`) and is about to push to their own repo. The full `create` calls this automatically as step 10.
+
+---
+
+### firebase — Firebase Setup Steps (steps 2–6 of `create`)
+
+Five subcommands, each running one part of `create`'s Firebase flow as a standalone. Run them individually for partial setups (e.g. an existing Firebase project that just needs SDK configs), or chain them together to replicate `create`.
+
+**Subcommands**:
+- `kappmaker firebase login` — `firebase login` (interactive)
+- `kappmaker firebase project --app-name <Name>` — create the project (or `--project-id <id> --display-name <name>`)
+- `kappmaker firebase apps --project <id> --app-name <Name> --package-name <pkg>` — create Android + iOS apps
+- `kappmaker firebase auth-anonymous --project <id>` — enable anonymous auth (handles the "click Get started" Auth init flow)
+- `kappmaker firebase configs --project <id> --app-name <Name> [--package-name <pkg>]` — download SDK configs
+
+**Prerequisites**:
+- `firebase` CLI installed (`which firebase`; auto-installs via `npm install -g firebase-tools` if missing)
+- `firebase login` must have been run before any of `project`/`apps`/`auth-anonymous`/`configs`
+
+**Naming conventions used by `create`** — match these if you want to replicate what `create` does:
+- Project ID: `<lowercase-app-name>-app` (e.g. `myapp-app` for `MyApp`). The `--app-name` shortcut on `firebase project` derives this for you.
+- App display names: `${appName} (Android App)` and `${appName} (iOS App)`. `firebase configs` looks up apps by these names unless you pass `--android-app-id`/`--ios-app-id`.
+
+**`firebase configs` output paths** auto-detect from cwd:
+1. `MobileApp/androidApp/google-services.json` if `MobileApp/androidApp/` exists (AGP 9 layout)
+2. `MobileApp/composeApp/google-services.json` if `MobileApp/composeApp/` exists (legacy)
+3. `Assets/google-services.json` as last-resort fallback
+
+Same probe for iOS (`MobileApp/iosApp/iosApp/GoogleService-Info.plist` first). Override via `--android-output` / `--ios-output`.
+
+**Idempotency**:
+- `firebase project` skips creation if the project already exists.
+- `firebase apps` reuses apps that match the expected display name instead of creating duplicates.
+- `firebase configs` always re-downloads (cheap, no side effects).
+
+**`--package-name` on configs** — when set, the downloaded `google-services.json` is verified to contain the expected package and patched in-place if mismatched (e.g. when the Firebase app was registered with a different `bundleIdPrefix` previously). Pass it whenever you have the new package name handy.
+
+**When to suggest these standalone over `create`**:
+- User has an existing Firebase project and just needs SDK configs → `firebase configs`.
+- User wants to set up a Firebase project for an already-cloned project → `firebase project` → `firebase apps` → `firebase auth-anonymous` → `firebase configs`.
+- CI step that just needs to refresh `google-services.json` → `firebase configs --project ... --android-app-id ...`.
+
+The full `create` orchestrator calls these five commands internally for steps 2–6.
 
 ---
 
@@ -480,7 +566,9 @@ For config setup, prefer using `kappmaker config set <key> <value>` for each key
 
 Some common workflows:
 1. **Full app setup**: `kappmaker create <AppName>` (does everything)
-2. **Screenshots pipeline**: First `generate-screenshots`, then `translate-screenshots`
+2. **Minimal scaffold (clone + refactor only)**: `kappmaker clone <AppName>` → `cd <AppName>-All/MobileApp` → `kappmaker refactor --app-id <id> --app-name <name>`. Then optionally `cd ..` and `kappmaker git setup-upstream` if the user wants the template kept as the upstream remote.
+3. **Firebase-only setup (existing project)**: `kappmaker firebase login` → `kappmaker firebase project --app-name <Name>` → `kappmaker firebase apps --project <id> --app-name <Name> --package-name <pkg>` → `kappmaker firebase auth-anonymous --project <id>` → `kappmaker firebase configs --project <id> --app-name <Name> --package-name <pkg>`. Same as steps 2–6 of `create`.
+3. **Screenshots pipeline**: First `generate-screenshots`, then `translate-screenshots`
 3. **Logo pipeline**: `create-logo`, then optionally `image-remove-bg` and `image-enhance`
 4. **Generic image pipeline**: `generate-image`, then optionally `image-remove-bg` and `image-enhance` for one-off assets (hero images, backgrounds, mockups)
 4. **Store setup**: `create-appstore-app`, then `gpc setup`, then `adapty setup` — product IDs align automatically across all three systems. On Android, the Play Console app must already exist (create manually once in Play Console, then `gpc setup` configures everything else).

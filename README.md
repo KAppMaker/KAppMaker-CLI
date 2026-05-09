@@ -97,6 +97,9 @@ Claude will check your config, verify API keys are set, and walk you through any
 - [External Services & API Keys](#external-services--api-keys)
 - [Commands](#commands)
   - [`create <app-name>`](#create-app-name)
+  - [`clone <app-name>`](#clone-app-name)
+  - [`git setup-upstream`](#git-setup-upstream)
+  - [`firebase`](#firebase) — Firebase setup steps (login, project, apps, auth, configs)
   - [`create-logo`](#create-logo)
   - [`generate-image`](#generate-image)
   - [`create-appstore-app`](#create-appstore-app)
@@ -120,6 +123,13 @@ Claude will check your config, verify API keys are set, and walk you through any
 | Command | Description |
 |---------|-------------|
 | [`kappmaker create <app-name>`](#create-app-name) | Full end-to-end app setup (Firebase, logo, App Store Connect, Google Play Console, Adapty, release build) |
+| [`kappmaker clone <app-name>`](#clone-app-name) | Clone the template into `<AppName>-All` (step 1 of `create` as a standalone) |
+| [`kappmaker git setup-upstream`](#git-setup-upstream) | Rename `origin` to `upstream` (step 10 of `create` as a standalone) |
+| [`kappmaker firebase login`](#firebase) | `firebase login` — authenticate the Firebase CLI |
+| [`kappmaker firebase project`](#firebase) | Create a Firebase project (idempotent) |
+| [`kappmaker firebase apps`](#firebase) | Create Android + iOS apps in a Firebase project (idempotent) |
+| [`kappmaker firebase auth-anonymous`](#firebase) | Enable anonymous authentication |
+| [`kappmaker firebase configs`](#firebase) | Download `google-services.json` + `GoogleService-Info.plist` |
 | [`kappmaker create-logo`](#create-logo) | Generate an app logo with AI (fal.ai) |
 | [`kappmaker generate-image`](#generate-image) | Generate an arbitrary image with AI — generic wrapper around fal.ai nano-banana-2 |
 | [`kappmaker create-appstore-app`](#create-appstore-app) | Set up an app on App Store Connect (metadata, subscriptions, privacy) |
@@ -326,6 +336,119 @@ kappmaker create Remimi
 |------|-------------|---------|
 | `--template-repo <url>` | Template repository URL | KAppMaker template |
 | `--organization <org>` | Organization for Fastlane signing | App name (configurable) |
+
+---
+
+## `clone <app-name>`
+
+Clones the template repository into `<AppName>-All`. This is step 1 of `create` exposed as a standalone command — useful when you only want to scaffold a project and apply your own changes (e.g. clone + refactor without Firebase, ASC, etc.).
+
+```bash
+kappmaker clone Remimi
+kappmaker clone Remimi --template-repo git@github.com:my-org/my-template.git
+kappmaker clone Remimi --target-dir ./projects/Remimi
+```
+
+**What it does:**
+1. Validates the app name (PascalCase)
+2. If no config exists at `~/.config/kappmaker/config.json`, runs `kappmaker config init` first
+3. If the target directory already exists, prompts to delete and start fresh
+4. Runs `git clone <templateRepo> <targetDir>`
+
+**Minimal flow** — clone + refactor without anything else:
+
+```bash
+kappmaker clone MyApp
+cd MyApp-All/MobileApp
+kappmaker refactor --app-id com.example.myapp --app-name MyApp
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--template-repo <url>` | Git URL of the template repository | `templateRepo` from config |
+| `--target-dir <path>` | Target directory for the clone | `<AppName>-All` |
+
+---
+
+## `git setup-upstream`
+
+Renames the `origin` remote to `upstream`. Step 10 of `create` as a standalone command — designed for the "fork from template" workflow where the template repo becomes upstream and you add your own origin later.
+
+```bash
+kappmaker git setup-upstream                    # Run from inside the cloned repo
+kappmaker git setup-upstream ./MyApp-All        # Or pass the path explicitly
+```
+
+Exits non-zero if the path is not a git repository.
+
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `[path]` | Path to the repo root | Current directory |
+
+---
+
+## `firebase`
+
+Five standalone subcommands matching steps 2–6 of `create`. Run them individually for partial flows (e.g. set up Firebase for an existing project), or together to replicate what `create` does.
+
+```bash
+kappmaker firebase login
+kappmaker firebase project --app-name MyApp                # derives project-id = myapp-app, display = MyApp
+kappmaker firebase project --project-id myapp-prod --display-name MyApp  # explicit
+kappmaker firebase apps --project myapp-app --app-name MyApp --package-name com.example.myapp
+kappmaker firebase auth-anonymous --project myapp-app
+kappmaker firebase configs --project myapp-app --app-name MyApp --package-name com.example.myapp
+```
+
+### `firebase login`
+
+Runs `firebase login` (interactive). No args.
+
+### `firebase project`
+
+Creates the Firebase project. Idempotent — if the project already exists it skips creation. Returns success/failure to the orchestrator (controls whether `create` proceeds with steps 4–6).
+
+| Flag | Description | Required |
+|------|-------------|----------|
+| `--project-id <id>` | Firebase project ID (e.g. `myapp-app`) | Yes, unless `--app-name` is set |
+| `--display-name <name>` | Project display name | Defaults to `--project-id` or `--app-name` |
+| `--app-name <name>` | PascalCase app name; derives `project-id = <lowercase>-app` and `display-name = <name>` | Yes, unless explicit IDs are passed |
+
+### `firebase apps`
+
+Creates an Android + iOS app under the project. Idempotent — reuses existing apps that match the display name `${appName} (Android App)` / `${appName} (iOS App)`.
+
+| Flag | Description | Required |
+|------|-------------|----------|
+| `--project <id>` | Firebase project ID | Yes |
+| `--app-name <name>` | PascalCase display name (used to label the apps) | Yes |
+| `--package-name <pkg>` | Android `applicationId` and iOS bundle ID (e.g. `com.example.myapp`) | Yes |
+
+### `firebase auth-anonymous`
+
+Enables anonymous authentication via the Identity Toolkit Admin API. If Firebase Auth has never been initialized for the project, the command pauses and asks you to click "Get started" in the Firebase Console, then retries automatically.
+
+| Flag | Description | Required |
+|------|-------------|----------|
+| `--project <id>` | Firebase project ID | Yes |
+
+### `firebase configs`
+
+Downloads `google-services.json` and `GoogleService-Info.plist` for the Android + iOS apps and writes them to the right place. Apps are looked up via `--app-name` (display name match) unless you pass `--android-app-id` / `--ios-app-id` directly.
+
+**Output auto-detection** (when `--android-output` / `--ios-output` aren't given): probes `MobileApp/androidApp/google-services.json`, then `MobileApp/composeApp/google-services.json`, then falls back to `Assets/google-services.json`. Same for iOS — `MobileApp/iosApp/iosApp/GoogleService-Info.plist` if it exists, otherwise `Assets/GoogleService-Info.plist`.
+
+When `--package-name` is provided, the downloaded `google-services.json` is verified against the expected package name and patched in-place if it doesn't match (handles cases where the Firebase app was registered with an older `bundleIdPrefix`).
+
+| Flag | Description | Required |
+|------|-------------|----------|
+| `--project <id>` | Firebase project ID | Yes |
+| `--app-name <name>` | PascalCase display name (used to find the apps if app IDs aren't given) | Yes |
+| `--package-name <pkg>` | Verify and fix the Android `google-services.json` package name | No |
+| `--android-app-id <id>` | Skip lookup and use this Firebase App ID directly | No |
+| `--ios-app-id <id>` | Skip lookup and use this Firebase App ID directly | No |
+| `--android-output <path>` | Output path for `google-services.json` | Auto-detect |
+| `--ios-output <path>` | Output path for `GoogleService-Info.plist` | Auto-detect |
 
 ---
 
@@ -1078,6 +1201,9 @@ src/
   cli.ts                    # Command registration (Commander.js)
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
+    clone.ts                # `kappmaker clone <AppName>` — step 1 of create as a standalone (also called by create.ts)
+    git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone (also called by create.ts)
+    firebase.ts             # `kappmaker firebase` subcommands: login, project, apps, auth-anonymous, configs (steps 2-6 as standalones)
     create-logo.ts          # AI logo generation (accepts --prompt or interactive)
     generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator)

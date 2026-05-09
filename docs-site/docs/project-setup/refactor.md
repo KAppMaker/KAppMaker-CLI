@@ -28,10 +28,11 @@ Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` 
 
 ## Full Refactor (default)
 
-1. Renames Kotlin package names in all source sets (`commonMain`, `androidMain`, `iosMain`, `jvmMain`, `webMain`, etc.) plus standalone entry-point modules' `src/main/kotlin` and `src/wasmJsMain/kotlin` (post-AGP-9 Path C layout).
+1. Renames Kotlin package names in all source sets (`commonMain`, `androidMain`, `iosMain`, `jvmMain`, `webMain`, `wasmJsMain`, `nonMobileMain`, `mobileMain`, `nonWebMain`, `jsMain`) plus the test source sets (`commonTest`, `androidHostTest` for Roborazzi screenshot tests, `jvmTest` for Compose UI tests) and standalone entry-point modules' `src/main/kotlin` (post-AGP-9 Path C layout).
 2. Moves package directories to match the new package structure across every Gradle module: `shared` (the KMP library), `androidApp`, `desktopApp`, `webApp`, `designsystem`, and the `libs/auth/*`, `libs/subscription/*` libraries. Pre-rename projects with `composeApp/` are walked too so the same command works on either layout.
-3. Updates Gradle build files, Firebase configs (`androidApp/google-services.json` on AGP 9, `composeApp/google-services.json` on legacy projects), iOS project files, and GitHub workflows.
-4. Updates the app display name in manifests (`androidApp/src/main/AndroidManifest.xml`), the web entry HTML (`webApp/src/wasmJsMain/resources/index.html`), settings, and platform-specific files.
+3. Renames Roborazzi snapshot PNGs whose filenames embed the FQCN (e.g. `com.example.myapp.designsystem.components.ButtonKt_AppButtonPreviews.png`), so `verifyRoborazziAndroidHostTest` finds the right golden files after a package rename.
+4. Updates Gradle build files, Firebase configs (`androidApp/google-services.json` on AGP 9, `composeApp/google-services.json` on legacy projects), iOS project files, and GitHub workflows (looked up at the repo root, one level above `MobileApp/`).
+5. Updates the app display name in manifests (`androidApp/src/main/AndroidManifest.xml`), the web entry HTML (`webApp/src/webMain/resources/index.html`), the desktop entry (`desktopApp/src/main/kotlin/<pkg>/Main.kt`), the JVM and web `AppUtilImpl.{jvm,web}.kt`, settings, and platform-specific files.
 
 ## Skip-Package-Rename Mode
 

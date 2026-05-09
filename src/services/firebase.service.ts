@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import { run, runStreaming } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
 import { promptInput } from '../utils/prompt.js';
-import type { DerivedConfig, FirebaseAppResult } from '../types/index.js';
+import type { FirebaseAppResult } from '../types/index.js';
 
 export async function firebaseLogin(): Promise<void> {
   await runStreaming('firebase', ['login'], {
@@ -12,54 +12,51 @@ export async function firebaseLogin(): Promise<void> {
   });
 }
 
-export async function createProject(config: DerivedConfig): Promise<boolean> {
-  // Check first if project already exists
-  if (await projectExists(config.firebaseProject)) {
-    logger.info(`Firebase project "${config.firebaseProject}" already exists, skipping creation.`);
+export async function createProject(projectId: string, displayName: string): Promise<boolean> {
+  if (await projectExists(projectId)) {
+    logger.info(`Firebase project "${projectId}" already exists, skipping creation.`);
     return true;
   }
 
   const exitCode = await runStreaming(
     'firebase',
-    [
-      'projects:create',
-      config.firebaseProject,
-      '--display-name',
-      config.appName,
-    ],
+    ['projects:create', projectId, '--display-name', displayName],
     {
-      label: `Creating Firebase project: ${config.firebaseProject}`,
+      label: `Creating Firebase project: ${projectId}`,
       allowFailure: true,
     },
   );
 
   if (exitCode === 0) {
-    await waitForProject(config.firebaseProject);
+    await waitForProject(projectId);
     return true;
   }
 
-  const exists = await projectExists(config.firebaseProject);
-  if (exists) {
+  if (await projectExists(projectId)) {
     logger.info('Firebase project already exists, continuing...');
     return true;
   }
 
-  logger.warn(`Firebase project "${config.firebaseProject}" could not be created.`);
+  logger.warn(`Firebase project "${projectId}" could not be created.`);
   logger.info('Check firebase-debug.log for details, or create it manually:');
-  logger.info(`  firebase projects:create ${config.firebaseProject} --display-name ${config.appName}`);
+  logger.info(`  firebase projects:create ${projectId} --display-name ${displayName}`);
   return false;
 }
 
 export async function createAndroidApp(
-  config: DerivedConfig,
+  project: string,
+  appName: string,
+  packageName: string,
 ): Promise<FirebaseAppResult> {
-  return createOrFindApp(config, 'ANDROID', '--package-name');
+  return createOrFindApp(project, appName, packageName, 'ANDROID', '--package-name');
 }
 
 export async function createIosApp(
-  config: DerivedConfig,
+  project: string,
+  appName: string,
+  packageName: string,
 ): Promise<FirebaseAppResult> {
-  return createOrFindApp(config, 'IOS', '--bundle-id');
+  return createOrFindApp(project, appName, packageName, 'IOS', '--bundle-id');
 }
 
 export async function downloadSdkConfig(
@@ -98,13 +95,10 @@ export async function enableAnonymousAuth(projectId: string): Promise<void> {
   const url = 'https://identitytoolkit.googleapis.com/admin/v2/projects/' + projectId + '/config?updateMask=signIn.anonymous.enabled';
   const body = JSON.stringify({ signIn: { anonymous: { enabled: true } } });
 
-  // First attempt — works if Firebase Auth is already initialized.
   const firstTry = await tryEnableAnonymous(url, headers, body);
   if (firstTry === 'ok') return;
 
   if (firstTry === 'not_found') {
-    // Firebase Auth needs to be initialized in the console first.
-    // Ask the user to do it, then we'll retry.
     const consoleUrl = 'https://console.firebase.google.com/project/' + projectId + '/authentication';
     console.log('');
     logger.info('Firebase Authentication needs to be initialized for this project.');
@@ -114,7 +108,6 @@ export async function enableAnonymousAuth(projectId: string): Promise<void> {
     console.log('');
     await promptInput('  Press Enter after clicking "Get started"...');
 
-    // Retry after user initialized Auth in the console.
     const secondTry = await tryEnableAnonymous(url, headers, body);
     if (secondTry === 'ok') return;
 
@@ -194,22 +187,22 @@ async function waitForProject(projectId: string): Promise<void> {
 }
 
 async function createOrFindApp(
-  config: DerivedConfig,
+  project: string,
+  appName: string,
+  packageName: string,
   platform: 'ANDROID' | 'IOS',
   idFlag: string,
 ): Promise<FirebaseAppResult> {
   const platformLower = platform === 'ANDROID' ? 'android' : 'ios';
   const platformLabel = platform === 'ANDROID' ? 'Android' : 'iOS';
-  const displayName = `${config.appName} (${platformLabel} App)`;
+  const displayName = `${appName} (${platformLabel} App)`;
 
-  // Check first if the app already exists
-  const existingAppId = await findExistingApp(config.firebaseProject, platform, displayName);
+  const existingAppId = await findExistingApp(project, platform, displayName);
   if (existingAppId) {
     logger.info(`${platformLabel} app already exists — App ID: ${existingAppId}`);
     return { appId: existingAppId, platform };
   }
 
-  // App doesn't exist — create it
   const result = await run(
     'firebase',
     [
@@ -217,9 +210,9 @@ async function createOrFindApp(
       platformLower,
       displayName,
       '--project',
-      config.firebaseProject,
+      project,
       idFlag,
-      config.packageName,
+      packageName,
     ],
     { label: `Creating Firebase ${platformLabel} app`, allowFailure: true },
   );
@@ -231,12 +224,12 @@ async function createOrFindApp(
   }
 
   const createError = (result.stderr || result.stdout).trim();
-  logger.fatal(`Could not create ${platformLabel} app in project "${config.firebaseProject}"`);
+  logger.fatal(`Could not create ${platformLabel} app in project "${project}"`);
   logger.error(createError);
   process.exit(1);
 }
 
-async function findExistingApp(
+export async function findExistingApp(
   project: string,
   platform: 'ANDROID' | 'IOS',
   displayName: string,
@@ -251,8 +244,6 @@ async function findExistingApp(
     return null;
   }
 
-  // Match by display name first
-  // Table row: │ AppName (Android App) │ 1:123456:android:abc123 │ ANDROID │
   const appIdRegex = /\d+:\d+:\w+:\w+/;
 
   for (const line of result.stdout.split('\n')) {
@@ -262,7 +253,6 @@ async function findExistingApp(
     }
   }
 
-  // Fallback: return first App ID found for this platform
   for (const line of result.stdout.split('\n')) {
     const match = line.match(appIdRegex);
     if (match) return match[0];

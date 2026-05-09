@@ -4,8 +4,6 @@ import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { validateDependencies, validateAppName } from '../utils/validator.js';
 import { confirm, promptInput } from '../utils/prompt.js';
-import * as git from '../services/git.service.js';
-import * as firebase from '../services/firebase.service.js';
 import * as gradle from '../services/gradle.service.js';
 import { refactor } from '../services/refactor.service.js';
 import * as ios from '../services/ios.service.js';
@@ -17,6 +15,15 @@ import { removeBackground } from './remove-bg.js';
 import { createAppStoreApp } from './create-appstore-app.js';
 import { createPlayApp } from './create-play-app.js';
 import { adaptySetup } from './adapty-setup.js';
+import { cloneCommand } from './clone.js';
+import { gitSetupUpstreamCommand } from './git.js';
+import {
+  firebaseLoginCommand,
+  firebaseProjectCommand,
+  firebaseAppsCommand,
+  firebaseAuthAnonymousCommand,
+  firebaseConfigsCommand,
+} from './firebase.js';
 import { configInit } from './config.js';
 import { loadConfig, getConfigPath } from '../utils/config.js';
 import { hasKeystore, generateKeystore } from '../services/keystore.service.js';
@@ -71,74 +78,46 @@ export async function createApp(
 
   // Step 1: Clone template
   logger.step(1, TOTAL_STEPS, 'Cloning template repository');
-
-  const targetPath = path.resolve(config.targetDir);
-  if (await fs.pathExists(targetPath)) {
-    logger.warn('Directory "' + config.targetDir + '" already exists.');
-    const shouldOverwrite = await confirm('Delete it and start fresh?');
-    if (!shouldOverwrite) {
-      logger.info('Aborted.');
-      process.exit(0);
-    }
-    await fs.remove(targetPath);
-    logger.info('Removed existing directory.');
-  }
-
-  await git.cloneTemplate(config);
+  const targetPath = await cloneCommand(appName, {
+    templateRepo: config.templateRepo,
+    targetDir: config.targetDir,
+  });
 
   // Step 2: Firebase login
   logger.step(2, TOTAL_STEPS, 'Firebase authentication');
-  await firebase.firebaseLogin();
+  await firebaseLoginCommand();
 
   // Step 3: Create Firebase project
   logger.step(3, TOTAL_STEPS, 'Creating Firebase project');
-  const firebaseReady = await firebase.createProject(config);
+  const firebaseReady = await firebaseProjectCommand({
+    projectId: config.firebaseProject,
+    displayName: config.appName,
+  });
 
   if (firebaseReady) {
     // Step 4: Create Firebase apps
     logger.step(4, TOTAL_STEPS, 'Creating Firebase apps');
-    const androidApp = await firebase.createAndroidApp(config);
-    const iosApp = await firebase.createIosApp(config);
+    const apps = await firebaseAppsCommand({
+      project: config.firebaseProject,
+      appName: config.appName,
+      packageName: config.packageName,
+    });
 
     // Step 5: Enable anonymous authentication
     logger.step(5, TOTAL_STEPS, 'Enabling anonymous authentication');
-    await firebase.enableAnonymousAuth(config.firebaseProject);
+    await firebaseAuthAnonymousCommand({ project: config.firebaseProject });
 
-    // Step 6: Download SDK configs.
-    // AGP 9 split: google-services.json must live in the :androidApp module (where the
-    // google-services plugin is applied). Fall back to the legacy :composeApp location
-    // for projects that still combine KMP + com.android.application in one module.
+    // Step 6: Download SDK configs (auto-detects androidApp/ vs composeApp/, falls back to Assets/)
     logger.step(6, TOTAL_STEPS, 'Downloading Firebase SDK configs');
-    const androidAppDir = path.join(ctx.mobileDir, 'androidApp');
-    const composeAppDir = path.join(ctx.mobileDir, 'composeApp');
-    const androidConfigPath = (await fs.pathExists(androidAppDir))
-      ? path.join(androidAppDir, 'google-services.json')
-      : path.join(composeAppDir, 'google-services.json');
-    const iosConfigPath = path.join(
-      ctx.mobileDir, 'iosApp', 'iosApp', 'GoogleService-Info.plist',
-    );
-
-    const assetsDir = path.join(targetPath, 'Assets');
-    const androidConfigDirExists = await fs.pathExists(path.dirname(androidConfigPath));
-    const iosConfigDirExists = await fs.pathExists(path.dirname(iosConfigPath));
-
-    const finalAndroidPath = androidConfigDirExists
-      ? androidConfigPath
-      : path.join(assetsDir, 'google-services.json');
-    const finalIosPath = iosConfigDirExists
-      ? iosConfigPath
-      : path.join(assetsDir, 'GoogleService-Info.plist');
-
-    if (!androidConfigDirExists || !iosConfigDirExists) {
-      await fs.ensureDir(assetsDir);
-      logger.warn('KAppMaker directory structure not found -- saving Firebase configs to Assets/');
-    }
-
-    await firebase.downloadSdkConfig(androidApp.appId, 'ANDROID', finalAndroidPath);
-    await firebase.downloadSdkConfig(iosApp.appId, 'IOS', finalIosPath);
-
-    // Verify the downloaded google-services.json matches the expected package.
-    await verifyAndFixGoogleServicesPackage(finalAndroidPath, config.packageName);
+    await firebaseConfigsCommand({
+      project: config.firebaseProject,
+      appName: config.appName,
+      packageName: config.packageName,
+      androidAppId: apps.android.appId,
+      iosAppId: apps.ios.appId,
+      mobileDir: ctx.mobileDir,
+      assetsDir: path.join(targetPath, 'Assets'),
+    });
   } else {
     logger.warn('Skipping steps 4-6 (Firebase apps, auth, SDK configs) -- project not available.');
     logger.info('You can set up Firebase manually later and re-run these steps.');
@@ -192,8 +171,7 @@ export async function createApp(
 
   // Step 10: Git remotes
   logger.step(10, TOTAL_STEPS, 'Setting up git remotes');
-  const repoRoot = path.resolve(config.targetDir);
-  await git.setTemplateAsUpstream(repoRoot);
+  await gitSetupUpstreamCommand(targetPath);
 
   // ── Pre-store-setup reminder ──────────────────────────────────────
   console.log('');
@@ -270,34 +248,4 @@ export async function createApp(
   }
 
   logger.done();
-}
-
-/**
- * Verify that the downloaded google-services.json contains the expected
- * package name. If not (e.g., Firebase app was from a previous run with a
- * different bundleIdPrefix), fix it in-place.
- */
-async function verifyAndFixGoogleServicesPackage(
-  jsonPath: string,
-  expectedPackage: string,
-): Promise<void> {
-  if (!(await fs.pathExists(jsonPath))) return;
-  try {
-    const raw = await fs.readFile(jsonPath, 'utf8');
-    const data = JSON.parse(raw);
-    const clients: Array<{ client_info?: { android_client_info?: { package_name?: string } } }> = data?.client ?? [];
-    const match = clients.some(
-      (c) => c.client_info?.android_client_info?.package_name === expectedPackage,
-    );
-    if (!match && clients.length > 0) {
-      const actual = clients[0]?.client_info?.android_client_info?.package_name ?? '(unknown)';
-      logger.warn('google-services.json has package "' + actual + '" but expected "' + expectedPackage + '".');
-      logger.info('Fixing package name in google-services.json...');
-      const fixed = raw.replaceAll(actual, expectedPackage);
-      await fs.writeFile(jsonPath, fixed, 'utf8');
-      logger.success('google-services.json updated to ' + expectedPackage);
-    }
-  } catch {
-    // Non-fatal
-  }
 }

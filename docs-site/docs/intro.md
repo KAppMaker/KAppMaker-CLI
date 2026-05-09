@@ -60,6 +60,18 @@ npx tsx src/index.ts create <AppName>
 
 This runs the full 13-step setup: Firebase project, AI logo, App Store Connect, Google Play Console, Adapty subscriptions, and a signed release build.
 
+### Prefer to run only some steps?
+
+Every step of `create` is also exposed as a standalone command. The most common minimal flow — just clone the template and refactor the package name:
+
+```bash
+kappmaker clone MyApp
+cd MyApp-All/MobileApp
+kappmaker refactor --app-id com.example.myapp --app-name MyApp
+```
+
+See the [Project Setup](/project-setup/create#running-steps-individually) section for the full mapping of `create` steps to standalone commands.
+
 ## Custom Templates
 
 By default KAppMaker uses the [KAppMaker boilerplate](https://kappmaker.com) (Kotlin Multiplatform), but you can bring your own template:
@@ -89,6 +101,9 @@ See the [Custom Templates guide](/guides/custom-templates) for details on what w
 | Command | Description |
 |---------|-------------|
 | [`create`](/project-setup/create) | Full end-to-end app setup (Firebase, logo, ASC, GPC, Adapty, release build) |
+| [`clone`](/project-setup/clone) | Clone the template into `<AppName>-All` (step 1 of `create` standalone) |
+| [`git setup-upstream`](/project-setup/git-setup-upstream) | Rename `origin` to `upstream` after a manual clone |
+| [`firebase`](/project-setup/firebase) | Firebase setup steps: `login`, `project`, `apps`, `auth-anonymous`, `configs` |
 | [`create-logo`](/ai-image-tools/create-logo) | Generate an app logo with AI |
 | [`create-appstore-app`](/store-publishing/create-appstore-app) | Set up an app on App Store Connect |
 | [`gpc setup`](/store-publishing/google-play-console) | Set up an app on Google Play Console |

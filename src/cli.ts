@@ -28,6 +28,15 @@ import { androidReleaseBuild } from './commands/android-release-build.js';
 import { publishCommand } from './commands/publish.js';
 import { fastlaneConfigure } from './commands/fastlane-configure.js';
 import { convertWebp } from './commands/convert-webp.js';
+import { cloneCommand } from './commands/clone.js';
+import { gitSetupUpstreamCommand } from './commands/git.js';
+import {
+  firebaseLoginCommand,
+  firebaseProjectCommand,
+  firebaseAppsCommand,
+  firebaseAuthAnonymousCommand,
+  firebaseConfigsCommand,
+} from './commands/firebase.js';
 
 export function createCli(): Command {
   const program = new Command();
@@ -35,7 +44,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.3.0');
+    .version('1.4.0');
 
   program
     .command('create')
@@ -45,6 +54,83 @@ export function createCli(): Command {
     .option('--organization <org>', 'Organization name for Fastlane signing')
     .action(async (appName: string, options) => {
       await createApp(appName, options);
+    });
+
+  program
+    .command('clone')
+    .description('Clone the KAppMaker template into <AppName>-All')
+    .argument('<app-name>', 'Name of the app (PascalCase, e.g., Remimi)')
+    .option('--template-repo <url>', 'Git URL of the template repository')
+    .option('--target-dir <path>', 'Target directory (default: <AppName>-All)')
+    .action(async (appName: string, options) => {
+      await cloneCommand(appName, options);
+    });
+
+  const gitCmd = program
+    .command('git')
+    .description('Git helpers for KAppMaker projects');
+
+  gitCmd
+    .command('setup-upstream')
+    .description('Rename origin remote to upstream (so the template becomes the upstream remote)')
+    .argument('[path]', 'Path to the repo root (default: current directory)')
+    .action(async (repoPath?: string) => {
+      await gitSetupUpstreamCommand(repoPath);
+    });
+
+  // ── Firebase ───────────────────────────────────────────────────────
+
+  const firebaseCmd = program
+    .command('firebase')
+    .description('Firebase setup steps (login, project, apps, auth, SDK configs)');
+
+  firebaseCmd
+    .command('login')
+    .description('Run `firebase login` to authenticate the Firebase CLI')
+    .action(async () => {
+      await firebaseLoginCommand();
+    });
+
+  firebaseCmd
+    .command('project')
+    .description('Create a Firebase project (idempotent — skips if it already exists)')
+    .option('--project-id <id>', 'Firebase project ID (e.g., myapp-app)')
+    .option('--display-name <name>', 'Project display name (default: --project-id)')
+    .option('--app-name <name>', 'PascalCase app name; derives project-id and display-name')
+    .action(async (options) => {
+      await firebaseProjectCommand(options);
+    });
+
+  firebaseCmd
+    .command('apps')
+    .description('Create Firebase Android + iOS apps (idempotent — reuses existing apps)')
+    .requiredOption('--project <id>', 'Firebase project ID')
+    .requiredOption('--app-name <name>', 'PascalCase app display name')
+    .requiredOption('--package-name <pkg>', 'Application ID / bundle ID (e.g., com.example.myapp)')
+    .action(async (options) => {
+      await firebaseAppsCommand(options);
+    });
+
+  firebaseCmd
+    .command('auth-anonymous')
+    .description('Enable anonymous authentication for a Firebase project')
+    .requiredOption('--project <id>', 'Firebase project ID')
+    .action(async (options) => {
+      await firebaseAuthAnonymousCommand(options);
+    });
+
+  firebaseCmd
+    .command('configs')
+    .description('Download google-services.json and GoogleService-Info.plist for the Android/iOS apps')
+    .requiredOption('--project <id>', 'Firebase project ID')
+    .requiredOption('--app-name <name>', 'PascalCase app display name (used to find the apps)')
+    .option('--package-name <pkg>', 'Verify and fix the Android google-services.json package name')
+    .option('--android-app-id <id>', 'Skip lookup and use this Android Firebase App ID')
+    .option('--ios-app-id <id>', 'Skip lookup and use this iOS Firebase App ID')
+    .option('--android-output <path>', 'Output path for google-services.json (default: auto-detect)')
+    .option('--ios-output <path>', 'Output path for GoogleService-Info.plist (default: auto-detect)')
+    .action(async (options) => {
+      await firebaseConfigsCommand(options);
     });
 
   program
