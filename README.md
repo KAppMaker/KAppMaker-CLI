@@ -693,6 +693,8 @@ Uses the **new** monetization API: `PATCH /applications/{pkg}/onetimeproducts/{i
 | Pro Credit Pack | 30 | $9.99 | `credit_pack_30_999_{appname}` |
 | Ultimate Credit Pack | 80 | $19.99 | `credit_pack_80_1999_{appname}` |
 
+**Global region availability:** subscriptions and one-time products are both created with availability in **every Play-supported region** (~170+), not just the ones you list explicitly. The CLI builds the required `usdPrice` + `eurPrice` Money anchors automatically from your `regional_configs` — if you list only USD, the USD value is mirrored as the EUR anchor (Google still adjusts per region). To pin a specific EUR price, add an explicit EUR entry under `prices`. If you don't provide any USD price, the auto-region block is skipped and the product stays restricted to the regions you listed.
+
 ### `gpc data-safety push`
 
 Push only the data safety declaration. Faster than running the full `setup` when you're iterating on the privacy answers.

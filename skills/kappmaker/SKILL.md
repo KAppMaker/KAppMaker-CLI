@@ -288,6 +288,8 @@ All three systems (ASC, Play, Adapty) use the same generator so the IDs align au
 
 **Default credit pack IAPs** ship in `Assets/googleplay-config.json` (and the parallel ASC/Adapty templates): Basic 10/$4.99, Pro 30/$9.99, Ultimate 80/$19.99. Auto-fill triggers on `in_app_products[]` entries with a `credits` numeric field. Step 9 of `gpc setup` calls `setupInAppProducts` against the new monetization API to create them.
 
+**Global region availability**: both subscriptions and one-time products are created with availability in every Play-supported region (~170+), with auto-converted prices. The CLI builds the required `usdPrice` + `eurPrice` Money anchors from the user's `regional_configs`: if only USD is listed, the USD value is mirrored as the EUR anchor (Google still adjusts per region). The fields differ by resource — subscriptions use `BasePlan.otherRegionsConfig`, one-time products use `OneTimeProductPurchaseOption.newRegionsConfig`. If a user reports HTTP 400 _"Invalid JSON payload received. Unknown name 'otherRegionsConfig' at 'one_time_product.purchase_options[0]': Cannot find field"_, they're on a CLI version older than 1.5.2 — that bug was fixed by switching one-time products from `otherRegionsConfig` (subscription-only field) to `newRegionsConfig`.
+
 **When to use individual subcommands instead of `setup`**:
 - User changed listing copy → `gpc listings push`
 - User tweaked subscription prices → `gpc subscriptions push`

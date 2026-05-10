@@ -33,6 +33,35 @@ export function priceToMoney(price: string, currencyCode: string): Money {
   };
 }
 
+/**
+ * Derive USD and EUR anchor prices from a list of regional configs.
+ *
+ * Google requires both `usdPrice` and `eurPrice` Money objects on
+ * `otherRegionsConfig` (subscription base plans) and `newRegionsConfig`
+ * (one-time product purchase options) to opt the product into all
+ * Play-supported regions with auto-converted pricing.
+ *
+ * Strategy: prefer explicit USD / EUR entries from the user's `regional_configs`.
+ * If only USD is provided, mirror the USD value as the EUR anchor — Google's
+ * per-region pricing algorithm still adjusts for local market conditions, so
+ * the exact anchor matters less than including one. Returns null if no USD
+ * price is available (in which case the caller should skip the field rather
+ * than send an invalid request).
+ */
+export function deriveAnchorPrices(
+  prices: GooglePlayRegionalPrice[],
+): { usdPrice: Money; eurPrice: Money } | null {
+  const usdEntry = prices.find((p) => p.currency_code === 'USD');
+  if (!usdEntry) return null;
+  const eurEntry = prices.find((p) => p.currency_code === 'EUR');
+  return {
+    usdPrice: priceToMoney(usdEntry.price, 'USD'),
+    eurPrice: eurEntry
+      ? priceToMoney(eurEntry.price, 'EUR')
+      : priceToMoney(usdEntry.price, 'EUR'),
+  };
+}
+
 function buildRegionalConfigs(prices: GooglePlayRegionalPrice[]): Record<string, { newSubscriberAvailability: boolean; price: Money }> {
   // Only include regions with explicit prices. Google Play auto-converts
   // pricing for unlisted regions — listing a region WITHOUT a price causes
@@ -169,10 +198,19 @@ function buildBasePlanBody(basePlan: GooglePlayBasePlan): Record<string, unknown
         price: cfg.price,
       }),
     ),
-    // Make the subscription available in ALL regions, not just those with
-    // explicit prices. Google Play auto-converts pricing for these regions.
-    otherRegionsConfig: { newSubscriberAvailability: true },
   };
+
+  // Make the subscription available in ALL regions Play supports, not just those
+  // with explicit prices. Google requires `usdPrice` + `eurPrice` here as anchors;
+  // skipping `otherRegionsConfig` falls back to "explicit regions only".
+  const anchors = deriveAnchorPrices(basePlan.regional_configs);
+  if (anchors) {
+    body.otherRegionsConfig = {
+      newSubscriberAvailability: true,
+      usdPrice: anchors.usdPrice,
+      eurPrice: anchors.eurPrice,
+    };
+  }
   return body;
 }
 
@@ -279,20 +317,30 @@ async function createInAppProduct(
     availability: 'AVAILABLE',
   }));
 
+  // Make the product available in ALL Play-supported regions with auto-converted
+  // prices, not just those with explicit per-region configs. `newRegionsConfig`
+  // requires both `usdPrice` and `eurPrice` Money anchors. Without it, the product
+  // is only available in the regions explicitly listed.
+  const anchors = deriveAnchorPrices(allPrices);
+
+  const purchaseOption: Record<string, unknown> = {
+    purchaseOptionId: 'default',
+    buyOption: { legacyCompatible: true },
+    regionalPricingAndAvailabilityConfigs,
+  };
+  if (anchors) {
+    purchaseOption.newRegionsConfig = {
+      availability: 'AVAILABLE',
+      usdPrice: anchors.usdPrice,
+      eurPrice: anchors.eurPrice,
+    };
+  }
+
   const body: Record<string, unknown> = {
     packageName,
     productId: product.sku,
     listings,
-    purchaseOptions: [
-      {
-        purchaseOptionId: 'default',
-        buyOption: { legacyCompatible: true },
-        regionalPricingAndAvailabilityConfigs,
-        // Make available in all regions not explicitly listed — Google
-        // auto-converts pricing for those regions.
-        otherRegionsConfig: { availability: 'AVAILABLE' },
-      },
-    ],
+    purchaseOptions: [purchaseOption],
   };
 
   // Note: patch path is lowercase `onetimeproducts` even though list/get use

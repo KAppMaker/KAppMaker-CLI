@@ -103,6 +103,31 @@ kappmaker gpc iap push
 
 Uses the new monetization API (`PATCH /onetimeproducts/{id}?allowMissing=true`), replacing the legacy `/inappproducts` endpoint.
 
+### Global region availability (auto-pricing)
+
+Both subscriptions and one-time products are created with **availability in every Play-supported region** (~170+) — not just the regions you list explicitly. Google's per-region pricing algorithm fans out from a USD + EUR anchor, so the CLI builds those anchors automatically from your `regional_configs`:
+
+- **If you list both** — the USD and EUR entries you provided are used as anchors.
+- **If you list only USD** — the USD value is mirrored as the EUR anchor. Google still adjusts per region using its market-specific algorithm, so the exact anchor value isn't critical; the product becomes globally available.
+- **If you don't list USD** — the anchor block is omitted, and the product is only available in the regions you listed explicitly.
+
+This applies to both:
+
+- Subscription `BasePlan.otherRegionsConfig` (auto-renewing + prepaid base plans)
+- One-time product `PurchaseOption.newRegionsConfig` (consumable credit packs and other IAPs)
+
+If you want a specific EUR price for a credit pack instead of mirroring USD, add an explicit EUR entry to `prices`:
+
+```json
+{
+  "sku": "credit_pack_10_499_myapp",
+  "default_price": { "region_code": "US", "price": "4.99", "currency_code": "USD" },
+  "prices": [
+    { "region_code": "DE", "price": "5.49", "currency_code": "EUR" }
+  ]
+}
+```
+
 ### Default credit packs
 
 The `Assets/googleplay-config.json` template ships with three default consumable IAPs (credit packs) that match the App Store Connect and Adapty templates:
