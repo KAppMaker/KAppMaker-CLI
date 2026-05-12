@@ -146,7 +146,9 @@ export async function gpcIapPush(options: CreatePlayAppOptions): Promise<void> {
     process.exit(1);
   }
 
-  await gpcMoney.setupInAppProducts(config.app.package_name, config.in_app_products);
+  await gpcMoney.setupInAppProducts(config.app.package_name, config.in_app_products, {
+    recreateStuck: options.recreateStuck === true,
+  });
   logger.success(`Processed ${config.in_app_products.length} in-app product(s).`);
 }
 

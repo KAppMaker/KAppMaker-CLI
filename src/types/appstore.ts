@@ -124,6 +124,8 @@ export interface AppStoreSubscription {
   family_sharable: boolean;
   prices: AppStoreSubscriptionPrice[];
   localizations: AppStoreSubscriptionLocalization[];
+  /** Default `true`. Set `false` to opt this subscription out of PPP fan-out (only listed prices apply). */
+  ppp_enabled?: boolean;
 }
 
 export interface AppStoreSubscriptionPrice {
@@ -147,6 +149,8 @@ export interface AppStoreInAppPurchase {
   credits?: number;
   prices: AppStoreSubscriptionPrice[];
   localizations: AppStoreSubscriptionLocalization[];
+  /** Default `true`. Set `false` to opt this IAP out of PPP fan-out (only listed prices apply). */
+  ppp_enabled?: boolean;
 }
 
 export interface AppStoreEncryptionConfig {

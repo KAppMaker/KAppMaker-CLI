@@ -1,0 +1,34 @@
+{
+  "_comment": "Curated PPP-style price tiers. Coefficient is a multiplier on the base USD price. Edit freely. Inspired by Steam/Spotify/RevenueCat regional tiers — not raw World Bank PPP, since raw PPP under-prices markets prone to VPN arbitrage and misses 'rich tourist' high-cost-of-living markets.",
+  "_default_coefficient": 0.6,
+  "tiers": {
+    "0.30": {
+      "label": "very low",
+      "countries": ["AR", "EG", "PK", "BD", "NG", "KE", "LK", "NP", "MM", "GH", "ET", "TZ", "UG", "BO", "VE"]
+    },
+    "0.35": {
+      "label": "low",
+      "countries": ["IN", "VN", "PH", "ID", "UA", "MA", "DZ", "TN", "JO", "LB", "IQ", "AM", "GE", "AZ", "UZ", "KZ", "MN"]
+    },
+    "0.45": {
+      "label": "lower-mid",
+      "countries": ["BR", "TR", "TH", "MY", "CO", "PE", "EC", "DO", "PY", "RO", "BG", "RS", "MK", "BA", "AL", "MD"]
+    },
+    "0.60": {
+      "label": "mid",
+      "countries": ["MX", "ZA", "CL", "UY", "CR", "PA", "PL", "HU", "HR", "GR", "PT", "CZ", "SK", "LT", "LV", "EE", "SI", "MT", "CY"]
+    },
+    "0.80": {
+      "label": "upper-mid",
+      "countries": ["KR", "JP", "TW", "ES", "IT", "IL", "SA", "AE", "QA", "KW", "BH", "OM"]
+    },
+    "1.00": {
+      "label": "base",
+      "countries": ["US", "CA", "GB", "AU", "NZ", "FR", "DE", "NL", "BE", "AT", "IE", "SG", "HK"]
+    },
+    "1.10": {
+      "label": "high",
+      "countries": ["CH", "NO", "DK", "SE", "FI", "IS", "LU"]
+    }
+  }
+}

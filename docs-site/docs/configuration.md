@@ -86,6 +86,58 @@ Subscription IDs are auto-generated so App Store Connect, Google Play, and Adapt
 
 `priceDigits` is the price with the decimal removed (e.g., `6.99` → `699`). `{period}` is one of `weekly`, `monthly`, `twomonths`, `quarterly`, `semiannual`, `yearly`.
 
+## Per-region PPP pricing (1.6.0+)
+
+KAppMaker fans out every subscription and one-time IAP to all supported regions/territories on Google Play (~175) and App Store Connect (~155) with **purchasing-power-parity-adjusted prices**, not a single global USD amount. The multipliers come from a Steam/Spotify-inspired tier table ([iosdevmax/ppp-pricing](https://github.com/iosdevmax/ppp-pricing), MIT).
+
+| Tier | Multiplier | Sample regions |
+|---|---|---|
+| Very low | 0.30 | AR, EG, PK, BD, NG, KE |
+| Low | 0.35 | IN, VN, PH, ID, UA, KZ |
+| Lower-mid | 0.45 | BR, TR, TH, MY, CO, RO, BG |
+| Mid | 0.60 | MX, ZA, CL, PL, HU, GR, PT, CZ |
+| Upper-mid | 0.80 | KR, JP, TW, ES, IT, IL, SA, AE |
+| Base | 1.00 | US, CA, GB, AU, NZ, FR, DE, NL, SG |
+| High | 1.10 | CH, NO, DK, SE, FI, IS, LU |
+
+Prices round to .99 endings (e.g. `$4.99 × 0.35 = $1.99` in IN). Regions outside the table fall back via a closest-neighbour lookup; anything still missing uses `0.60`.
+
+### Override rule
+
+Any region/territory you list explicitly in `regional_configs` (Play) or `prices` (ASC) wins. PPP fills only the regions/territories you didn't list:
+
+```json
+"regional_configs": [
+  { "region_code": "US", "price": "6.99", "currency_code": "USD" },
+  { "region_code": "DE", "price": "5.99", "currency_code": "EUR" }
+]
+```
+
+Above: US gets `$6.99`, DE keeps `5.99 EUR`, every other Play region gets a PPP-adjusted USD price derived from your $6.99 anchor.
+
+### Opt-out
+
+Set `"ppp_enabled": false` on any base plan, IAP, or subscription entry to skip the fan-out:
+
+```json
+{ "ppp_enabled": false, "regional_configs": [...] }
+```
+
+That entry stays restricted to the regions/territories you listed, no automatic fan-out.
+
+### Smoke test
+
+```bash
+npm run test:ppp
+```
+
+Runs 16 assertions covering multiplier lookup, .99 rounding, fan-out length, and exclusion-set behaviour.
+
+### Currency model
+
+- **Google Play**: every region gets a USD price; Google's `convertRegionPrices` displays each region's local currency to buyers at runtime via the configured exchange table.
+- **App Store Connect**: Apple uses fixed price-point tiers per territory. For each (territory, PPP-adjusted USD) pair the CLI resolves to the **closest** price-point in that territory's catalog (territory catalogs are cached per session so each is fetched once).
+
 ## Credit Pack (IAP) Product ID Alignment
 
 Default consumable in-app purchases (credit packs) ship in all three templates. Auto-fill triggers on any IAP/product entry with a numeric `credits` field, and the same product ID is used on App Store Connect, Google Play, and Adapty so app code only needs one constant.

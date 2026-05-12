@@ -132,6 +132,7 @@
             "product_id": "",
             "subscription_period": "ONE_WEEK",
             "family_sharable": false,
+            "ppp_enabled": true,
             "prices": [
               {
                 "territory": "USA",
@@ -151,6 +152,7 @@
             "product_id": "",
             "subscription_period": "ONE_YEAR",
             "family_sharable": false,
+            "ppp_enabled": true,
             "prices": [
               {
                 "territory": "USA",
@@ -175,6 +177,7 @@
       "ref_name": "",
       "product_id": "",
       "family_sharable": false,
+      "ppp_enabled": true,
       "credits": 10,
       "prices": [
         { "territory": "USA", "price": "4.99" }
@@ -192,6 +195,7 @@
       "ref_name": "",
       "product_id": "",
       "family_sharable": false,
+      "ppp_enabled": true,
       "credits": 30,
       "prices": [
         { "territory": "USA", "price": "9.99" }
@@ -209,6 +213,7 @@
       "ref_name": "",
       "product_id": "",
       "family_sharable": false,
+      "ppp_enabled": true,
       "credits": 80,
       "prices": [
         { "territory": "USA", "price": "19.99" }

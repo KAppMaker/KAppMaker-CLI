@@ -39,6 +39,7 @@
           "billing_period": "P1W",
           "grace_period": "P3D",
           "available_to_new_subscribers": true,
+          "ppp_enabled": true,
           "regional_configs": [
             { "region_code": "US", "price": "6.99", "currency_code": "USD" }
           ]
@@ -60,6 +61,7 @@
           "billing_period": "P1Y",
           "grace_period": "P7D",
           "available_to_new_subscribers": true,
+          "ppp_enabled": true,
           "regional_configs": [
             { "region_code": "US", "price": "29.99", "currency_code": "USD" }
           ]
@@ -71,6 +73,7 @@
     {
       "sku": "",
       "default_language": "en-US",
+      "ppp_enabled": true,
       "credits": 10,
       "default_price": { "region_code": "US", "price": "4.99", "currency_code": "USD" },
       "listings": [
@@ -80,6 +83,7 @@
     {
       "sku": "",
       "default_language": "en-US",
+      "ppp_enabled": true,
       "credits": 30,
       "default_price": { "region_code": "US", "price": "9.99", "currency_code": "USD" },
       "listings": [
@@ -89,6 +93,7 @@
     {
       "sku": "",
       "default_language": "en-US",
+      "ppp_enabled": true,
       "credits": 80,
       "default_price": { "region_code": "US", "price": "19.99", "currency_code": "USD" },
       "listings": [

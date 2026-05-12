@@ -89,6 +89,8 @@ export interface GooglePlayBasePlan {
   available_to_new_subscribers?: boolean;
   /** Regional pricing. First entry is treated as the base price. */
   regional_configs: GooglePlayRegionalPrice[];
+  /** Default `true`. Set `false` to opt this base plan out of PPP fan-out (only the listed regional_configs go live). */
+  ppp_enabled?: boolean;
 }
 
 export interface GooglePlayRegionalPrice {
@@ -113,6 +115,8 @@ export interface GooglePlayInAppProduct {
   prices?: GooglePlayRegionalPrice[];
   /** When set, marks this entry as a credit pack and triggers sku auto-generation as `credit_pack_{credits}_{priceDigits}_{appname}`. */
   credits?: number;
+  /** Default `true`. Set `false` to opt this product out of PPP fan-out (only default_price + prices go live). */
+  ppp_enabled?: boolean;
 }
 
 export interface GooglePlayInAppProductListing {
@@ -123,4 +127,9 @@ export interface GooglePlayInAppProductListing {
 
 export interface CreatePlayAppOptions {
   config?: string;
+  /** If set, products that are "stuck" due to Google's regionsVersion 2022/02
+   * catalog drift (e.g. existing regions like MN that 2022/02 no longer
+   * considers billable) are DELETED and recreated fresh. Without this flag
+   * the CLI logs a clear warning and skips the stuck product instead. */
+  recreateStuck?: boolean;
 }

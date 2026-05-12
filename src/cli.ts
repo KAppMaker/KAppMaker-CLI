@@ -44,7 +44,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.5.2');
+    .version('1.7.0');
 
   program
     .command('create')
@@ -350,6 +350,7 @@ export function createCli(): Command {
     .command('push')
     .description('Create/reuse in-app products from the Google Play config file (idempotent)')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--recreate-stuck', 'Delete + recreate products whose existing regions are incompatible with regionsVersion 2022/02 (e.g. legacy products with MN stored)')
     .action(async (options) => {
       await gpcIapPush(options);
     });

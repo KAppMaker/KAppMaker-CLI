@@ -1,5 +1,15 @@
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { run } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
+import {
+  encodePricePointId,
+  expandAscTerritories,
+  findExactPricePointForPrice,
+  logPppFanOut,
+  resolveUsdTierWithS,
+} from './ppp-pricing.service.js';
 import type {
   AppStorePricingConfig,
   AppStoreSubscriptionGroup,
@@ -223,40 +233,184 @@ async function setupSubscription(
     allowFailure: true,
   });
 
-  if (result.exitCode !== 0) {
-    if (result.stdout.includes('already been used') || result.stderr.includes('already been used')) {
-      logger.info(`Subscription "${sub.ref_name}" (${sub.product_id}) already exists, skipping.`);
-    } else {
-      const errMsg = result.stderr || result.stdout;
-      logger.warn(`Could not create subscription "${sub.ref_name}": ${errMsg.slice(0, 150)}`);
-    }
-    return;
-  }
+  let subscriptionId: string | null = null;
+  const alreadyExists =
+    result.exitCode !== 0 &&
+    (result.stdout.includes('already been used') || result.stderr.includes('already been used'));
 
-  // Equalize pricing across all territories
-  const basePrice = sub.prices[0];
-  if (basePrice?.price) {
-    let subscriptionId: string | null = null;
+  if (result.exitCode === 0) {
     try {
-      const data = JSON.parse(result.stdout);
-      subscriptionId = data?.subscriptionId ?? null;
+      subscriptionId = JSON.parse(result.stdout)?.subscriptionId ?? null;
     } catch {
       // Fall through
     }
-    if (subscriptionId) {
-      await run('asc', [
-        'subscriptions', 'pricing', 'equalize',
-        '--subscription-id', subscriptionId,
-        '--base-price', basePrice.price,
-        '--base-territory', basePrice.territory,
-        '--confirm',
-        '--output', 'json',
-      ], {
-        label: `Equalizing prices for ${sub.ref_name} ($${basePrice.price} base)`,
-        allowFailure: true,
-        timeout: 2 * 60_000,
-      });
+  } else if (alreadyExists) {
+    logger.info(`Subscription "${sub.ref_name}" (${sub.product_id}) already exists — refreshing pricing.`);
+  } else {
+    const errMsg = result.stderr || result.stdout;
+    logger.warn(`Could not create subscription "${sub.ref_name}": ${errMsg.slice(0, 150)}`);
+    return;
+  }
+
+  // The asc CLI's --subscription-id flag accepts the product_id directly (it
+  // resolves the internal ID server-side), so for pre-existing subscriptions
+  // we can use sub.product_id and still run the PPP fan-out.
+  const idForCli = subscriptionId ?? sub.product_id;
+  const basePrice = sub.prices[0];
+  if (basePrice?.price && sub.ppp_enabled !== false) {
+    await applyPppToSubscription(appId, idForCli, sub, basePrice.price);
+  }
+}
+
+/**
+ * Apply PPP pricing across ASC territories via a single CSV import call.
+ *
+ * Uses `asc subscriptions pricing prices import` (added in asc CLI 1.4+) which
+ * replaces what used to be 174 per-territory `prices set` calls — eliminating
+ * the rate-limiting cascade we hit on the per-call route.
+ *
+ * Algorithm:
+ *   1. Fetch USA's subscription price-points once (it's in USD, so we can
+ *      match the PPP target numerically). Extract the subscription's internal
+ *      identifier `s` from any returned ID (every PP for this sub shares the
+ *      same `s`).
+ *   2. For each unique USD target, find the closest USA price-point and pull
+ *      its tier (`p - 10000`).
+ *   3. For each territory in the PPP fan-out, synthesise the price-point ID
+ *      as base64(`{s, t: territory, p}`) — same tier ID lookup Apple uses
+ *      internally, but no API call needed per territory.
+ *   4. Emit a single CSV with `territory,price,price_point_id` rows and pipe
+ *      to `prices import`.
+ */
+async function applyPppToSubscription(
+  appId: string,
+  subscriptionId: string,
+  sub: AppStoreSubscription,
+  baseUsdPrice: string,
+): Promise<void> {
+  const userTerritories = new Set(sub.prices.map((p) => p.territory));
+  const fanOut = expandAscTerritories(baseUsdPrice, userTerritories);
+  logPppFanOut(`subscription ${sub.ref_name}`, baseUsdPrice, fanOut.length, userTerritories.size);
+
+  // Resolve each unique USD target → (tier, subscription `s`) once. The first
+  // call also pulls the `s` field which we reuse to synthesise per-territory IDs.
+  const uniqueTargets = new Set(fanOut.map((f) => f.targetPrice));
+  const tierByUsd = new Map<string, number>();
+  let subInternalS: string | null = null;
+  for (const usd of uniqueTargets) {
+    const r = await resolveUsdTierWithS(appId, usd, { catalog: 'subscription', subscriptionId });
+    if (r) {
+      tierByUsd.set(usd, r.tier);
+      subInternalS ??= r.s;
     }
+  }
+  if (!subInternalS) {
+    logger.warn(`PPP ${sub.ref_name}: could not resolve USA price-point catalog; skipping fan-out.`);
+    return;
+  }
+
+  // Build the CSV. `price` column is required by the importer but is informational
+  // when `price_point_id` is provided (Apple resolves the actual price from
+  // the price-point ID). We pass the USD target for readability.
+  const rows: string[] = ['territory,price,price_point_id'];
+  for (const item of fanOut) {
+    const tier = tierByUsd.get(item.targetPrice);
+    if (tier === undefined) continue;
+    const ppId = encodePricePointId(subInternalS, item.territory, tier);
+    rows.push(`${item.territory},${item.targetPrice},${ppId}`);
+  }
+
+  // User-listed territory overrides (e.g. DE: 5.99 EUR) — resolve the EXACT
+  // price-point ID in that territory's catalog so the user's specified
+  // local-currency price wins.
+  for (const p of sub.prices) {
+    if (!p.price || !p.territory) continue;
+    const ppId = await findExactPricePointForPrice(appId, p.territory, p.price, {
+      catalog: 'subscription',
+      subscriptionId,
+    });
+    if (ppId) rows.push(`${p.territory},${p.price},${ppId}`);
+  }
+
+  if (rows.length === 1) {
+    logger.warn(`PPP ${sub.ref_name}: no rows resolved; skipping import.`);
+    return;
+  }
+
+  // The CLI's import drives Apple's `POST /v1/subscriptionPrices` ONE row at
+  // a time internally — Apple has no documented batch endpoint. Empirically
+  // ~1.5–2 s per row, so 175 rows ≈ 5 min per subscription on first run.
+  // We split into chunks of 50 so the user sees regular progress updates
+  // instead of one long silent spinner.
+  //
+  // We deliberately omit `--start-date` so each row is treated as a STARTING
+  // price (effective immediately). Adding `--start-date` would file the rows
+  // as future-dated price changes, which Apple rejects for territories that
+  // don't yet have a starting price ("Create a starting price before creating
+  // future prices") — common on freshly created subscriptions.
+  const CHUNK_SIZE = 50;
+  const header = rows[0];
+  const dataRows = rows.slice(1);
+  const chunks: string[][] = [];
+  for (let i = 0; i < dataRows.length; i += CHUNK_SIZE) {
+    chunks.push(dataRows.slice(i, i + CHUNK_SIZE));
+  }
+
+  let totalCreated = 0;
+  let totalFailed = 0;
+  const allFailures: Array<{ territory: string; error: string }> = [];
+
+  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+    const chunk = chunks[chunkIdx];
+    const csvPath = path.join(os.tmpdir(), `kappmaker-ppp-${sub.product_id}-${Date.now()}-${chunkIdx}.csv`);
+    await fs.writeFile(csvPath, [header, ...chunk].join('\n') + '\n', 'utf-8');
+    try {
+      const result = await run(
+        'asc',
+        [
+          'subscriptions', 'pricing', 'prices', 'import',
+          '--app', appId,
+          '--subscription-id', subscriptionId,
+          '--input', csvPath,
+          '--output', 'json',
+        ],
+        {
+          label: `PPP ${sub.ref_name}: importing batch ${chunkIdx + 1}/${chunks.length} (${chunk.length} territories, ~${Math.round(chunk.length * 1.75)}s)`,
+          allowFailure: true,
+          timeout: 5 * 60_000,
+        },
+      );
+      type ImportResp = {
+        total?: number;
+        created?: number;
+        failed?: number;
+        failures?: Array<{ territory: string; error: string }>;
+      };
+      let parsed: ImportResp | null = null;
+      try {
+        parsed = JSON.parse(result.stdout) as ImportResp;
+      } catch {
+        // Fall through.
+      }
+      if (!parsed) {
+        logger.warn(`PPP ${sub.ref_name} batch ${chunkIdx + 1}: import failed — ${(result.stderr || result.stdout).slice(0, 300)}`);
+        totalFailed += chunk.length;
+        continue;
+      }
+      totalCreated += parsed.created ?? 0;
+      totalFailed += parsed.failed ?? 0;
+      if (parsed.failures?.length) allFailures.push(...parsed.failures);
+    } finally {
+      await fs.unlink(csvPath).catch(() => undefined);
+    }
+  }
+
+  const total = dataRows.length;
+  if (totalFailed > 0) {
+    const sample = allFailures.slice(0, 3).map((f) => `${f.territory}: ${f.error.slice(0, 100)}`).join('\n    ');
+    logger.warn(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied; ${totalFailed} failed.\n    ${sample}${totalFailed > 3 ? `\n    … (${totalFailed - 3} more)` : ''}`);
+  } else {
+    logger.success(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied via CSV import.`);
   }
 }
 
@@ -317,15 +471,120 @@ async function setupInAppPurchase(appId: string, iap: AppStoreInAppPurchase): Pr
     allowFailure: true,
   });
 
-  if (result.exitCode !== 0) {
-    const combined = result.stdout + result.stderr;
-    if (combined.includes('already been used') || combined.includes('already exists')) {
-      logger.info(`IAP "${iap.ref_name}" (${iap.product_id}) already exists, skipping.`);
-    } else {
-      const errMsg = result.stderr || result.stdout;
-      logger.warn(`Could not create IAP "${iap.ref_name}": ${errMsg.slice(0, 150)}`);
+  const combined = result.stdout + result.stderr;
+  const alreadyExists =
+    result.exitCode !== 0 &&
+    (combined.includes('already been used') || combined.includes('already exists'));
+
+  if (alreadyExists) {
+    logger.info(`IAP "${iap.ref_name}" (${iap.product_id}) already exists — refreshing pricing.`);
+  } else if (result.exitCode !== 0) {
+    const errMsg = result.stderr || result.stdout;
+    logger.warn(`Could not create IAP "${iap.ref_name}": ${errMsg.slice(0, 150)}`);
+    return;
+  }
+
+  // Per-territory PPP fan-out via a single `iap pricing schedules create` call.
+  // Always run for both fresh and pre-existing IAPs — re-runs need to update prices.
+  if (iap.ppp_enabled !== false && price?.price) {
+    const iapId = await resolveIapId(appId, iap.product_id);
+    if (iapId) await applyPppToIap(appId, iapId, iap, price.price);
+  }
+}
+
+// Cache the IAP-list lookup so we only fetch once per orchestrator run.
+let iapListCache: Map<string, string> | null = null;
+async function resolveIapId(appId: string, productId: string): Promise<string | null> {
+  if (!iapListCache) {
+    const r = await run(
+      'asc',
+      ['iap', 'list', '--app', appId, '--paginate', '--output', 'json'],
+      { label: 'Listing in-app purchases', allowFailure: true },
+    );
+    iapListCache = new Map();
+    if (r.exitCode === 0 && r.stdout) {
+      try {
+        const data = JSON.parse(r.stdout);
+        const arr: Array<{ id?: string; attributes?: { productId?: string }; productId?: string }> = data?.data ?? data ?? [];
+        for (const e of arr) {
+          const attrs = e.attributes ?? e;
+          if (e.id && attrs.productId) iapListCache.set(attrs.productId, e.id);
+        }
+      } catch {
+        // Fall through
+      }
     }
   }
+  return iapListCache.get(productId) ?? null;
+}
+
+/**
+ * Apply PPP pricing across ASC territories for an IAP via a single `schedules
+ * create` call. The CLI's `--prices` list takes app-level price-point IDs
+ * (territory-specific), so we:
+ *   1. Resolve each unique USD target → CLI tier via USA's catalog (one fetch).
+ *   2. Construct each (territory, tier) price-point ID directly using Apple's
+ *      base64 `{s, t, p}` format — avoids 174 per-territory CLI fetches.
+ *   3. Submit all 174 entries in one `schedules create` call.
+ */
+async function applyPppToIap(
+  appId: string,
+  iapId: string,
+  iap: AppStoreInAppPurchase,
+  baseUsdPrice: string,
+): Promise<void> {
+  const userTerritories = new Set(iap.prices.map((p) => p.territory));
+  const fanOut = expandAscTerritories(baseUsdPrice, userTerritories);
+  logPppFanOut(`IAP ${iap.ref_name}`, baseUsdPrice, fanOut.length, userTerritories.size);
+
+  // Resolve each unique USD target to a tier once via USA's app-level catalog.
+  // For IAPs `s = appId` (verified empirically — IAP price-points always
+  // encode the appId as the `s` field).
+  const uniqueTargets = new Set(fanOut.map((f) => f.targetPrice));
+  const tierByUsd = new Map<string, number>();
+  for (const usd of uniqueTargets) {
+    const r = await resolveUsdTierWithS(appId, usd, { catalog: 'app' });
+    if (r) tierByUsd.set(usd, r.tier);
+  }
+
+  const startDate = new Date().toISOString().slice(0, 10);
+  const entries: string[] = [];
+  for (const item of fanOut) {
+    const tier = tierByUsd.get(item.targetPrice);
+    if (tier === undefined) continue;
+    const ppId = encodePricePointId(appId, item.territory, tier);
+    entries.push(`${ppId}:${startDate}`);
+  }
+
+  // User-listed territory overrides go in the same schedule (last wins).
+  for (const p of iap.prices) {
+    if (!p.price || !p.territory) continue;
+    const ppId = await findExactPricePointForPrice(appId, p.territory, p.price, { catalog: 'app' });
+    if (ppId) entries.push(`${ppId}:${startDate}`);
+  }
+
+  if (entries.length === 0) {
+    logger.warn(`PPP fan-out for IAP "${iap.ref_name}" produced no price-points; skipping schedule create.`);
+    return;
+  }
+
+  const baseTerritory = iap.prices[0]?.territory ?? 'USA';
+  await run(
+    'asc',
+    [
+      'iap', 'pricing', 'schedules', 'create',
+      '--app', appId,
+      '--iap-id', iapId,
+      '--base-territory', baseTerritory,
+      '--prices', entries.join(','),
+      '--output', 'json',
+    ],
+    {
+      label: `PPP IAP ${iap.ref_name}: ${entries.length} territories`,
+      allowFailure: true,
+      timeout: 3 * 60_000,
+    },
+  );
 }
 
 async function findGroupByName(appId: string, referenceName: string): Promise<string | null> {

@@ -226,16 +226,102 @@ User config file: `~/.config/kappmaker/config.json` (managed via `src/utils/conf
 | `appleId` | `""` | `asc.service.ts` → Apple ID for privacy setup (asc web privacy) |
 | `googleServiceAccountPath` | `~/credentials/google-service-app-publisher.json` | `publish.service.ts` → Fastlane upload; `gpc.service.ts` → Play Publisher API auth (JWT → access token) |
 
-### Google Play Global Region Availability
+### Per-region PPP pricing (1.6.0+)
 
-Both subscriptions and one-time products are configured to be **available in every Play-supported region** with auto-converted pricing — not just the regions explicitly listed in `regional_configs`. Google requires `usdPrice` + `eurPrice` Money anchors to drive its per-region pricing algorithm:
+Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fanned out to every supported region/territory with **purchasing-power-parity-adjusted prices** instead of a single USD price. The multipliers come from a Steam/Spotify-inspired tier table (source: [iosdevmax/ppp-pricing](https://github.com/iosdevmax/ppp-pricing), MIT) bundled at `src/data/ppp-tiers.upstream.json` and re-typed in `src/data/ppp-tiers.ts`. Tiers run 0.30 → 1.10 across ~100 hand-tuned countries; missing regions fall back via `FALLBACK_NEIGHBOUR` (geographic / economic proximity) and finally to `PPP_DEFAULT_COEFFICIENT = 0.60`.
 
-- **Subscriptions:** `BasePlan.otherRegionsConfig: { newSubscriberAvailability, usdPrice, eurPrice }`
-- **One-time products:** `OneTimeProductPurchaseOption.newRegionsConfig: { availability, usdPrice, eurPrice }`
+**Why explicit fan-out instead of `otherRegionsConfig` / `newRegionsConfig`**: Google's auto-conversion from USD/EUR anchors only fanned out to a couple of regions in practice (the user reported "US + Mongolia only"). Explicit per-region pricing is reliable and gives us PPP control over what each region sees.
 
-`deriveAnchorPrices()` in `gpc-monetization.service.ts` builds these anchors from the user's `regional_configs`: if the user listed both USD and EUR explicitly, those values are used. If only USD is present, the USD value is mirrored as the EUR anchor — Google's per-region algorithm still adjusts for local market conditions, so the exact anchor matters less than including both required fields.
+**Helper module**: `src/services/ppp-pricing.service.ts`:
+- `getMultiplier(alpha2)` — chained lookup PPP_MULTIPLIERS → FALLBACK_NEIGHBOUR → 0.60 default
+- `applyPpp(usd, alpha2, { round99 })` — Spotify-style round-to-.99 by default
+- `expandPlayRegions(usd, exclude)` — returns ~175 USD-priced entries (Google's `convertRegionPrices` displays local currency at runtime)
+- `expandAscTerritories(usd, exclude)` — returns ~155 alpha-3 (territory, target USD) pairs; caller resolves price-points
+- `findClosestPricePointForPrice(appId, territory, target)` — minimises `|customerPrice − target|`; per-territory cache so each catalog is fetched once per run
+- `findExactPricePointForPrice(...)` — legacy exact-match (used by `createPricing` for app-level pricing)
 
-When no USD price is configured, the anchor block is omitted entirely (the product is then only available in regions explicitly listed). The CLI never sends partial anchor blocks (which Google rejects with HTTP 400 _"Required field missing"_).
+**Override rule**: user-listed `regional_configs` (Play) and `prices` (ASC) win. The fan-out spreads PPP entries first and user entries last, then dedupes by region/territory (`Map.set` last-write-wins).
+
+**Per-product opt-out**: every monetization entry accepts `ppp_enabled?: boolean` (default `true`):
+- `GooglePlayBasePlan.ppp_enabled`
+- `GooglePlayInAppProduct.ppp_enabled`
+- `AppStoreSubscription.ppp_enabled`
+- `AppStoreInAppPurchase.ppp_enabled`
+
+**ASC implementation detail (1.7.0+ — bulk CSV import)**: requires **asc CLI ≥ 1.4.0** (rorkai/App-Store-Connect-CLI, renamed from rudrankriyam). Both subscriptions and IAPs land their per-territory PPP fan-out in a **single API call** per product:
+
+- **Subscriptions**: `asc subscriptions pricing prices import --input <csv>` (added in asc 1.4.0). KAppMaker writes a temp CSV with `territory,price,price_point_id` rows for all 175 territories and pipes it in. ~1 API call per subscription instead of ~155 — eliminates the rate-limit cascade we hit in 1.6.x.
+- **IAPs**: `asc iap pricing schedules create --prices "PP_ID:DATE,..."` (already batch from earlier versions).
+
+**Tier resolution (1.7.0+)**: Apple's price-point catalog uses globally-stable tier numbers (1..800; tier N = the same USD-equivalent across every territory). We resolve each unique PPP USD target → tier ONCE via USA's catalog (where customerPrice is in USD), then synthesise per-territory price-point IDs locally using Apple's base64 `{s, t, p}` format (s = catalog-specific identifier, t = territory alpha-3, p = `10000 + tier`). This replaced 1.6.x's broken "compare USD target to local-currency price-points" which picked the **FREE tier (¥0)** for JPN/IDR/INR/KRW/etc.
+
+**Two catalogs, distinct IDs**:
+- `appPricePoints` (`asc pricing price-points`) — for IAPs. `s = appId`.
+- `subscriptionPricePoints` (`asc subscriptions pricing price-points list`) — for subscriptions. `s = subscription-internal ID` (different per subscription, must be extracted from a real USA price-point response, NOT the app ID). Mixing IDs across catalogs triggers "The provided entity is invalid".
+
+**Idempotency on re-runs (1.7.0+)**: when a subscription / IAP `setup` call reports "already been used", KAppMaker now logs `existing — refreshing pricing` and continues into the PPP fan-out (the previous behaviour was to skip pricing entirely, leaving stale prices on re-runs). The asc CLI's `--subscription-id` and `--iap-id` flags accept the product_id directly, so the lookup is free.
+
+**Smoke test**: `npm run test:ppp` runs `src/services/ppp-pricing.service.test.ts` — 16 assertions covering multiplier lookup, .99 rounding, fan-out length, and exclusion-set behaviour.
+
+**Re-run idempotency on existing products (1.6.1+)**: when `gpc subscriptions push` / `gpc iap push` finds a product that already exists on Play, the CLI no longer just skips — it PATCHes the existing product with the freshly-built body (full PPP region fan-out). This is the back-fill path: a user who upgraded from 1.5.x has products that are currently US-only; a single `kappmaker gpc setup` (or just `subscriptions push` + `iap push`) re-runs and applies PPP regional pricing to all 175 regions. Subscriptions go through `PATCH /subscriptions/{id}?updateMask=basePlans,listings`; one-time products use the existing `PATCH /onetimeproducts/{id}?allowMissing=true` (already upsert). Google may reject region-removal or price-decrease changes on active base plans — the CLI logs a tip suggesting a `v1 → v2` product_id bump if that happens.
+
+**Billable region filter (1.6.2+)**: not every ISO region is billable on Google Play at a given `regionsVersion` — sanctioned countries (AF, IR, KP, SY, CU, BY, etc.) are rejected with HTTP 400 _"Region code X is not billable at the specified regions version 2022/02"_. The CLI calls `POST /applications/{pkg}/pricing:convertRegionPrices` once per (package, base USD price) tuple, and uses the response's region keys as the authoritative billable set.
+
+**Native-currency PPP (1.6.3+)**: Google Play also rejects `regionalConfigs` entries whose currency doesn't match the region's native currency (HTTP 400 _"Invalid currency for region code AE: expected AED but got USD"_). 1.6.2's USD-everywhere approach was wrong. `fetchConvertedRegionPrices(packageName, baseUsdMoney)` in `gpc-monetization.service.ts` now returns a `Map<region, native Money>` covering both the billable filter AND the FX conversion in one API call. `expandPlayRegionsLocal()` then multiplies each native price by the region's PPP multiplier and charm-rounds: zero-decimal currencies (JPY/KRW/CLP/ISK/VND/etc. — `ZERO_DECIMAL_CURRENCIES` set) round to X99 / X9 / X integer; decimal currencies (USD/EUR/INR/etc.) get Spotify-style "floor + .99". `buildBasePlanBody`, `buildSubscriptionBody`, and `createInAppProduct` are now async. Cache is per (packageName, baseUsdPriceString) — typical apps with 5 distinct base prices make ~5 convertRegionPrices calls per setup run.
+
+**Two pricing modes via `ppp_enabled` (1.6.4+)**: each subscription base plan and one-time product has an opt-out flag.
+
+- `ppp_enabled !== false` (default): explicit per-region PPP via `convertRegionPrices` + native-currency entries in `regionalConfigs[]` / `regionalPricingAndAvailabilityConfigs[]`. Full PPP control, heavier payload, ~150 entries per product. `otherRegionsConfig` is ALSO included with USD/EUR anchors (covers any future region Google adds + satisfies the "must remain present once previously set" constraint on PATCHes).
+- `ppp_enabled === false`: minimal user-listed regions + `otherRegionsConfig: { usdPrice, eurPrice, newSubscriberAvailability }` (subs) or `newRegionsConfig: { availability, usdPrice, eurPrice }` (one-time products). Google auto-fans-out the USD anchor to every billable region using its FX pricing template. Smaller payload (~1 entry), no PPP discounting in lower-income markets. The legacy 1.5.x behaviour, but with the required `usdPrice` + `eurPrice` fields actually populated (1.5.x silently sent partial blocks → Google dropped them → fan-out failed).
+
+The default is the right pick for most apps; `ppp_enabled: false` is for users who explicitly want uniform USD-anchor pricing without PPP discounts.
+
+**Proto3 partial-Money gotcha (1.6.6+)**: Google's JSON response omits Money fields with default values — i.e. `units` is missing when the price is `< 1 unit` (e.g. `convertRegionPrices` returns `{ currencyCode: "USD", nanos: 990000000 }` for $0.99, no `units` field). `parseInt(undefined, 10) === NaN`, and once `NaN` enters the multiplication pipeline it becomes the string `"NaN"` in the request body → HTTP 400 _"Invalid value at '...price.units' (TYPE_INT64), 'NaN'"_. 1.6.6 adds `normalizeMoney()` at the convertRegionPrices boundary (defaults missing `units` to `"0"` and missing `nanos` to `0`), hardens `moneyToFloat` to coerce non-numeric inputs to 0, and adds a non-finite guard inside `applyPppCharmRound` that falls back to the source Money rather than emitting NaN.
+
+**regionsVersion=2022/02 drift handling (1.6.8+)**: `convertRegionPrices` returns "today's" currencies + billable set, but the subscription / one-time-product PATCH uses `regionsVersion=2022/02` (matches what AndroidPoet's `playconsole-cli` hardcodes — no documented newer version). The two surfaces disagree for a handful of regions. Five known drift cases as of 2026-05:
+- **BG (Bulgaria, Eurozone 2025)**, **HR (Croatia, Eurozone 2023)** — `convertRegionPrices` → EUR, `2022/02` expects BGN/HRK.
+- **CI (Côte d'Ivoire)**, **CM (Cameroon)** — `convertRegionPrices` → XOF/XAF (CFA), `2022/02` expects USD.
+- **MN (Mongolia)** — `convertRegionPrices` lists as billable; `2022/02` says not billable at all (different error sentence).
+
+Three defenses (all wired in `gpc-monetization.service.ts`):
+- **`KNOWN_2022_02_DRIFT_REGIONS = {BG, HR, CI, CM, MN}`** — preseed skip-list filtered out of `expandPlayRegionsLocal` (fast path, no API roundtrip).
+- **`extractDriftRegions(errorText)`** parses BOTH error sentence formats from a 400 response: `Invalid currency for region code (\w+)` AND `Region code (\w+) is not billable`. Used by the retry loop in all three PATCH paths.
+- **`sessionDriftCache: Map<packageName, Set<region>>`** — when a region is discovered as drifted during a PATCH (e.g. RO joining Eurozone someday), it's added to this run-scoped cache. Subsequent products in the same `gpc setup` run skip it up front instead of re-paying the 3-call discovery cost.
+
+The retry loop accumulates `extraExclude` across up to 5 attempts per product, rebuilds the body each pass, and stops on either success or a non-drift error. The session cache ensures product N+1 starts with all of product N's discovered drift regions already excluded.
+
+The `Committing Play Console edit: 400 Only releases with status draft may be created on draft app` warning at step 7 is unrelated (about the listings edit / track-release pipeline, not monetization). Monetization steps 8-9 run independently and now succeed even if step 7 fails.
+
+**Post-PATCH verification + diagnostic hint (1.6.9+)**: after every successful subscription / one-time-product PATCH, `verifySubscriptionRegions` / `verifyOneTimeProductRegions` GETs the product back and logs `Stored on Google: X/Y regions available` — the authoritative count of what's actually saved on Google's side, independent of Play Console UI lag. End of `setupSubscriptions` / `setupInAppProducts` prints a one-shot diagnostic checklist (UI lag, app-level country availability in the Production track, draft-app caveats) so users have something concrete to check when Play Console still shows "USA only" after a successful run. Also: `activateBasePlan` now includes the required `packageName` / `productId` / `basePlanId` / `latencyTolerance: LATENCY_SENSITIVE` fields in the request body per the v3 discovery doc — earlier versions sent `{}` and may have silently no-op'd on Google's side.
+
+**Existing-region preservation on PATCH (1.6.10+)**: Google's "once added, never removed" rule applies at the per-region level too — once an active base plan (or purchase option) has a regional config for `X`, every subsequent PATCH must include `X` or Google rejects with HTTP 400 _"Regional configs were removed from the base plan: X, Y, Z"_. This bit users who had Forevly-style legacy subscriptions: Google had stored `BG, CI, CM, HR, SN` on the base plan years ago at the original currencies; the CLI's fresh `convertRegionPrices` fan-out now treats those as drift (BG/HR moved to EUR post-Eurozone, CI/CM moved to XOF/XAF, MN delisted), so they got skipped from the new body — Google then saw the omission as a removal request. Fixed in 1.6.10 by reading existing state first: `fetchExistingSubscriptionState` GETs `Map<basePlanId, Map<regionCode, ExistingRegionalConfig>>` before the retry loop; `buildBasePlanBody` then echoes every previously-stored region verbatim (currency + price + availability) for regions the fresh PPP fan-out doesn't already cover. Same pattern for one-time products via `fetchExistingOneTimeProductState`. Net effect on existing products: fresh PPP fan-out for ~150 healthy regions + verbatim echo of any pre-existing drift regions = no removal-rejection, full PPP coverage on subsequent re-runs.
+
+**Currency override for regionsVersion 2022/02 drift (1.6.11+)**: 1.6.10's "skip drift regions and re-inject as unavailable" approach was suboptimal. The drift regions (except MN) are actually billable at 2022/02 — just under a different currency than the live `convertRegionPrices` API returns. 1.6.11+ replaces drop-and-mark-unavailable with a per-region currency override inside the fresh fan-out (`applyCurrencyOverrideFor2022_02` in `gpc-monetization.service.ts`):
+
+| Region | Live API | 2022/02 expects | Resolution |
+|---|---|---|---|
+| BG (Bulgaria) | EUR | BGN | Convert via the 1 EUR = 1.95583 BGN currency-board peg |
+| HR (Croatia) | EUR | EUR ✓ | No override (Google updated 2022/02 retroactively after HR's 2023 Eurozone entry) |
+| CI / CM / SN | XOF / XAF | USD | Replace with the USD anchor (PPP multiplier still applies on top) |
+| MN (Mongolia) | billable | NOT BILLABLE | Drop from fan-out; in `NEVER_BILLABLE_AT_2022_02` |
+
+The override runs BEFORE the PPP multiplier, so per-tier discounts stay consistent regardless of currency representation. Surprising real-world finding: 2022/02 was retroactively patched for HR's Eurozone entry but NOT for BG's (BG joined Jan 2025). Verified via real 400 responses on Forevly's legacy subscriptions.
+
+**Result**: products land with `173/173 regions available` on Play Console (vs 168/173 in 1.6.10 where 5 drift regions were force-unavailable). BG users see BGN-priced subs, CI/CM/SN users see USD with their PPP tier applied, AR/IN/PK get the steepest discounts, CH/NO pay the premium. Google's storage layer auto-converts our submitted currency to each region's actual current currency when displaying to end users (we send BG/BGN → Google displays EUR; we send CI/USD → Google displays XOF).
+
+**`newRegionsConfig.availability: AVAILABLE` always (1.6.11+)**: for one-time products `newRegionsConfig` is now ALWAYS included when there's a USD anchor (was previously only set when `ppp_enabled: false`). Mirrors what subscriptions already do via `otherRegionsConfig`. In Play Console this surfaces as **"New countries and regions: Available"** — any region Google adds to its billable catalog in the future automatically gets USD/EUR-anchor pricing.
+
+**`NEVER_BILLABLE_AT_2022_02` + `--recreate-stuck` (1.6.11+)**: regions like MN that 2022/02 removed entirely cannot coexist with the PATCH at all. The CLI detects this deadlock (region rejected even with NO_LONGER_AVAILABLE/forceUnavailable+correct-currency) and tracks the product in `stuckOneTimeProducts` / `stuckSubscriptions`. Final summary lists stuck products with three fix options:
+1. **Recommended** — bump `product_id` in config (`v1` → `v2`). New product, full PPP fan-out, no downtime.
+2. `--recreate-stuck` — opt-in flag that DELETEs the stuck product then recreates. WARNING: Google soft-deletes one-time products — the productId is reserved for a few minutes to a few hours after deletion. CLI catches the "Product ID already in use" error and tells the user to wait + re-run.
+3. Manually delete on Play Console UI, wait, re-run.
+
+**Refactor (1.6.12)**: extracted `handleSubscriptionRetry` + `handleOneTimeProductRetry` helpers to dedupe the retry/deadlock logic that was copy-pasted across the create-subscription, update-subscription, and create-IAP loops (~80 lines saved). Demoted internal-only exports (`priceToMoney`, `deriveAnchorPrices`, `activateBasePlan`) to private. Net file size: 1433 → 1320 lines.
+
+**Three nasty PATCH gotchas debugged in 1.6.5**:
+1. **`convertRegionPrices` response field is `price`, not `regionPrice`.** Earlier docs guessed `regionPrice` and got 0 regions back (empty fan-out → US-only PATCH → "Cannot remove region X" downstream).
+2. **Subscriptions: `otherRegionsConfig` is sticky.** Once Google has stored an `otherRegionsConfig` on a base plan, every subsequent PATCH must include it again (HTTP 400 _"is missing the other regions config, which is now required since it has been previously set"_). `buildBasePlanBody` now always includes it when there's a USD anchor.
+3. **One-time products: existing `purchaseOptionId` must be preserved.** Legacy products were created with `purchaseOptionId: "buy"`; KAppMaker-created ones use `"default"`. PATCH bodies must list ALL existing options or Google rejects with _"Product must list all of its existing purchase options. Missing: buy"_. `fetchExistingPurchaseOptionId` does a one-shot GET to read the actual ID and reuse it on the PATCH + the subsequent activate call.
 
 ### Subscription Product ID Alignment
 

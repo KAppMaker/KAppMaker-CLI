@@ -190,7 +190,7 @@ The `create` command runs the full end-to-end setup. Some steps assume the [KApp
 - **CocoaPods** — `sudo gem install cocoapods`
 - **Fastlane** — via Bundler in the template repo
 - **Android SDK** — installed at `~/Library/Android/sdk` (configurable)
-- **asc CLI** (optional, for App Store Connect) — `brew install asc`
+- **asc CLI** (optional, for App Store Connect) — `brew install asc` (requires **≥ 1.4.0** as of KAppMaker 1.7.0 for the bulk CSV subscription-pricing path)
 - **Adapty CLI** (optional, for Adapty setup) — `npm install -g adapty`
 - **No extra CLI for Google Play Console** — `kappmaker gpc` talks to the Play Publisher API directly via Node's built-in `fetch` and `crypto`; all it needs is the service-account JSON path set in `googleServiceAccountPath`
 
@@ -516,7 +516,7 @@ Requires a fal.ai API key (prompted on first use if not set).
 
 ## `create-appstore-app`
 
-Creates and fully configures an app on App Store Connect using the [asc CLI](https://github.com/rudrankriyam/App-Store-Connect-CLI).
+Creates and fully configures an app on App Store Connect using the [asc CLI](https://github.com/rorkai/App-Store-Connect-CLI). Requires asc ≥ 1.4.0.
 
 ```bash
 kappmaker create-appstore-app
@@ -564,6 +564,21 @@ Layers are deep-merged (later overrides earlier):
 | Yearly Premium | `ONE_YEAR` | $29.99 | `{appname}.premium.yearly.v1.2999.v1` |
 
 Auto-generated naming: group `{appname}.premium.v1`, ref name `{AppName} Premium Weekly v1 (6.99)`.
+
+### Per-territory PPP pricing (1.7.0+ — bulk CSV import)
+
+Subscriptions and IAPs are fanned out to **every ASC territory (~175)** with purchasing-power-parity-adjusted prices in a **single API call per product**. Requires asc CLI **≥ 1.4.0** (`brew upgrade asc`).
+
+- **Subscriptions** (1.7.0+): `asc subscriptions pricing prices import --input <csv>`. KAppMaker writes a temp CSV with `territory,price,price_point_id` rows for all ~175 territories and pipes it in. Replaces the 155-call loop from 1.6.x which hit Apple's rate limits.
+- **IAPs**: a single `asc iap pricing schedules create --prices "PP_ID:DATE,…"` call covers all territories (unchanged).
+
+Set `"ppp_enabled": false` on any subscription or IAP to opt out and keep only your explicitly-listed `prices`. User-listed territory prices are always preserved (they win the merge).
+
+**Tier resolution**: Apple's price-point catalog uses globally-stable tier numbers (1..800 — tier N = the same USD-equivalent across every territory). KAppMaker resolves each unique PPP USD target → tier ONCE via USA's catalog (where customerPrice is in USD), then synthesises per-territory price-point IDs locally using Apple's base64 `{s, t, p}` format. Critical fix vs 1.6.x: the old code compared a USD target against local-currency price-points (e.g. ¥, ₩, ₹) and ended up picking the FREE tier — products silently landed at $0 in JPN/IDR/INR/KRW/etc. The new tier-based resolution avoids that entirely.
+
+**Distinct catalogs**: subscriptions use `subscriptionPricePoints` (CLI: `asc subscriptions pricing price-points list`) while IAPs use `appPricePoints` (CLI: `asc pricing price-points`). Their `s` (catalog identifier) fields differ — mixing IDs across catalogs returns `400 The provided entity is invalid`.
+
+**Idempotent re-runs**: when `setup` reports "already been used", KAppMaker now logs `existing — refreshing pricing` and continues into the PPP fan-out so re-runs actually update territory pricing (1.6.x silently skipped).
 
 ### Default in-app purchases (credit packs)
 
@@ -677,11 +692,17 @@ kappmaker gpc iap list
 
 ### `gpc iap push`
 
-Create or reuse one-time in-app products from the config file. Idempotent — already-existing product IDs are skipped.
+Create or reuse one-time in-app products from the config file. Idempotent — existing products are PATCHed with fresh PPP regional pricing.
 
 ```bash
 kappmaker gpc iap push
+kappmaker gpc iap push --recreate-stuck   # DELETE + recreate products stuck at regionsVersion 2022/02
 ```
+
+| Flag | Description |
+|---|---|
+| `--config <path>` | Override the default config path (`./Assets/googleplay-config.json`) |
+| `--recreate-stuck` | DELETE products whose stored regions can't coexist with `regionsVersion=2022/02` (e.g. legacy products with MN) so they recreate fresh. WARNING: Google holds the productId in a soft-delete reservation window for a few minutes to a few hours after deletion — CREATE during that window fails with "Product ID already in use". Use only when you can tolerate downtime, or prefer bumping the product_id in config (e.g. `v1` → `v2`) for zero downtime. |
 
 Uses the **new** monetization API: `PATCH /applications/{pkg}/onetimeproducts/{id}?allowMissing=true` to create/update the product, then `purchaseOptions:batchUpdateStates` with an `activatePurchaseOptionRequest` to activate the default purchase option so it's available to buyers. Replaces the legacy `/inappproducts` endpoint, which Google now rejects with "Please migrate to the new publishing API" on migrated apps.
 
@@ -693,7 +714,36 @@ Uses the **new** monetization API: `PATCH /applications/{pkg}/onetimeproducts/{i
 | Pro Credit Pack | 30 | $9.99 | `credit_pack_30_999_{appname}` |
 | Ultimate Credit Pack | 80 | $19.99 | `credit_pack_80_1999_{appname}` |
 
-**Global region availability:** subscriptions and one-time products are both created with availability in **every Play-supported region** (~170+), not just the ones you list explicitly. The CLI builds the required `usdPrice` + `eurPrice` Money anchors automatically from your `regional_configs` — if you list only USD, the USD value is mirrored as the EUR anchor (Google still adjusts per region). To pin a specific EUR price, add an explicit EUR entry under `prices`. If you don't provide any USD price, the auto-region block is skipped and the product stays restricted to the regions you listed.
+**Global region availability with PPP pricing (1.6.0+):** subscriptions and one-time products are both created with **explicit per-region prices** in every Play-supported region (~175), with purchasing-power-parity multipliers applied — IN gets ~0.35×, AR/PK/EG get 0.30×, US/CA/EU base at 1.00×, CH/NO at 1.10×. The multipliers come from a Steam/Spotify-inspired tier table ([iosdevmax/ppp-pricing](https://github.com/iosdevmax/ppp-pricing), MIT). Prices round to .99 endings.
+
+| Override | Result |
+|---|---|
+| You list `{ region_code: "DE", price: "5.99", currency_code: "EUR" }` | Used as-is for DE; PPP fills the rest |
+| You list only US/USD | PPP fans out from your USD anchor to ~175 regions |
+| Set `"ppp_enabled": false` on a base plan or IAP | That entry stays restricted to your listed regions |
+
+**Each region's price is in its native currency** (AE → AED, JP → JPY, IN → INR, etc.) — Google Play rejects mismatched currencies. The CLI calls Google's `convertRegionPrices` endpoint with your USD base price to get fair FX-converted native prices for every billable region, then multiplies by the region's PPP multiplier and charm-rounds (.99 for decimal currencies, X99 / X9 for zero-decimal currencies like JPY / KRW). Sanctioned countries (AF, IR, KP, SY, etc.) are auto-excluded — they don't appear in `convertRegionPrices` output.
+
+**`regionsVersion=2022/02` drift override (1.6.11+):** Google's monetization API requires `regionsVersion.version` and `"2022/02"` is the only documented value. Several regions have drifted since that snapshot was taken — Google's live API returns one currency but `2022/02` expects another. The CLI handles this with an explicit override table:
+
+| Region | Live API | 2022/02 expects | What CLI does |
+|---|---|---|---|
+| BG | EUR | BGN | Converts EUR → BGN via the 1 EUR = 1.95583 BGN peg |
+| HR | EUR | EUR ✓ | No override (Google updated 2022/02 retroactively) |
+| CI / CM / SN | XOF / XAF | USD | Uses the USD anchor (PPP multiplier still applied) |
+| MN | billable | NOT BILLABLE | Skipped entirely (no currency works) |
+
+Net effect: typical products land with all ~173 billable regions AVAILABLE (only MN drops out). Google's storage layer auto-converts each region's submitted currency to the user-facing display currency (we send BG/BGN → end users see EUR; we send CI/USD → end users see XOF).
+
+**Existing products with regions stuck at `2022/02`:** if Google's old catalog has stored MN (or another `NEVER_BILLABLE` region) on an existing product, that PATCH cannot be completed — Google won't accept MN's currency but also refuses to remove the region. The CLI surfaces these "stuck" products at the end of the run and offers three fix paths:
+
+1. **Recommended** — bump the `product_id` in your config (e.g. `credit_pack_10_499_myapp` → `credit_pack_10_499_myapp_v2`). Fresh product, no legacy baggage, no waiting period.
+2. `--recreate-stuck` flag — DELETEs the stuck product(s) and recreates them fresh. WARNING: Google soft-deletes for a few minutes to a few hours; CREATE during that window returns "Product ID already in use". Plan downtime.
+3. Manually delete on Play Console UI, wait for the reservation window to clear, then re-run.
+
+**"New countries and regions" set to AVAILABLE (1.6.11+):** both subscriptions (`otherRegionsConfig`) and one-time products (`newRegionsConfig`) are now always set to `availability: AVAILABLE` with USD + EUR anchors when a USD anchor is present. Means any region Google adds to its billable catalog in the future is auto-priced from those anchors — no future-proofing maintenance needed.
+
+**Want simpler pricing without PPP?** Set `"ppp_enabled": false` on a base plan or one-time product to skip the PPP fan-out. The CLI then submits only your user-listed regions in `regional_configs` (typically just US) plus `otherRegionsConfig` (subscriptions) / `newRegionsConfig` (one-time products) with USD + EUR anchors. Google handles the fan-out via its own pricing-template FX algorithm — every billable region gets a price, but without PPP discounting in lower-income markets. Trade-off: smaller payload, less control.
 
 ### `gpc data-safety push`
 
@@ -1243,6 +1293,18 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 Global defaults are merged as a base layer so shared settings (review contact, privacy, subscriptions, credit-pack IAPs, paywalls, placements, etc.) don't need to be re-entered per app.
 
 **Re-init backfills missing entries.** Re-running `--init` against an existing defaults file (e.g. one saved before the credit-pack templates landed) auto-adds any missing arrays from the built-in template — credit-pack IAPs for App Store, products / paywalls / placements for Adapty. Empty arrays in your saved defaults no longer wipe out the template content during a `create-appstore-app` or `adapty setup` run either; the CLI preserves template entries when globals have an empty array.
+
+---
+
+## Credits & Attribution
+
+The per-region PPP pricing tier table (`src/data/ppp-tiers.ts`, `src/data/ppp-tiers.upstream.json`) is derived from **[iosdevmax/ppp-pricing](https://github.com/iosdevmax/ppp-pricing)** by [@iosdevmax](https://github.com/iosdevmax) (MIT License).
+
+The methodology is intentionally Steam/Spotify/RevenueCat-inspired rather than raw World Bank PPP data — raw PPP under-prices markets prone to VPN arbitrage and misses high-cost-of-living "rich tourist" markets. KAppMaker uses the upstream tiers as-is and extends coverage to all Play-supported regions and ASC territories via geographic/economic-proximity neighbour lookups (see `FALLBACK_NEIGHBOUR` in `src/data/ppp-tiers.ts`).
+
+If you're shipping global pricing for an app, **please ⭐ the upstream repo** — it's the source of the curated tier values that make this work.
+
+Full third-party attribution is in [NOTICE.md](NOTICE.md).
 
 ---
 
