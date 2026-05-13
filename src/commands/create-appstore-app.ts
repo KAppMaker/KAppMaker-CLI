@@ -131,14 +131,15 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
   // Step 10: Set Pricing & Subscriptions & In-App Purchases
   logger.step(10, TOTAL_STEPS, 'Setting pricing, subscriptions, and in-app purchases');
   await ascMoney.createPricing(appId, config.pricing);
+  const reviewOpts = { defaultReviewScreenshot: config.review_screenshot };
   if (config.subscriptions.groups.length > 0) {
     for (const group of config.subscriptions.groups) {
-      await ascMoney.setupSubscriptions(appId, group, config.subscriptions.availability);
+      await ascMoney.setupSubscriptions(appId, group, config.subscriptions.availability, reviewOpts);
     }
   } else {
     logger.info('No subscriptions configured, skipping.');
   }
-  await ascMoney.setupInAppPurchases(appId, config.in_app_purchases ?? []);
+  await ascMoney.setupInAppPurchases(appId, config.in_app_purchases ?? [], reviewOpts);
 
   // Step 11: Set Privacy
   logger.step(11, TOTAL_STEPS, 'Setting privacy data usages');

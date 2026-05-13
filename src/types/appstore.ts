@@ -10,6 +10,14 @@ export interface AppStoreConfig {
   in_app_purchases: AppStoreInAppPurchase[];
   encryption: AppStoreEncryptionConfig;
   review_info: AppStoreReviewInfoConfig;
+  /**
+   * Optional default path to the App Review screenshot uploaded to every
+   * subscription and one-time IAP. Each product can override via its own
+   * `review_screenshot` field. If the file at the resolved path does not
+   * exist, the upload is silently skipped (still required by Apple to pass
+   * review — products stay in MISSING_METADATA state until one is uploaded).
+   */
+  review_screenshot?: string;
 }
 
 export interface AppStoreAppConfig {
@@ -126,6 +134,12 @@ export interface AppStoreSubscription {
   localizations: AppStoreSubscriptionLocalization[];
   /** Default `true`. Set `false` to opt this subscription out of PPP fan-out (only listed prices apply). */
   ppp_enabled?: boolean;
+  /**
+   * Optional path to a PNG/JPG App Review screenshot uploaded via
+   * `asc subscriptions review screenshots create`. Overrides the top-level
+   * `review_screenshot` default. Missing files are silently skipped.
+   */
+  review_screenshot?: string;
 }
 
 export interface AppStoreSubscriptionPrice {
@@ -151,6 +165,12 @@ export interface AppStoreInAppPurchase {
   localizations: AppStoreSubscriptionLocalization[];
   /** Default `true`. Set `false` to opt this IAP out of PPP fan-out (only listed prices apply). */
   ppp_enabled?: boolean;
+  /**
+   * Optional path to a PNG/JPG App Review screenshot uploaded via
+   * `asc iap images create`. Overrides the top-level `review_screenshot`
+   * default. Missing files are silently skipped.
+   */
+  review_screenshot?: string;
 }
 
 export interface AppStoreEncryptionConfig {

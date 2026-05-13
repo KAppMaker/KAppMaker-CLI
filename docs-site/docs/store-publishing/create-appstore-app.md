@@ -96,6 +96,91 @@ Subscriptions and IAPs are fanned out to **every ASC territory** (~175) with pur
 
 **Idempotent re-runs (1.7.0+)**: when `asc subscriptions setup` or `asc iap setup` reports "already been used", KAppMaker now refreshes pricing instead of skipping — so re-runs actually update territory prices on existing products. The asc CLI's `--subscription-id` / `--iap-id` flags accept the product_id directly, so no internal-ID lookup is needed.
 
+## App Review screenshots (1.7.1+)
+
+Apple requires a **review screenshot** on every subscription and IAP — without one, the product remains in `MISSING_METADATA` state and per-territory pricing won't show as "resolved" in `asc subscriptions pricing prices list --resolved`. KAppMaker uploads them automatically via `asc subscriptions review screenshots create` (subs) and `asc iap images create` (IAPs).
+
+**Global default + per-product override**:
+
+```json
+{
+  "review_screenshot": "Assets/appstore/review-screenshot.png",
+  "subscriptions": {
+    "groups": [{
+      "subscriptions": [{
+        "ref_name": "Premium Weekly",
+        "review_screenshot": "Assets/appstore/weekly-review.png"
+      }]
+    }]
+  },
+  "in_app_purchases": [{
+    "product_id": "credit_pack_10_499_myapp",
+    "review_screenshot": "Assets/appstore/iap-review.png"
+  }]
+}
+```
+
+The top-level `review_screenshot` applies to every subscription and IAP that doesn't override it. Use PNG or JPG. Paths are resolved relative to the project root.
+
+**Idempotent**: KAppMaker checks `asc subscriptions review app-store-screenshot view` (subs) or `asc iap images list` (IAPs) before uploading — if a screenshot/image is already attached, the upload is skipped. To replace, delete it via App Store Connect's UI first, then re-run.
+
+**Silent skip on missing file**: if the resolved path doesn't exist, KAppMaker logs an info message (`Review screenshot for "X" not found at ... — skipping upload.`) and moves on. The product stays in `MISSING_METADATA` until you add a file at that path and re-run.
+
+### Required image size
+
+| Setting | Value |
+|---|---|
+| **Recommended** | **1290 × 2796 px** (iPhone 6.7" Display, portrait — same as App Store listing screenshots) |
+| Minimum | 640 × 920 px |
+| Format | PNG or JPG |
+| Aspect ratio | Portrait, ~9 : 19.5 |
+
+If your screenshot doesn't match 1290 × 2796, KAppMaker prompts to resize:
+
+```
+WARN Review screenshot wrong-size.png is 1920×1080.
+-- Apple's App Store recommended size for review screenshots: 1290×2796 (iPhone 6.7" Display, portrait).
+  Resize to 1290×2796 keeping aspect ratio? (Y/n)
+```
+
+- **Y** (default) — sharp resizes with `fit: 'inside'` (preserves aspect ratio, may end up smaller on one dimension; e.g. 1920×1080 → 1290×726). Writes to a temp file, uploads the resized copy.
+- **N** — uploads as-is.
+
+Files that are already 1290 × 2796 skip the prompt entirely.
+
+### Standalone replace commands
+
+Two top-level `appstore-` prefixed commands replace existing screenshots without running the full setup flow:
+
+```bash
+# Replace the review screenshot on EVERY subscription in the config
+kappmaker appstore-update-subscription-review-screenshot --file ./Assets/appstore/new-review.png
+
+# Replace the review image on EVERY IAP
+kappmaker appstore-update-iap-review-screenshot --file ./Assets/appstore/iap-review.png
+
+# Without --file, use the per-product `review_screenshot` from the config
+kappmaker appstore-update-subscription-review-screenshot
+kappmaker appstore-update-iap-review-screenshot
+
+# Target a single product
+kappmaker appstore-update-iap-review-screenshot \
+    --file ./Assets/appstore/credit-pack-30.png \
+    --product-id credit_pack_30_999_myapp
+```
+
+| Flag | Description |
+|---|---|
+| `--file <path>` | Single screenshot applied to all matched products. Overrides per-product `review_screenshot` from the config. |
+| `--config <path>` | Override default `./Assets/appstore-config.json`. |
+| `--product-id <id>` | Target ONE product (matches by `product_id` or `ref_name`). |
+
+Both commands trigger the same auto-resize prompt as the setup flow.
+
+:::info Force-replace semantics
+These commands delete the existing screenshot and create a new one. Empirically `asc subscriptions review screenshots update` only marks an out-of-band upload as complete (it doesn't take `--file`), and `asc iap images update --file` returns success but leaves the previous binary in place. Delete + create is the reliable swap.
+:::
+
 :::warning $0 / FREE-tier bug (1.6.x)
 Versions 1.6.x had a bug where products silently landed at $0 in territories whose price-points are denominated in non-USD (JPN, IDR, INR, KRW, CHL, COL, HUN, NGA, PAK, PHL, RUS, THA, TZA, VNM, etc.). The old code compared the USD PPP target numerically against local-currency `customerPrice` values, picking the FREE tier as "closest" (e.g. for JPN: |¥0 − 3.99| = 3.99 < |¥50 − 3.99| = 46). 1.7.0's tier-based resolution avoids this entirely. **If your app is on 1.6.x and shows $0 prices on App Store Connect, upgrade and re-run `create-appstore-app`** — re-runs now refresh pricing.
 :::

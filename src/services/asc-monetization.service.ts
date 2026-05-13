@@ -10,6 +10,7 @@ import {
   logPppFanOut,
   resolveUsdTierWithS,
 } from './ppp-pricing.service.js';
+import { prepareReviewScreenshot } from './review-screenshot.service.js';
 import type {
   AppStorePricingConfig,
   AppStoreSubscriptionGroup,
@@ -132,10 +133,16 @@ async function fetchAllTerritories(): Promise<string[]> {
   return [];
 }
 
+export interface ReviewScreenshotOptions {
+  /** Top-level config default applied to every sub/IAP that doesn't override. */
+  defaultReviewScreenshot?: string;
+}
+
 export async function setupSubscriptions(
   appId: string,
   group: AppStoreSubscriptionGroup,
   availability?: AppStoreAvailability,
+  reviewOpts: ReviewScreenshotOptions = {},
 ): Promise<void> {
   let groupId = await findGroupByName(appId, group.reference_name);
 
@@ -149,7 +156,7 @@ export async function setupSubscriptions(
   }
 
   for (const sub of group.subscriptions) {
-    await setupSubscription(appId, group.reference_name, groupId, sub, territories);
+    await setupSubscription(appId, group.reference_name, groupId, sub, territories, reviewOpts);
     // After first subscription creates the group, fetch its ID for subsequent ones
     if (!groupId) {
       groupId = await findGroupByName(appId, group.reference_name);
@@ -187,6 +194,7 @@ async function setupSubscription(
   existingGroupId: string | null,
   sub: AppStoreSubscription,
   territories: string[],
+  reviewOpts: ReviewScreenshotOptions = {},
 ): Promise<void> {
   const args = ['subscriptions', 'setup', '--app', appId];
 
@@ -259,6 +267,15 @@ async function setupSubscription(
   const basePrice = sub.prices[0];
   if (basePrice?.price && sub.ppp_enabled !== false) {
     await applyPppToSubscription(appId, idForCli, sub, basePrice.price);
+  }
+
+  // Upload App Review screenshot (Apple-required; without it subs stay in
+  // MISSING_METADATA state). Silently skipped if the file doesn't exist.
+  const screenshotPath = sub.review_screenshot ?? reviewOpts.defaultReviewScreenshot;
+  if (screenshotPath) {
+    await uploadSubscriptionReviewScreenshot(appId, idForCli, sub.ref_name, screenshotPath, {
+      promptOnSizeMismatch: true,
+    });
   }
 }
 
@@ -425,6 +442,7 @@ async function applyPppToSubscription(
 export async function setupInAppPurchases(
   appId: string,
   iaps: AppStoreInAppPurchase[],
+  reviewOpts: ReviewScreenshotOptions = {},
 ): Promise<void> {
   if (iaps.length === 0) {
     logger.info('No in-app purchases configured, skipping.');
@@ -432,11 +450,15 @@ export async function setupInAppPurchases(
   }
 
   for (const iap of iaps) {
-    await setupInAppPurchase(appId, iap);
+    await setupInAppPurchase(appId, iap, reviewOpts);
   }
 }
 
-async function setupInAppPurchase(appId: string, iap: AppStoreInAppPurchase): Promise<void> {
+async function setupInAppPurchase(
+  appId: string,
+  iap: AppStoreInAppPurchase,
+  reviewOpts: ReviewScreenshotOptions = {},
+): Promise<void> {
   const args = [
     'iap', 'setup',
     '--app', appId,
@@ -489,6 +511,20 @@ async function setupInAppPurchase(appId: string, iap: AppStoreInAppPurchase): Pr
   if (iap.ppp_enabled !== false && price?.price) {
     const iapId = await resolveIapId(appId, iap.product_id);
     if (iapId) await applyPppToIap(appId, iapId, iap, price.price);
+  }
+
+  // Upload App Review image (Apple-required to leave MISSING_METADATA state).
+  // Silently skipped if the file doesn't exist.
+  const screenshotPath = iap.review_screenshot ?? reviewOpts.defaultReviewScreenshot;
+  if (screenshotPath) {
+    // resolveIapId is cached after the PPP fan-out; if PPP was skipped (ppp_enabled=false),
+    // this call populates the cache.
+    const iapId = await resolveIapId(appId, iap.product_id);
+    if (iapId) {
+      await uploadIapReviewImage(appId, iapId, iap.ref_name, screenshotPath, {
+        promptOnSizeMismatch: true,
+      });
+    }
   }
 }
 
@@ -583,6 +619,204 @@ async function applyPppToIap(
       label: `PPP IAP ${iap.ref_name}: ${entries.length} territories`,
       allowFailure: true,
       timeout: 3 * 60_000,
+    },
+  );
+}
+
+// ── App Review screenshots / images ─────────────────────────────────
+//
+// Apple requires a review screenshot on every subscription and IAP — without
+// one, products remain in MISSING_METADATA state and per-territory pricing
+// won't "resolve" (visible via `asc subscriptions pricing prices list --resolved`).
+//
+// asc commands used:
+//   - Subscriptions: `asc subscriptions review screenshots create --file <path>`
+//     and `asc subscriptions review app-store-screenshot view` to detect an
+//     existing screenshot (one per subscription).
+//   - IAPs: `asc iap images create --file <path>` and `asc iap images list`.
+//
+// Idempotency: if a screenshot/image is already uploaded, we SKIP — re-runs
+// don't replace. To update, delete via Apple's UI (or the asc `delete`
+// subcommand) and re-run.
+
+
+export async function uploadSubscriptionReviewScreenshot(
+  appId: string,
+  subscriptionId: string,
+  refName: string,
+  filePath: string,
+  opts: { force?: boolean; promptOnSizeMismatch?: boolean } = {},
+): Promise<void> {
+  const abs = await prepareReviewScreenshot(filePath, {
+    promptOnSizeMismatch: opts.promptOnSizeMismatch ?? false,
+  });
+  if (!abs) {
+    logger.info(`Review screenshot for "${refName}" not found at ${filePath} — skipping upload.`);
+    return;
+  }
+
+  // Check for an existing screenshot. View returns `{ data: { id: "", type: "" } }`
+  // when none is attached.
+  const existing = await run(
+    'asc',
+    [
+      'subscriptions', 'review', 'app-store-screenshot', 'view',
+      '--app', appId,
+      '--subscription-id', subscriptionId,
+      '--output', 'json',
+    ],
+    { label: `Checking existing review screenshot for ${refName}`, allowFailure: true },
+  );
+  let existingId: string | null = null;
+  if (existing.exitCode === 0 && existing.stdout) {
+    try {
+      const data = JSON.parse(existing.stdout);
+      const id = data?.data?.id;
+      if (id && typeof id === 'string' && id.length > 0) existingId = id;
+    } catch {
+      // Fall through.
+    }
+  }
+
+  if (existingId && !opts.force) {
+    // Default: idempotent — skip when something is already attached. Used by
+    // `create-appstore-app`'s setup flow so re-runs don't re-upload.
+    logger.info(`Review screenshot already uploaded for "${refName}" — skipping.`);
+    return;
+  }
+
+  // Force-replace path. Subscription `screenshots update` only marks an
+  // out-of-band upload as complete (it takes --uploaded / --checksum, NOT
+  // --file) — to swap the actual file we DELETE the existing screenshot then
+  // CREATE a new one. IAP `images update` works differently (takes --file
+  // directly); see uploadIapReviewImage.
+  if (existingId && opts.force) {
+    const deleted = await run(
+      'asc',
+      [
+        'subscriptions', 'review', 'screenshots', 'delete',
+        '--screenshot-id', existingId,
+        '--confirm',
+        '--output', 'json',
+      ],
+      {
+        label: `Deleting old review screenshot for ${refName}`,
+        allowFailure: true,
+        timeout: 60_000,
+      },
+    );
+    if (deleted.exitCode !== 0) {
+      logger.warn(`Could not delete existing screenshot for "${refName}": ${(deleted.stderr || deleted.stdout).slice(0, 200)}`);
+      return;
+    }
+  }
+
+  await run(
+    'asc',
+    [
+      'subscriptions', 'review', 'screenshots', 'create',
+      '--app', appId,
+      '--subscription-id', subscriptionId,
+      '--file', abs,
+      '--output', 'json',
+    ],
+    {
+      label: existingId && opts.force
+        ? `Uploading replacement review screenshot for ${refName}`
+        : `Uploading review screenshot for ${refName}`,
+      allowFailure: true,
+      timeout: 2 * 60_000,
+    },
+  );
+}
+
+export async function uploadIapReviewImage(
+  appId: string,
+  iapId: string,
+  refName: string,
+  filePath: string,
+  opts: { force?: boolean; promptOnSizeMismatch?: boolean } = {},
+): Promise<void> {
+  const abs = await prepareReviewScreenshot(filePath, {
+    promptOnSizeMismatch: opts.promptOnSizeMismatch ?? false,
+  });
+  if (!abs) {
+    logger.info(`Review image for "${refName}" not found at ${filePath} — skipping upload.`);
+    return;
+  }
+
+  // List existing images. IAPs can have multiple but Apple only requires one
+  // for review — when force-replacing we update the FIRST existing image in
+  // place rather than uploading a duplicate.
+  const existing = await run(
+    'asc',
+    [
+      'iap', 'images', 'list',
+      '--app', appId,
+      '--iap-id', iapId,
+      '--output', 'json',
+    ],
+    { label: `Checking existing review images for ${refName}`, allowFailure: true },
+  );
+  let firstImageId: string | null = null;
+  if (existing.exitCode === 0 && existing.stdout) {
+    try {
+      const data = JSON.parse(existing.stdout);
+      const arr = data?.data ?? [];
+      if (Array.isArray(arr) && arr.length > 0) {
+        const id = arr[0]?.id;
+        if (id && typeof id === 'string') firstImageId = id;
+      }
+    } catch {
+      // Fall through.
+    }
+  }
+
+  if (firstImageId && !opts.force) {
+    logger.info(`Review image already uploaded for "${refName}" — skipping.`);
+    return;
+  }
+
+  // Force-replace via delete + create. `asc iap images update --file` appears
+  // not to actually swap the binary on Apple's side (verified empirically:
+  // fileSize on the API response stays at the old value). Delete-then-create
+  // is the reliable path for both subs and IAPs.
+  if (firstImageId && opts.force) {
+    const deleted = await run(
+      'asc',
+      [
+        'iap', 'images', 'delete',
+        '--image-id', firstImageId,
+        '--confirm',
+        '--output', 'json',
+      ],
+      {
+        label: `Deleting old review image for ${refName}`,
+        allowFailure: true,
+        timeout: 60_000,
+      },
+    );
+    if (deleted.exitCode !== 0) {
+      logger.warn(`Could not delete existing image for "${refName}": ${(deleted.stderr || deleted.stdout).slice(0, 200)}`);
+      return;
+    }
+  }
+
+  await run(
+    'asc',
+    [
+      'iap', 'images', 'create',
+      '--app', appId,
+      '--iap-id', iapId,
+      '--file', abs,
+      '--output', 'json',
+    ],
+    {
+      label: firstImageId && opts.force
+        ? `Uploading replacement review image for ${refName}`
+        : `Uploading review image for ${refName}`,
+      allowFailure: true,
+      timeout: 2 * 60_000,
     },
   );
 }

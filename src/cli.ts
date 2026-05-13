@@ -7,6 +7,10 @@ import { enhance } from './commands/enhance.js';
 import { translateScreenshots } from './commands/translate-screenshots.js';
 import { configList, configGet, configSet, configPath, configInit, configAppStoreDefaults, configAdaptyDefaults } from './commands/config.js';
 import { createAppStoreApp } from './commands/create-appstore-app.js';
+import {
+  updateSubscriptionReviewScreenshot,
+  updateIapReviewScreenshot,
+} from './commands/update-review-screenshot.js';
 import { createPlayApp } from './commands/create-play-app.js';
 import {
   gpcSetup,
@@ -44,7 +48,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.7.0');
+    .version('1.7.3');
 
   program
     .command('create')
@@ -279,6 +283,26 @@ export function createCli(): Command {
     .option('--config <path>', 'Path to App Store Connect JSON config file')
     .action(async (options) => {
       await createAppStoreApp(options);
+    });
+
+  program
+    .command('appstore-update-subscription-review-screenshot')
+    .description('Replace the App Review screenshot on App Store Connect subscriptions (delete + re-upload). Prompts to resize to 1290×2796 if dimensions differ.')
+    .option('--file <path>', 'Screenshot path to apply to ALL matched subscriptions (overrides per-product review_screenshot in config)')
+    .option('--config <path>', 'Path to App Store Connect JSON config file')
+    .option('--product-id <id>', 'Target a single subscription by product_id or ref_name (default: all subscriptions in config)')
+    .action(async (options) => {
+      await updateSubscriptionReviewScreenshot(options);
+    });
+
+  program
+    .command('appstore-update-iap-review-screenshot')
+    .description('Replace the App Review image on App Store Connect IAPs (delete + re-upload). Prompts to resize to 1290×2796 if dimensions differ.')
+    .option('--file <path>', 'Screenshot path to apply to ALL matched IAPs (overrides per-product review_screenshot in config)')
+    .option('--config <path>', 'Path to App Store Connect JSON config file')
+    .option('--product-id <id>', 'Target a single IAP by product_id or ref_name (default: all IAPs in config)')
+    .action(async (options) => {
+      await updateIapReviewScreenshot(options);
     });
 
   // ── Google Play Console ────────────────────────────────────────────

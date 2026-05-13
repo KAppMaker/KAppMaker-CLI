@@ -52,6 +52,8 @@ npx tsx src/index.ts translate-screenshots          # Translate screenshots (def
 npx tsx src/index.ts translate-screenshots <dir> --locales de-DE ja-JP  # Specific locales
 npx tsx src/index.ts generate-screenshots --prompt "A fitness app..."   # Generate marketing screenshots
 npx tsx src/index.ts create-appstore-app           # App Store Connect setup
+npx tsx src/index.ts appstore-update-subscription-review-screenshot --file <path>  # Replace subscription review screenshots (1290×2796)
+npx tsx src/index.ts appstore-update-iap-review-screenshot --file <path>           # Replace IAP review images (1290×2796)
 npx tsx src/index.ts gpc setup                     # Google Play Console setup (full 11-step flow)
 npx tsx src/index.ts create-play-app               # Alias for `gpc setup`
 npx tsx src/index.ts gpc app-check --package <pkg> # Verify app exists on Play Console
@@ -260,6 +262,54 @@ Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fann
 - `subscriptionPricePoints` (`asc subscriptions pricing price-points list`) — for subscriptions. `s = subscription-internal ID` (different per subscription, must be extracted from a real USA price-point response, NOT the app ID). Mixing IDs across catalogs triggers "The provided entity is invalid".
 
 **Idempotency on re-runs (1.7.0+)**: when a subscription / IAP `setup` call reports "already been used", KAppMaker now logs `existing — refreshing pricing` and continues into the PPP fan-out (the previous behaviour was to skip pricing entirely, leaving stale prices on re-runs). The asc CLI's `--subscription-id` and `--iap-id` flags accept the product_id directly, so the lookup is free.
+
+**App Review screenshots (1.7.1+)**: Apple requires a review screenshot on every subscription and IAP — without one, products stay in `MISSING_METADATA` state and per-territory pricing won't "resolve" (visible via `asc subscriptions pricing prices list --resolved`). Config supports a global default and per-product overrides:
+
+```json
+{
+  "review_screenshot": "Assets/appstore/review-screenshot.png",  // global default
+  "subscriptions": {
+    "groups": [{
+      "subscriptions": [{
+        "ref_name": "Premium Weekly",
+        "review_screenshot": "Assets/appstore/weekly-review.png"  // optional per-product override
+      }]
+    }]
+  },
+  "in_app_purchases": [{
+    "product_id": "credit_pack_10_499_myapp",
+    "review_screenshot": "Assets/appstore/iap-review.png"        // optional override
+  }]
+}
+```
+
+Upload uses `asc subscriptions review screenshots create --file <path>` for subscriptions and `asc iap images create --file <path>` for IAPs. **Idempotent on re-runs** — `view` / `images list` checks before upload; if any screenshot/image is already attached, the upload is skipped. **Missing files silently skipped** — if the resolved path doesn't exist, KAppMaker logs an info message and continues (the product just stays in MISSING_METADATA until a screenshot is added).
+
+**Required size**: Apple's recommended size for App Review screenshots is **1290 × 2796 px** (iPhone 6.7" Display, portrait — matches App Store listing screenshot dimensions). Minimum is 640 × 920 px. Format: PNG or JPG. Constants are at `src/services/review-screenshot.service.ts` (`REVIEW_SCREENSHOT_TARGET_WIDTH` / `REVIEW_SCREENSHOT_TARGET_HEIGHT`).
+
+**Auto-resize prompt (1.7.3+)**: when a file's dimensions don't match 1290 × 2796, KAppMaker prompts: `Resize to 1290×2796 keeping aspect ratio? (Y/n)`. On Y, sharp resizes with `fit: 'inside'` (preserves aspect ratio — output may end up e.g. 1290 × 726 for a 16:9 source) and writes to a temp file. On N, the original file is uploaded as-is. Same prompt fires in both `create-appstore-app`'s setup flow and the standalone replace commands. Files that are already 1290 × 2796 skip the prompt entirely.
+
+**Standalone replace commands (1.7.3+ — appstore-prefixed)**: replace existing screenshots without running the full setup flow.
+
+```bash
+# Replace screenshot on every subscription using one file
+kappmaker appstore-update-subscription-review-screenshot --file ./Assets/appstore/new-review.png
+
+# Replace screenshot on every IAP using config's review_screenshot paths
+kappmaker appstore-update-iap-review-screenshot
+
+# Target a single product
+kappmaker appstore-update-subscription-review-screenshot \
+    --file ./Assets/appstore/weekly-review.png \
+    --product-id forevly.premium.weekly.v1.699.v1
+```
+
+Both commands use **delete + create** under the hood (not `asc … update`, which empirically doesn't swap the binary — verified that subscription `screenshots update` only marks an out-of-band upload as complete via `--uploaded`/`--checksum`, and IAP `images update --file` returns success without actually replacing). The new screenshot record gets a fresh ID.
+
+Options:
+- `--file <path>` — apply to ALL matched products. Overrides per-product `review_screenshot` in the config.
+- `--config <path>` — point at a different config file.
+- `--product-id <id>` — target ONE product (matches by `product_id` or `ref_name`).
 
 **Smoke test**: `npm run test:ppp` runs `src/services/ppp-pricing.service.test.ts` — 16 assertions covering multiplier lookup, .99 rounding, fan-out length, and exclusion-set behaviour.
 

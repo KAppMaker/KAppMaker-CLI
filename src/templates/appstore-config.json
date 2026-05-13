@@ -241,5 +241,6 @@
     "demo_username": "",
     "demo_password": "",
     "notes": ""
-  }
+  },
+  "review_screenshot": "Assets/appstore/review-screenshot.png"
 }

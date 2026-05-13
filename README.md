@@ -580,6 +580,81 @@ Set `"ppp_enabled": false` on any subscription or IAP to opt out and keep only y
 
 **Idempotent re-runs**: when `setup` reports "already been used", KAppMaker now logs `existing — refreshing pricing` and continues into the PPP fan-out so re-runs actually update territory pricing (1.6.x silently skipped).
 
+### App Review screenshots (1.7.1+)
+
+Apple requires a review screenshot on every subscription and IAP — without one, products remain in `MISSING_METADATA` state and per-territory pricing won't "resolve". KAppMaker uploads it automatically when you set `review_screenshot` in the config:
+
+```json
+{
+  "review_screenshot": "Assets/appstore/review-screenshot.png",
+  "subscriptions": {
+    "groups": [{
+      "subscriptions": [{
+        "ref_name": "Premium Weekly",
+        "review_screenshot": "Assets/appstore/weekly-review.png"
+      }]
+    }]
+  },
+  "in_app_purchases": [{
+    "product_id": "credit_pack_10_499_myapp",
+    "review_screenshot": "Assets/appstore/iap-review.png"
+  }]
+}
+```
+
+- **Global default**: `review_screenshot` at the top level applies to every sub + IAP.
+- **Per-product override**: each subscription / IAP can specify its own path.
+- **Idempotent**: re-runs check `view` / `images list` first and skip if a screenshot is already attached. Delete via Apple's UI to force a re-upload.
+- **Silent skip on missing file**: if the path doesn't resolve to an existing file, KAppMaker logs and moves on — no error.
+
+Under the hood: `asc subscriptions review screenshots create --file <path>` for subs and `asc iap images create --file <path>` for IAPs.
+
+#### Required size + auto-resize prompt
+
+Apple's recommended size for App Review screenshots is **1290 × 2796 px** (iPhone 6.7" Display, portrait — matches App Store listing screenshot dimensions). Minimum: 640 × 920 px. Format: PNG or JPG.
+
+If the file's dimensions don't match 1290 × 2796, KAppMaker prompts:
+
+```
+WARN Review screenshot wrong-size.png is 1920×1080.
+-- Apple's App Store recommended size for review screenshots: 1290×2796 (iPhone 6.7" Display, portrait).
+  Resize to 1290×2796 keeping aspect ratio? (Y/n)
+```
+
+- **Y (default)** — sharp resizes the file with `fit: 'inside'` (preserves aspect ratio, may end up smaller than the target on the constraining dimension; e.g. a 1920 × 1080 input becomes 1290 × 726). Writes to a temp file. Uploads the resized copy.
+- **N** — uploads the file as-is. Apple may still accept it (the rule is just `min 640 × 920`) but the aspect ratio won't match typical iPhone screenshots.
+
+Files that are already 1290 × 2796 skip the prompt entirely.
+
+#### Standalone replace commands
+
+Two top-level `appstore-` prefixed commands replace existing screenshots without running the full `create-appstore-app` flow:
+
+```bash
+# Replace the review screenshot on EVERY subscription in the config
+kappmaker appstore-update-subscription-review-screenshot --file ./Assets/appstore/new-review.png
+
+# Replace the review image on EVERY IAP
+kappmaker appstore-update-iap-review-screenshot --file ./Assets/appstore/iap-review.png
+
+# Without --file, the commands use the per-product `review_screenshot` from the config
+kappmaker appstore-update-subscription-review-screenshot
+kappmaker appstore-update-iap-review-screenshot
+
+# Target a single product
+kappmaker appstore-update-iap-review-screenshot \
+    --file ./Assets/appstore/credit-pack-30.png \
+    --product-id credit_pack_30_999_myapp
+```
+
+| Flag | Description |
+|---|---|
+| `--file <path>` | Single screenshot applied to all matched products. Overrides per-product `review_screenshot` from the config. |
+| `--config <path>` | Override default `./Assets/appstore-config.json`. |
+| `--product-id <id>` | Target ONE product (matches by `product_id` or `ref_name`). |
+
+These commands **force-replace** existing screenshots (delete + create under the hood — empirically `asc … update` doesn't actually swap the binary). The setup-flow upload in `create-appstore-app` remains idempotent (skips when one is already attached).
+
 ### Default in-app purchases (credit packs)
 
 The template also ships three CONSUMABLE in-app purchases shaped as credit packs. Auto-fill triggers on any `in_app_purchases[]` entry with a `credits` numeric field.
