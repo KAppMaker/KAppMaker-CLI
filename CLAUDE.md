@@ -78,6 +78,20 @@ npx tsx src/index.ts convert-webp <image-or-dir>                           # Con
 npx tsx src/index.ts convert-webp <dir> --recursive --quality 90           # Batch convert recursively
 ```
 
+## Skill-Driven Workflows (no shell command)
+
+Some features run entirely inside the `kappmaker:kappmaker` Claude Code skill — they have no `kappmaker` binary entry point because they don't need one (no external API calls, no per-command state). The skill reads/writes files directly via the Claude Code tool.
+
+Currently in this category:
+
+- **ASO keyword research** — discovers high-value keywords for a base topic using the [Astro MCP](https://tryastro.app/docs/mcp/) tools (`search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions`), filters by popularity/difficulty thresholds, clusters by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm (with `?` scores) when Astro MCP isn't connected. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "ASO Keyword Research" section. Natural chain: research → use the output keywords in `localize-metadata mode=keyword-expansion`.
+
+  **Project convention — `AiGuidelines/`**: ASO workflows treat `AiGuidelines/` as the home for AI-facing planning docs (`prd.md`, `app-idea.md`, `keywords.md`, and any other `*.md` describing the product). When `base=` isn't passed, keyword-research scans `AiGuidelines/*.md` first, then `README.md`, then the existing `en-US` ASO metadata to derive a base keyword. The folder is created on first write if missing.
+
+- **ASO metadata localization** — generates per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files into `MobileApp/distribution/{ios/appstore_metadata/texts,android/playstore_metadata}/<locale>/`. Two modes (`keyword-expansion` and `market-localization`), invoked via natural-language trigger phrases the skill router picks up. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Localize ASO Metadata" section for the full procedure, the embedded ASO guideline checks, and the 30-row locale code table.
+
+When adding new skill-driven workflows: place the procedure as a new `###` section in `skills/kappmaker/SKILL.md`, add a row to the routing table at the top, and link it from the appropriate ASO / image / publishing docs page. No `src/commands/` file, no `src/cli.ts` entry.
+
 ## Custom Template Support
 
 The CLI defaults to the [KAppMaker](https://kappmaker.com) boilerplate but supports custom templates via `--template-repo` or `kappmaker config set templateRepo <url>`.
@@ -122,7 +136,8 @@ docs-site/                    # Docusaurus documentation site (cli.kappmaker.com
     project-setup/            # Full App Setup, Refactoring, Version Bumping
     store-publishing/         # App Store Connect, Google Play Console, Adapty, Publish
     build-signing/            # Fastlane Setup, Keystore, Android Release Build
-    ai-image-tools/           # Logo Generation, Screenshots, Image Processing
+    aso/                      # ASO Guidelines, Metadata Localization (skill-driven), Screenshot Translation
+    ai-image-tools/           # Logo Generation, Screenshot Generation, Image Processing
     guides/                   # External Services, Custom Templates, Claude Code Skill
   static/CNAME                # Custom domain: cli.kappmaker.com
 .github/

@@ -109,6 +109,8 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [`convert-webp`](#convert-webp-source)
   - [`translate-screenshots`](#translate-screenshots-source-dir)
   - [`generate-screenshots`](#generate-screenshots)
+  - [ASO Keyword Research (skill-driven)](#aso-keyword-research-skill-driven)
+  - [ASO Metadata Localization (skill-driven)](#aso-metadata-localization-skill-driven)
   - [`fastlane configure`](#fastlane-configure)
   - [`publish`](#publish)
   - [`generate-keystore`](#generate-keystore)
@@ -146,6 +148,8 @@ Claude will check your config, verify API keys are set, and walk you through any
 | [`kappmaker convert-webp <source>`](#convert-webp-source) | Convert images (PNG, JPG, BMP, TIFF, GIF) to WebP |
 | [`kappmaker translate-screenshots [dir]`](#translate-screenshots-source-dir) | Translate screenshots to multiple locales (fal.ai) |
 | [`kappmaker generate-screenshots`](#generate-screenshots) | Generate marketing screenshots with AI (OpenAI + fal.ai) |
+| [ASO Keyword Research](#aso-keyword-research-skill-driven) | _(skill-driven, no binary)_ — Find high-value keywords with popularity + difficulty scores via Astro MCP, cluster by sub-niche, write `AiGuidelines/keywords.md` |
+| [ASO Metadata Localization](#aso-metadata-localization-skill-driven) | _(skill-driven, no binary)_ — Write localized `name`/`subtitle`/`keywords`/`description` and `title`/`short/full_description` files for App Store + Google Play |
 | [`kappmaker fastlane configure`](#fastlane-configure) | Set up Fastlane in the mobile app directory |
 | [`kappmaker publish`](#publish) | Build and upload to Google Play and/or App Store via Fastlane |
 | [`kappmaker generate-keystore`](#generate-keystore) | Generate an Android signing keystore for Play Store releases |
@@ -163,6 +167,8 @@ These commands are standalone and don't depend on any specific boilerplate:
 - **AI logo generation** — Generate logo variations with fal.ai, pick your favorite, auto-remove background
 - **AI screenshot generation** — Generate marketing screenshots from a text description (8 style presets)
 - **Screenshot translation** — Translate app screenshots to 48+ locales in parallel
+- **ASO keyword research** — Skill-driven workflow that discovers high-value sub-niche keywords for a base topic via the [Astro MCP](https://tryastro.app/docs/mcp/) tools (real-time App Store popularity + difficulty scores from competitor analysis and AI suggestions), filters them by configurable thresholds, clusters them by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm when Astro MCP isn't connected. Output feeds directly into the metadata localization workflow below.
+- **ASO metadata localization** — Skill-driven workflow that writes per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files with two strategies: US-indexed keyword expansion (English copy with different keywords per locale to multiply indexed surface) or native per-market localization. Char-limits, keyword-field rules, and no-duplicate-word-across-fields are enforced automatically.
 - **App Store Connect setup** — Register bundle ID (with Sign in with Apple, In-App Purchases, and Push Notifications capabilities enabled automatically), create app, set metadata, categories, age rating, subscriptions, privacy, and review info — fully automated, no manual App Store Connect steps needed
 - **Google Play Console setup** — Push store listings, subscriptions (new monetization API), one-time in-app products, and the data safety declaration via a built-in wrapper around the Play Publisher API — no external CLI, no extra dependencies
 - **Adapty subscription setup** — Create products, paywalls, and placements for iOS and Android
@@ -1161,6 +1167,136 @@ Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (if using reference ima
 | `8` | Floating product reveal (Apple keynote aesthetic) |
 
 </details>
+
+---
+
+## ASO Keyword Research (skill-driven)
+
+Discover high-value sub-niche keywords for your app — scored by popularity and difficulty, clustered by theme — and save them to `AiGuidelines/keywords.md`. Uses the [Astro MCP](https://tryastro.app/docs/mcp/) tools for real-time App Store data when they're connected; falls back to a manual brainstorm without scores when they aren't.
+
+This is a **skill-driven workflow** — no `kappmaker` binary. Runs through the [Claude Code skill](#claude-code-skill).
+
+### Usage
+
+```
+Using kappmaker, research keywords for AI image generator
+Using kappmaker, find aso keywords around manga translation
+Using kappmaker, keyword research drift coaching competitors="Driftbox, RaceChrono"
+Using kappmaker, find sub-niche keywords for photo editor min_popularity=40 max_difficulty=35
+```
+
+Short forms (`/kappmaker keyword research <topic>`, `find aso keywords for <topic>`) route to the same workflow.
+
+### Arguments
+
+| Arg | Default | Notes |
+|---|---|---|
+| `base` (the keyword) | _(required)_ | Can be derived from `AiGuidelines/prd.md`, `AiGuidelines/app-idea.md`, or your existing `en-US` name/subtitle if omitted — the workflow confirms before proceeding. |
+| `competitors` | _(auto-discovered)_ | Comma-separated app names or App Store IDs. Auto-discovered via `search_app_store` if not given. |
+| `min_popularity` | `30` | Keywords below this go to the "Discarded" list. |
+| `max_difficulty` | `45` | Keywords above this go to the "Discarded" list. |
+| `target_count` | `30–50` | Approximate pool size after filtering. Relaxes `max_difficulty` by +5 once if the count is too low. |
+| `output` | `AiGuidelines/keywords.md` | Prompts before overwriting an existing file. |
+
+### Output
+
+`AiGuidelines/keywords.md` with five sections:
+
+1. **Header** — base keyword, date, filter thresholds, competitor sources.
+2. **Recommended primary keywords (top 5)** — the highest-value picks for your iOS `name` / `subtitle` and as front-loaded entries in `keywords.txt`.
+3. **Sub-niche clusters** — keyword groups by semantic theme, scored and described. Each cluster maps cleanly to one of the 9 US-indexed locales in Mode 1 of metadata localization.
+4. **Discarded** — keywords that hit the filter cutoff, so you can sanity-check the threshold.
+5. **Ready-to-paste command** — a one-liner for `localize metadata mode=keyword-expansion` using the top ~10 keywords.
+
+### Workflow (with Astro MCP)
+
+1. `search_app_store` → discover competitor apps ranking for the base keyword.
+2. `add_app` / `list_apps` → track competitors in Astro (free-tier quota errors are surfaced but don't abort).
+3. `extract_competitors_keywords` / `get_app_keywords` → pull every keyword + popularity + difficulty score from each competitor.
+4. `get_keyword_suggestions` → expand the pool with AI variations.
+5. Filter by thresholds, dedupe (case-insensitive, singular/plural-aware), cluster by sub-niche.
+6. Write `AiGuidelines/keywords.md`.
+
+### Project convention: `AiGuidelines/`
+
+KAppMaker's ASO workflows treat `AiGuidelines/` as the home for AI-facing planning docs (`prd.md`, `app-idea.md`, and the `keywords.md` this workflow writes). When you omit `base=`, the workflow scans `AiGuidelines/*.md` for a product description first, then falls back to your `README.md`, then your `en-US` name + subtitle. Keeping a 1–2 paragraph `AiGuidelines/app-idea.md` (or `prd.md`) means subsequent runs auto-derive their base keyword instead of asking you each time. The folder is created on first write if it doesn't exist.
+
+### Without Astro MCP
+
+If Astro MCP isn't connected, the workflow tells you upfront and offers a manual brainstorm path: 30–50 candidates from category knowledge, clustered the same way, with `?` in the popularity/difficulty columns. The output is still useful for the next step (metadata localization) — you just need to validate the scores on Astro / AppTweak / Sensor Tower before going to production.
+
+To connect Astro MCP, follow the setup guide at [tryastro.app/docs/mcp/](https://tryastro.app/docs/mcp/) and add the MCP server to your Claude Code config.
+
+### Chain into metadata localization
+
+The whole point of keyword research is feeding good keywords into Mode 1 of `localize-metadata`. The output file ends with a ready-to-paste line:
+
+```
+Using kappmaker, localize metadata mode=keyword-expansion keywords="ai art generator, text to image ai, prompt to picture, style transfer, ai avatar, ai portrait, ai bedroom designer, ai car designer, ai hairstyle, ai logo maker"
+```
+
+Run that next to fan those keywords across the 9 US-indexed locales.
+
+---
+
+## ASO Metadata Localization (skill-driven)
+
+Generates per-locale App Store and Google Play **text** metadata (`name`, `subtitle`, `keywords`, `description` on iOS; `title`, `short_description`, `full_description` on Android) — the text counterpart to `translate-screenshots`. The two together let you ship a fully-localized listing in one session.
+
+This is a **skill-driven workflow** — it has no `kappmaker` binary because it doesn't need one. The [Claude Code skill](#claude-code-skill) (`kappmaker:kappmaker`) reads your base-locale source files, applies the ASO strategy you pick, and writes the localized output files using the Read/Write tools directly. No AI API key required.
+
+### Two modes
+
+```
+Using kappmaker, localize metadata mode=keyword-expansion keywords="drift coach, lap timer, ai car tuner, ..."
+Using kappmaker, localize metadata mode=market-localization base=en-US locales="de-DE, fr-FR, ja, es-ES"
+```
+
+| Mode | Output language | Locales | Use case |
+|---|---|---|---|
+| `keyword-expansion` | **English** in all 9 folders | Fixed 9 US-indexed locales (`ar-SA`, `fr-FR`, `ko`, `pt-BR`, `ru`, `vi`, `zh-Hans`, `zh-Hant`, `es-MX`) | Multiply unique indexed keyword surface in the US App Store. The US store indexes those 9 locales alongside `en-US` — by writing different keywords into each, you ~9× the searchable terms. |
+| `market-localization` | **Native** per locale | Whatever locales you pass in `locales=` | Adapt copy to local search behavior and culture. Not literal translation. |
+
+### Output layout
+
+| Platform | Path |
+|---|---|
+| iOS | `MobileApp/distribution/ios/appstore_metadata/texts/<iosLocale>/{name,subtitle,keywords,description}.txt` |
+| Android | `MobileApp/distribution/android/playstore_metadata/<playLocale>/{title,short_description,full_description}.txt` |
+
+The iOS layout uses a literal `texts/` subfolder (KAppMaker convention — bridge to Fastlane `deliver` with a sync step in your release pipeline if needed).
+
+### Enforced ASO rules
+
+Every generated file passes these checks before being written to disk:
+
+- **iOS field limits**: `name` ≤ 30, `subtitle` ≤ 30, `keywords` ≤ 100 (comma-separated, **no spaces after commas**), `description` ≤ 4000
+- **Android field limits**: `title` ≤ 30, `short_description` ≤ 80, `full_description` ≤ 4000
+- **No word overlap** across `name` / `subtitle` / `keywords` within a single iOS locale (Apple wastes the slot if you repeat a name/subtitle word in keywords)
+- **No brand name or filler** (`app`, `best`, `free`, etc.) in iOS keywords
+- **Front-loaded primary keyword** in `name` / `title` (position-weighted ranking)
+- **Native-feel test** in Mode 2 — no machine-translated phrasing
+
+### Behavior
+
+- **Base-locale bootstrap**: if `en-US` (or whatever `base=` you pass) doesn't exist yet, the workflow asks for a 1–2 sentence app description and writes the base locale first. Never fails because the base is missing.
+- **Mode 1 overwrite**: always overwrites the 9 indexed locales without prompting (only `en-US` is protected).
+- **Mode 2 overwrite**: prompts once ("Found existing metadata in N locale(s) ... Overwrite ALL? \[y/N]") if any target locale already has files. `N` skips those locales and continues with the rest.
+- **Summary table**: prints per-field character counts for every locale at the end, flagging any cell at ≥ 95% of cap.
+
+### Supported locales
+
+Mode 1 uses a fixed set of 9. Mode 2 accepts ~30 locale codes covering both platforms — the workflow holds the iOS↔Play mapping (e.g. iOS `ko` ↔ Play `ko-KR`, iOS `zh-Hans` ↔ Play `zh-CN`). See [the skill file](skills/kappmaker/SKILL.md#localize-aso-metadata--per-locale-name--subtitle--keywords--description) for the full table.
+
+### Pair with screenshot translation
+
+`translate-screenshots` (image side) + ASO metadata localization (text side) together produce a fully-localized App Store and Play Store listing. Typical sequence:
+
+```
+kappmaker translate-screenshots --locales de-DE ja
+# then, in a Claude Code session:
+Using kappmaker, localize metadata mode=market-localization locales="de-DE, ja"
+```
 
 ---
 

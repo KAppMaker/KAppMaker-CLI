@@ -40,6 +40,17 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'ASO (App Store Optimization)',
+      link: {type: 'generated-index', description: 'Localize text metadata, translate screenshots, and follow ASO best practices for App Store and Google Play.'},
+      items: [
+        'aso/guidelines',
+        'aso/keyword-research',
+        'aso/metadata-localization',
+        'aso/translate-screenshots',
+      ],
+    },
+    {
+      type: 'category',
       label: 'AI & Image Tools',
       link: {type: 'generated-index', description: 'Generate logos, screenshots, and process images with AI.'},
       items: [
