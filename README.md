@@ -87,6 +87,8 @@ Or via the Claude Code plugin system:
 
 Claude will check your config, verify API keys are set, and walk you through any missing prerequisites before running the command.
 
+**Context-aware**: when a command needs inputs you didn't pass (app description, app name, brand color, tagline, keywords, etc.), the skill reads your project's `AiGuidelines/` folder first (`app-idea.md`, `prd.md`, `keywords.md`, `brand.md`), then `README.md`, then existing ASO metadata, and fills in what it finds — you're only prompted for things that aren't already written down somewhere in the project.
+
 ## Table of Contents
 
 - [Claude Code Skill](#claude-code-skill)
@@ -109,6 +111,9 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [`convert-webp`](#convert-webp-source)
   - [`translate-screenshots`](#translate-screenshots-source-dir)
   - [`generate-screenshots`](#generate-screenshots)
+  - [`generate-feature-image`](#generate-feature-image)
+  - [`generate-ios-icons`](#generate-ios-icons)
+  - [`generate-android-icons`](#generate-android-icons)
   - [ASO Keyword Research (skill-driven)](#aso-keyword-research-skill-driven)
   - [ASO Metadata Localization (skill-driven)](#aso-metadata-localization-skill-driven)
   - [`fastlane configure`](#fastlane-configure)
@@ -148,6 +153,9 @@ Claude will check your config, verify API keys are set, and walk you through any
 | [`kappmaker convert-webp <source>`](#convert-webp-source) | Convert images (PNG, JPG, BMP, TIFF, GIF) to WebP |
 | [`kappmaker translate-screenshots [dir]`](#translate-screenshots-source-dir) | Translate screenshots to multiple locales (fal.ai) |
 | [`kappmaker generate-screenshots`](#generate-screenshots) | Generate marketing screenshots with AI (OpenAI + fal.ai) |
+| [`kappmaker generate-feature-image`](#generate-feature-image) | Generate a Google Play feature graphic (1024×500) with AI (OpenAI + fal.ai) |
+| [`kappmaker generate-ios-icons`](#generate-ios-icons) | Generate all iOS `AppIcon.appiconset` PNG sizes + `Contents.json` from one logo (sharp, no AI) |
+| [`kappmaker generate-android-icons`](#generate-android-icons) | Generate all Android `mipmap-*` launcher icons (5 densities × 3 files) + adaptive icon XML + `colors.xml` entry (sharp, no AI) |
 | [ASO Keyword Research](#aso-keyword-research-skill-driven) | _(skill-driven, no binary)_ — Find high-value keywords with popularity + difficulty scores via Astro MCP, cluster by sub-niche, write `AiGuidelines/keywords.md` |
 | [ASO Metadata Localization](#aso-metadata-localization-skill-driven) | _(skill-driven, no binary)_ — Write localized `name`/`subtitle`/`keywords`/`description` and `title`/`short/full_description` files for App Store + Google Play |
 | [`kappmaker fastlane configure`](#fastlane-configure) | Set up Fastlane in the mobile app directory |
@@ -1167,6 +1175,144 @@ Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (if using reference ima
 | `8` | Floating product reveal (Apple keynote aesthetic) |
 
 </details>
+
+---
+
+## `generate-feature-image`
+
+Generate a **Google Play feature graphic** (1024×500 banner shown at the top of the Play Store listing) using OpenAI (prompt generation) + fal.ai (image generation). Optionally include the app logo and screenshots — fal.ai places them inside realistic phone device frames.
+
+```bash
+kappmaker generate-feature-image \
+    --prompt "A cute AI mascot generator" \
+    --app-name "Masclet" \
+    --subtitle "Generate mascots, emotions, and expressions" \
+    --primary-color "#E63946"
+```
+
+With logo + screenshots:
+
+```bash
+kappmaker generate-feature-image \
+    --prompt "AI fitness coach with daily workouts" \
+    --app-name "FitTrack" \
+    --subtitle "Your daily workout partner" \
+    --primary-color "#FF3B30" \
+    --logo ./Assets/logo.png \
+    --reference ./screenshots/home.png ./screenshots/profile.png
+```
+
+**Flow:**
+1. OpenAI (GPT-4.1) refines the inputs into a detailed banner specification.
+2. fal.ai generates one wide image (`nano-banana-2`, or `nano-banana-2/edit` with reference images) at 16:9.
+3. `sharp` resizes/crops the result to EXACTLY 1024×500 px (Play Store feature graphic spec) via center cover.
+
+**Output:** Default follows the Fastlane Supply convention so `kappmaker publish --upload-images` picks it up automatically:
+
+```
+MobileApp/distribution/android/playstore_metadata/<locale>/images/featureGraphic.png
+```
+
+Falls back to `Assets/playstore/featureGraphic.png` outside a KAppMaker project. Override with `--output <path>`.
+
+Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (recommended when passing `--logo` or `--reference` — falls back to inline base64 data URIs otherwise).
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--prompt <text>` | App concept / description (required) | — |
+| `--app-name <name>` | App name rendered on the banner (required) | — |
+| `--primary-color <hex>` | Brand color in hex (required, e.g. `#FF3B30`) | — |
+| `--subtitle <text>` | Tagline rendered below the app name | — |
+| `--logo <path>` | App logo PNG; rendered pixel-faithfully on the brand panel | — |
+| `--reference <paths...>` | Screenshot paths to place inside device frames (max 10) | — |
+| `--output <path>` | Custom output file path | Fastlane Supply path |
+| `--resolution <res>` | AI resolution (`1K`, `2K`, `4K`) | `2K` |
+| `--locale <code>` | Play Store locale for the default output path | `en-US` |
+
+**Tips**:
+- The logo (image #1) is rendered exactly as-is — the model is instructed not to redraw or recolor it. Pass a clean transparent-background PNG for best results.
+- Reference screenshots are placed inside modern phone device frames at a slight angle. Order matters — the first reference becomes the most prominent device on the banner.
+- The primary color visibly dominates the brand panel background or accents.
+- Only the app name and subtitle appear as text — no AI-generated lorem copy.
+
+---
+
+## `generate-ios-icons`
+
+Generate the full iOS `AppIcon.appiconset` (all 11 PNG sizes Apple needs + `Contents.json`) from a single source logo. **Sharp-only — no AI, no API keys, no network calls.** Same output as appicon.co, but local and instant.
+
+```bash
+# Auto-detect logo in Assets/ and write to MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset
+kappmaker generate-ios-icons
+
+# Explicit source + output
+kappmaker generate-ios-icons --source ./Assets/logo.png --output ./path/to/AppIcon.appiconset
+
+# Dark background for transparent logos
+kappmaker generate-ios-icons --background "#000000"
+```
+
+**Flow:**
+1. Resolves source — `--source <path>` if given; otherwise auto-detects in `Assets/` looking for `logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png` (in that order). Prompts interactively if none found.
+2. Center-crops to a square (warns if source is non-square) and flattens alpha onto `--background` color (App Store rejects icons with transparency).
+3. Resizes via sharp Lanczos to all 11 pixel sizes: **29, 40, 57, 58, 60, 80, 87, 114, 120, 180, 1024**.
+4. Writes `Contents.json` matching appicon.co's schema (12 entries — `120.png` is shared by 40pt@3x and 60pt@2x — covering `iphone` idiom @1x/2x/3x plus the `ios-marketing` 1024).
+5. Overwrites existing files silently.
+
+**Output:** Default is auto-detected `MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset/` (the KAppMaker convention). Falls back to `Assets/AppIcon.appiconset/` outside a KAppMaker project. Override with `--output <dir>`.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--source <path>` | Source logo PNG (≥ 1024×1024 recommended) | Auto-detect in `Assets/` |
+| `--output <dir>` | Output `AppIcon.appiconset` directory | Auto-detect under `MobileApp/iosApp/` |
+| `--background <hex>` | Flatten color for transparent logos | `#FFFFFF` |
+
+**Tips:**
+- Chain with `create-logo` — generate the logo first, then run `generate-ios-icons` to mint the full iconset.
+- Source should be at least **1024×1024** for crisp icons at all sizes. Smaller sources are upscaled (with a warning) and will look blurry on iPhone 6.7" displays.
+- Apple's App Store requires no transparency on the 1024×1024 marketing icon — the default `#FFFFFF` flatten satisfies this regardless of source alpha.
+
+---
+
+## `generate-android-icons`
+
+Generate the full Android launcher icon set — all five mipmap density buckets, both legacy and adaptive variants, plus the adaptive icon XML files and the `ic_launcher_background` color entry in `values/colors.xml` — from a single source logo. **Sharp-only — no AI, no API keys.** Same output as Android Studio's Asset Studio, but local and instant.
+
+```bash
+# Auto-detect logo in Assets/ and write to MobileApp/composeApp/src/androidMain/res
+kappmaker generate-android-icons
+
+# Explicit source + brand-colored adaptive background
+kappmaker generate-android-icons --source ./Assets/logo.png --background "#0F0A0D"
+
+# Tighter foreground (logo fills more of the adaptive canvas)
+kappmaker generate-android-icons --foreground-padding 0.1
+```
+
+**Flow:**
+1. Resolves source — `--source <path>` if given; otherwise auto-detects in `Assets/` looking for `logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png` (in that order). Prompts interactively if none found.
+2. Center-crops to a square (warns if source is non-square or smaller than 432×432).
+3. For each of 5 density buckets — `mdpi` / `hdpi` / `xhdpi` / `xxhdpi` / `xxxhdpi`:
+   - Writes `ic_launcher.webp` and `ic_launcher_round.webp` at legacy size (**48 / 72 / 96 / 144 / 192 px**).
+   - Writes `ic_launcher_foreground.webp` at adaptive size (**108 / 162 / 216 / 324 / 432 px**) with the logo centered in the inner safe zone and transparent surround.
+4. Writes `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` — adaptive-icon definitions referencing `@color/ic_launcher_background` and `@mipmap/ic_launcher_foreground`.
+5. Upserts `<color name="ic_launcher_background">` in `values/colors.xml` — creates the file if missing, replaces the value if present, inserts the entry alongside any other colors otherwise.
+6. Overwrites existing files silently.
+
+**Output:** Default is auto-detected `MobileApp/composeApp/src/androidMain/res/` (the KMM template convention). Falls back to `MobileApp/androidApp/src/main/res/` → `app/src/main/res/` → `Assets/android/res/`. Override with `--output <dir>`.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--source <path>` | Source logo PNG (≥ 432×432 recommended) | Auto-detect in `Assets/` |
+| `--output <dir>` | Output Android `res/` directory | Auto-detect under `MobileApp/` |
+| `--background <hex>` | Adaptive icon backdrop color (written to `colors.xml`) | `#FFFFFF` |
+| `--foreground-padding <ratio>` | Padding each side of the adaptive foreground (`0`–`0.5`) | `0.25` |
+
+**Tips:**
+- Chain with `create-logo` then `generate-android-icons` to mint the full Android iconset right after generating the logo.
+- The default `--foreground-padding 0.25` matches Android Asset Studio's default; drop to `0.1` if your logo is small and you want it to fill more of the adaptive frame.
+- The adaptive `--background` is referenced by the XML — Android renders this color behind the foreground on Android 8+ devices. On legacy launchers, the legacy `ic_launcher.webp` is used as-is.
+- `AndroidManifest.xml` should already reference `@mipmap/ic_launcher` and `@mipmap/ic_launcher_round` — this command doesn't touch the manifest.
 
 ---
 

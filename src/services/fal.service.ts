@@ -145,6 +145,51 @@ export async function submitScreenshotGeneration(
   return (await response.json()) as FalQueueResponse;
 }
 
+// ── Feature image generation (with optional reference images) ─────
+
+export async function submitFeatureImageGeneration(
+  apiKey: string,
+  prompt: string,
+  imageUrls?: string[],
+  resolution: string = '2K',
+): Promise<FalQueueResponse> {
+  const hasRefs = imageUrls && imageUrls.length > 0;
+  const endpoint = hasRefs ? FAL_NANO_BANANA_EDIT_URL : FAL_NANO_BANANA_URL;
+
+  const payload: Record<string, unknown> = {
+    prompt,
+    num_images: 1,
+    resolution,
+    output_format: 'png',
+    aspect_ratio: '16:9',
+    safety_tolerance: '6',
+  };
+
+  if (hasRefs) {
+    payload.image_urls = imageUrls;
+  }
+
+  logger.info(`Prompt length: ${prompt.length} chars`);
+  logger.info(`Endpoint: ${hasRefs ? 'nano-banana-2/edit' : 'nano-banana-2'}`);
+  if (hasRefs) {
+    logger.info(`Reference images: ${imageUrls!.length} URLs`);
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: headers(apiKey),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    logger.fatal(`fal.ai feature image generation failed (${response.status}): ${body}`);
+    process.exit(1);
+  }
+
+  return (await response.json()) as FalQueueResponse;
+}
+
 // ── Image enhancement (img2img) ─────────────────────────────────────
 
 export async function submitEnhancement(

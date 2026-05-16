@@ -51,6 +51,9 @@ npx tsx src/index.ts image-enhance <image>         # Enhance quality
 npx tsx src/index.ts translate-screenshots          # Translate screenshots (default: en-US source)
 npx tsx src/index.ts translate-screenshots <dir> --locales de-DE ja-JP  # Specific locales
 npx tsx src/index.ts generate-screenshots --prompt "A fitness app..."   # Generate marketing screenshots
+npx tsx src/index.ts generate-feature-image --prompt "..." --app-name "FitTrack" --primary-color "#FF3B30"  # Generate Google Play feature graphic (1024×500)
+npx tsx src/index.ts generate-ios-icons [--source <logo>]  # Generate all iOS AppIcon.appiconset PNGs + Contents.json (no AI)
+npx tsx src/index.ts generate-android-icons [--source <logo>] [--background "#RRGGBB"]  # Generate Android mipmap-* launcher icons + adaptive XML + colors.xml entry (no AI)
 npx tsx src/index.ts create-appstore-app           # App Store Connect setup
 npx tsx src/index.ts appstore-update-subscription-review-screenshot --file <path>  # Replace subscription review screenshots (1290×2796)
 npx tsx src/index.ts appstore-update-iap-review-screenshot --file <path>           # Replace IAP review images (1290×2796)
@@ -86,7 +89,7 @@ Currently in this category:
 
 - **ASO keyword research** — discovers high-value keywords for a base topic using the [Astro MCP](https://tryastro.app/docs/mcp/) tools (`search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions`), filters by popularity/difficulty thresholds, clusters by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm (with `?` scores) when Astro MCP isn't connected. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "ASO Keyword Research" section. Natural chain: research → use the output keywords in `localize-metadata mode=keyword-expansion`.
 
-  **Project convention — `AiGuidelines/`**: ASO workflows treat `AiGuidelines/` as the home for AI-facing planning docs (`prd.md`, `app-idea.md`, `keywords.md`, and any other `*.md` describing the product). When `base=` isn't passed, keyword-research scans `AiGuidelines/*.md` first, then `README.md`, then the existing `en-US` ASO metadata to derive a base keyword. The folder is created on first write if missing.
+  **Project convention — `AiGuidelines/`**: `AiGuidelines/` is the canonical home for AI-facing planning docs (`prd.md`, `app-idea.md`, `keywords.md`, `brand.md`, and any other `*.md` describing the product). The kappmaker skill reads this folder **before invoking any command** to fill in missing inputs (app description, app name, tagline, brand color, etc.) so the user isn't asked for things already written down. Cascade order: `AiGuidelines/*.md` → `README.md` → existing ASO metadata under `MobileApp/distribution/ios/appstore_metadata/texts/en-US/` → `Assets/googleplay-config.json` / `Assets/appstore-config.json`. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Context Gathering" section. The folder is created on first write if missing.
 
 - **ASO metadata localization** — generates per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files into `MobileApp/distribution/{ios/appstore_metadata/texts,android/playstore_metadata}/<locale>/`. Two modes (`keyword-expansion` and `market-localization`), invoked via natural-language trigger phrases the skill router picks up. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Localize ASO Metadata" section for the full procedure, the embedded ASO guideline checks, and the 30-row locale code table.
 
@@ -153,6 +156,9 @@ src/
     firebase.ts             # `kappmaker firebase` subcommands: login, project, apps, auth-anonymous, configs (steps 2-6 of create as standalones; also called by create.ts)
     create-logo.ts          # Logo generation (fal.ai + sharp); accepts --prompt to skip interactive input
     generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2; --prompt, --num-images, --aspect-ratio, --resolution, --reference)
+    generate-feature-image.ts # Google Play feature graphic generator (OpenAI + fal.ai, sharp resize to 1024×500)
+    generate-ios-icons.ts   # iOS AppIcon.appiconset generator (sharp-only, 11 sizes + Contents.json, no AI)
+    generate-android-icons.ts # Android mipmap-* launcher icon generator (sharp-only, 5 densities × 3 files + adaptive XML + colors.xml upsert, no AI)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator via asc CLI)
     create-play-app.ts      # Google Play Console setup (11-step orchestrator via direct Publisher API)
     gpc.ts                  # kappmaker gpc subcommands: setup, app-check, listings, subscriptions, iap, data-safety
@@ -298,11 +304,11 @@ Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fann
 }
 ```
 
-Upload uses `asc subscriptions review screenshots create --file <path>` for subscriptions and `asc iap images create --file <path>` for IAPs. **Idempotent on re-runs** — `view` / `images list` checks before upload; if any screenshot/image is already attached, the upload is skipped. **Missing files silently skipped** — if the resolved path doesn't exist, KAppMaker logs an info message and continues (the product just stays in MISSING_METADATA until a screenshot is added).
+Upload uses `asc subscriptions review screenshots create --file <path>` for subscriptions and `asc iap review-screenshots create --file <path>` for IAPs (NOT `asc iap images` — that's a different category for promotional images; pre-1.9.1 incorrectly uploaded there). **Idempotent on re-runs** — both paths call `view --iap-id` / `view --subscription-id` before upload; if a screenshot is already attached, the upload is skipped. **Missing files silently skipped** — if the resolved path doesn't exist, KAppMaker logs an info message and continues (the product just stays in MISSING_METADATA until a screenshot is added).
 
 **Required size**: Apple's recommended size for App Review screenshots is **1290 × 2796 px** (iPhone 6.7" Display, portrait — matches App Store listing screenshot dimensions). Minimum is 640 × 920 px. Format: PNG or JPG. Constants are at `src/services/review-screenshot.service.ts` (`REVIEW_SCREENSHOT_TARGET_WIDTH` / `REVIEW_SCREENSHOT_TARGET_HEIGHT`).
 
-**Auto-resize prompt (1.7.3+)**: when a file's dimensions don't match 1290 × 2796, KAppMaker prompts: `Resize to 1290×2796 keeping aspect ratio? (Y/n)`. On Y, sharp resizes with `fit: 'inside'` (preserves aspect ratio — output may end up e.g. 1290 × 726 for a 16:9 source) and writes to a temp file. On N, the original file is uploaded as-is. Same prompt fires in both `create-appstore-app`'s setup flow and the standalone replace commands. Files that are already 1290 × 2796 skip the prompt entirely.
+**Auto-resize prompt (1.7.3+, exact-crop in 1.9.1+)**: when a file's dimensions don't match 1290 × 2796, KAppMaker prompts: `Resize to exactly 1290×2796 (center-crop)? (Y/n)`. On Y, sharp resizes with `fit: 'cover'` + `position: 'center'` so the output is EXACTLY 1290 × 2796 (Apple's review surface rejects off-spec dimensions). Pre-1.9.1 used `fit: 'inside'` which preserved aspect ratio but produced under-sized outputs like 1290 × 726 for non-portrait sources — Apple wouldn't accept those. Some edge pixels may be cropped if the source aspect ratio differs from 1:2.166. On N, the original file is uploaded as-is. Same prompt fires in both `create-appstore-app`'s setup flow and the standalone replace commands. Files that are already 1290 × 2796 skip the prompt entirely.
 
 **Standalone replace commands (1.7.3+ — appstore-prefixed)**: replace existing screenshots without running the full setup flow.
 

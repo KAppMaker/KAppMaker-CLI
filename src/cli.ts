@@ -24,6 +24,9 @@ import {
 } from './commands/gpc.js';
 import { generateScreenshots } from './commands/generate-screenshots.js';
 import { generateImage } from './commands/generate-image.js';
+import { generateFeatureImage } from './commands/generate-feature-image.js';
+import { generateIosIcons } from './commands/generate-ios-icons.js';
+import { generateAndroidIcons } from './commands/generate-android-icons.js';
 import { adaptySetup } from './commands/adapty-setup.js';
 import { updateVersion } from './commands/update-version.js';
 import { refactorCommand } from './commands/refactor.js';
@@ -48,7 +51,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.8.0');
+    .version('1.11.0');
 
   program
     .command('create')
@@ -237,6 +240,34 @@ export function createCli(): Command {
     });
 
   program
+    .command('generate-feature-image')
+    .description('Generate a Google Play feature graphic (1024×500) using AI (OpenAI + fal.ai)')
+    .requiredOption('--prompt <text>', 'App description / concept for the banner')
+    .requiredOption('--app-name <name>', 'App name to render on the banner (e.g., "FitTrack")')
+    .requiredOption('--primary-color <hex>', 'Primary brand color in hex (e.g., #FF3B30)')
+    .option('--subtitle <text>', 'Subtitle / tagline shown under the app name')
+    .option('--logo <path>', 'Path to the app logo PNG to render on the brand panel')
+    .option('--reference <paths...>', 'App screenshot paths to place inside device frames (max 10)')
+    .option('--output <path>', 'Custom output file path (default: Fastlane Supply path or Assets/playstore/featureGraphic.png)')
+    .option('--resolution <res>', 'AI resolution (1K, 2K, 4K)', '2K')
+    .option('--locale <code>', 'Play Store locale folder for the default output path', 'en-US')
+    .option('--poll-interval <seconds>', 'Seconds between status checks', '10')
+    .action(async (options) => {
+      await generateFeatureImage({
+        prompt: options.prompt,
+        appName: options.appName,
+        primaryColor: options.primaryColor,
+        subtitle: options.subtitle,
+        logo: options.logo,
+        reference: options.reference,
+        output: options.output,
+        resolution: options.resolution,
+        locale: options.locale,
+        pollInterval: parseInt(options.pollInterval, 10),
+      });
+    });
+
+  program
     .command('generate-image')
     .description('Generate an image using AI (fal.ai nano-banana-2)')
     .requiredOption('--prompt <text>', 'Text prompt describing the image to generate')
@@ -255,6 +286,36 @@ export function createCli(): Command {
         resolution: options.resolution,
         outputFormat: options.outputFormat,
         reference: options.reference,
+      });
+    });
+
+  program
+    .command('generate-ios-icons')
+    .description('Generate all iOS AppIcon.appiconset PNG sizes + Contents.json from a single source logo (no AI)')
+    .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
+    .option('--output <dir>', 'Output AppIcon.appiconset directory (default: auto-detect MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset)')
+    .option('--background <hex>', 'Background color used to flatten alpha (App Store rejects transparent icons)', '#FFFFFF')
+    .action(async (options) => {
+      await generateIosIcons({
+        source: options.source,
+        output: options.output,
+        background: options.background,
+      });
+    });
+
+  program
+    .command('generate-android-icons')
+    .description('Generate all Android launcher icons across 5 mipmap density buckets + adaptive icon XML + colors.xml entry (no AI)')
+    .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
+    .option('--output <dir>', 'Output Android res/ directory (default: auto-detect MobileApp/composeApp/src/androidMain/res)')
+    .option('--background <hex>', 'Adaptive icon background color', '#FFFFFF')
+    .option('--foreground-padding <ratio>', 'Padding each side of the adaptive foreground (0 = no padding, 0.25 = matches Android Asset Studio default)', '0.25')
+    .action(async (options) => {
+      await generateAndroidIcons({
+        source: options.source,
+        output: options.output,
+        background: options.background,
+        foregroundPadding: parseFloat(options.foregroundPadding),
       });
     });
 

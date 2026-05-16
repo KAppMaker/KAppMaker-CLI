@@ -35,6 +35,9 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 | Check if an app exists on Play Console | `kappmaker gpc app-check --package <pkg>` |
 | Set up Adapty subscriptions | `kappmaker adapty setup` |
 | Generate marketing screenshots | `kappmaker generate-screenshots` |
+| Generate Google Play feature graphic / play store banner | `kappmaker generate-feature-image` |
+| Generate iOS AppIcon.appiconset (all sizes + Contents.json) | `kappmaker generate-ios-icons` |
+| Generate Android launcher icons (mipmap-mdpi…xxxhdpi + adaptive XML) | `kappmaker generate-android-icons` |
 | Translate screenshots to locales | `kappmaker translate-screenshots` |
 | Research ASO keywords (popularity + difficulty via Astro MCP) | (in-skill procedure — see "ASO Keyword Research") |
 | Localize ASO metadata (name, subtitle, keywords, description) | (in-skill procedure — see "Localize ASO Metadata") |
@@ -66,6 +69,48 @@ kappmaker config set <key> <value>
 ```
 
 And where to get it (see API Key Sources section).
+
+## Context Gathering — Read `AiGuidelines/` First
+
+**Before running ANY kappmaker command, if the user's request is missing inputs the command needs (app idea, app name, tagline, brand color, screenshot direction, keywords, target audience, etc.), read the project's `AiGuidelines/` folder first.** Do not jump straight to asking the user for the missing flags — the answers are usually already written down in the project.
+
+`AiGuidelines/` is the canonical home for AI-facing planning docs in a KAppMaker project. Typical files:
+
+- `app-idea.md` — short pitch / one-liner / target audience
+- `prd.md` — product requirements (features, screens, user flows)
+- `keywords.md` — ASO keyword research output (primary keywords, sub-niche clusters)
+- `brand.md` / `style.md` — brand voice, primary color, typography guidance (if present)
+- Any other `*.md` describing the product, screens, or marketing copy
+
+**Cascade order** (stop at first useful match):
+
+1. `AiGuidelines/*.md` — primary source
+2. `README.md` at the project root — usually contains the elevator pitch
+3. Existing ASO metadata under `MobileApp/distribution/ios/appstore_metadata/texts/en-US/` (`name.txt`, `subtitle.txt`, `description.txt`) — useful for app name + tagline
+4. `Assets/googleplay-config.json` / `Assets/appstore-config.json` — for `app.name`, `package_name`, listings
+
+### How to apply the context
+
+After reading the relevant files, **fill in CLI flags automatically** and only prompt the user for inputs that genuinely have no answer in the project. Examples:
+
+- **`generate-feature-image`** — needs `--prompt`, `--app-name`, `--primary-color`, optional `--subtitle`. Pull the description from `app-idea.md` or `prd.md`, the name from `appstore-config.json` / `name.txt`, the subtitle from `subtitle.txt`, the color from `brand.md` (or grep for a hex color in `AiGuidelines/`). If color is the only missing piece, ask only for that.
+- **`generate-screenshots`** — needs `--prompt`. Use `prd.md` or `app-idea.md` to build a rich app description automatically.
+- **`create-logo`** — needs `--prompt`. Build it from `app-idea.md` + brand notes so the logo matches the product vision.
+- **`create-appstore-app`** / **`gpc setup`** — pull title, short description, keywords from `keywords.md` and ASO metadata files instead of asking the user to type them.
+- **ASO keyword research** — already follows this convention (documented in the "ASO Keyword Research" section below); apply the same pattern everywhere else.
+
+### When to ask the user
+
+Only prompt the user for inputs that:
+1. Are not in `AiGuidelines/`, `README.md`, or store-config files, AND
+2. Are required by the command (a `requiredOption` in the CLI), AND
+3. Cannot be inferred from another available source
+
+For anything inferable, **state the source briefly** ("Using app name 'Masclet' from `AiGuidelines/app-idea.md`") so the user can correct if the inference is wrong.
+
+### When `AiGuidelines/` doesn't exist
+
+If the folder is missing and the user's request is rich enough to derive the inputs (e.g., they said "generate a feature graphic for my AI mascot app called Masclet, red theme"), proceed without prompting. If the folder is missing AND the request is sparse, offer to create `AiGuidelines/app-idea.md` from a few quick answers — once it's written, every future kappmaker command in this project benefits.
 
 ## Commands
 
@@ -424,6 +469,80 @@ For credit pack IAPs (entries with `credits` field): `ios_product_id` = `android
 **What it does**: Calls OpenAI to generate a detailed screenshot prompt, then fal.ai to generate 8 marketing screenshots in a fixed 2×4 grid, splits them into 8 individual 1284×2778 images, saves to appstore/playstore directories. Grid shape is fixed by design — number of reference images does not change the output count.
 
 **Style presets** (1-8): Different visual styles for the screenshots. Ask the user what style they prefer if not specified.
+
+---
+
+### generate-feature-image — AI Feature Graphic Generation
+
+**Syntax**: `kappmaker generate-feature-image --prompt "<concept>" --app-name "<Name>" --primary-color "#RRGGBB" [options]`
+
+**Options**:
+- `--prompt <text>` (required) — App concept / description
+- `--app-name <name>` (required) — App name rendered on the banner (e.g. "FitTrack")
+- `--primary-color <hex>` (required) — Brand color in hex (e.g. `#FF3B30`)
+- `--subtitle <text>` — Tagline shown under the app name
+- `--logo <path>` — App logo PNG to render on the brand panel (rendered pixel-faithfully)
+- `--reference <paths...>` — App screenshot paths to place inside device frames (max 10)
+- `--output <path>` — Custom output file path
+- `--resolution <res>` — AI resolution: 1K, 2K, 4K (default: 2K)
+- `--locale <code>` — Play Store locale for the default output path (default: en-US)
+
+**Prerequisites**: `openaiApiKey`, `falApiKey` (prompted on first use). `imgbbApiKey` recommended when passing `--logo` or `--reference` (falls back to inline data URIs otherwise).
+
+**What it does**:
+1. OpenAI (GPT-4.1) refines the inputs into a detailed banner specification.
+2. fal.ai (`nano-banana-2`, or `/edit` when references are provided) generates one wide image.
+3. `sharp` resizes/crops the result to EXACTLY 1024×500 px (Google Play feature graphic spec) via center cover.
+4. Saves to `MobileApp/distribution/android/playstore_metadata/<locale>/images/featureGraphic.png` so the existing Fastlane publish flow picks it up automatically — falls back to `Assets/playstore/featureGraphic.png` outside a KAppMaker project.
+
+**Tips**: Pass `--logo` to keep the exact app icon (the model will reproduce, not redraw, image #1). Pass `--reference` screenshots in the order they should appear inside the device mockups.
+
+---
+
+### generate-ios-icons — iOS AppIcon.appiconset Generator
+
+**Syntax**: `kappmaker generate-ios-icons [--source <logo>] [--output <dir>] [--background <hex>]`
+
+**Options**:
+- `--source <path>` — Path to source logo PNG. **Default**: auto-detect in `Assets/` (`logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png`). If none found, prompts interactively.
+- `--output <dir>` — Output AppIcon.appiconset directory. **Default**: auto-detect `MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset`.
+- `--background <hex>` — Flatten color for transparent logos (App Store rejects icons with alpha). **Default**: `#FFFFFF`.
+
+**Prerequisites**: None — sharp-only, no AI, no API keys.
+
+**What it does**:
+1. Loads the source logo (warns if smaller than 1024×1024 or non-square).
+2. Center-crops to a square + flattens alpha onto the background color.
+3. Resizes to all 11 unique pixel sizes Apple needs: 29, 40, 57, 58, 60, 80, 87, 114, 120, 180, 1024.
+4. Writes `Contents.json` mapping each PNG to its idiom (`iphone` / `ios-marketing`) + scale (`1x` / `2x` / `3x`) — same schema appicon.co produces.
+5. Overwrites existing files silently (you're regenerating from a new logo).
+
+**Tips**: Run after `create-logo` to mint the full iconset in one shot. If your logo has transparency, the default `#FFFFFF` flatten matches Apple's App Store requirement; pass `--background "#000000"` (or any hex) for a dark fill.
+
+---
+
+### generate-android-icons — Android Launcher Icon Generator
+
+**Syntax**: `kappmaker generate-android-icons [--source <logo>] [--output <res-dir>] [--background <hex>] [--foreground-padding <ratio>]`
+
+**Options**:
+- `--source <path>` — Path to source logo PNG. **Default**: auto-detect in `Assets/` (`logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png`). If none found, prompts interactively.
+- `--output <dir>` — Output Android `res/` directory. **Default**: auto-detect `MobileApp/composeApp/src/androidMain/res` (KAppMaker KMM convention) → `MobileApp/androidApp/src/main/res` → `app/src/main/res`.
+- `--background <hex>` — Adaptive icon background color (referenced by the generated XML). **Default**: `#FFFFFF`.
+- `--foreground-padding <ratio>` — Padding each side of the adaptive foreground (0 = no padding, 0.25 = Android Asset Studio default). **Default**: `0.25`.
+
+**Prerequisites**: None — sharp-only, no AI, no API keys.
+
+**What it does**:
+1. Loads the source logo (warns if smaller than 432×432, the xxxhdpi foreground size; warns if non-square — center-crops).
+2. For each of 5 density buckets (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`):
+   - Writes `ic_launcher.webp` and `ic_launcher_round.webp` at the legacy launcher size (48 / 72 / 96 / 144 / 192 px).
+   - Writes `ic_launcher_foreground.webp` at the adaptive size (108 / 162 / 216 / 324 / 432 px), with the logo centered in the inner safe zone and transparent surround.
+3. Writes `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` — adaptive-icon definitions referencing `@color/ic_launcher_background` and `@mipmap/ic_launcher_foreground`.
+4. Upserts the `ic_launcher_background` color in `values/colors.xml` (creates the file if missing, updates the value if present, adds the entry if other colors exist).
+5. Overwrites existing files silently.
+
+**Tips**: Run after `create-logo` to mint the full Android iconset in one shot. The default `--foreground-padding 0.25` matches Android Asset Studio's behavior — drop it to `0.1` for icons that fill more of the adaptive frame, or up to `0.4` for very small logo content. Pass `--background "#0F0A0D"` (or any brand hex) to set the adaptive icon backdrop.
 
 ---
 

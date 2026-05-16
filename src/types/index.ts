@@ -91,6 +91,19 @@ export interface FalQueueResponse {
   response_url: string;
 }
 
+export interface GenerateFeatureImageOptions {
+  prompt: string;
+  appName: string;
+  primaryColor: string;
+  subtitle?: string;
+  logo?: string;
+  reference?: string[];
+  output?: string;
+  resolution?: string;
+  locale?: string;
+  pollInterval?: number;
+}
+
 export interface GenerateImageOptions {
   prompt: string;
   output?: string;

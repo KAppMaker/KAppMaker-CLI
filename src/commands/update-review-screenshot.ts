@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 import * as asc from '../services/asc.service.js';
 import {
   uploadSubscriptionReviewScreenshot,
-  uploadIapReviewImage,
+  uploadIapReviewScreenshot,
 } from '../services/asc-monetization.service.js';
 import type { AppStoreConfig } from '../types/appstore.js';
 
@@ -62,8 +62,9 @@ export async function updateSubscriptionReviewScreenshot(
 }
 
 /**
- * Update the App Review image on every IAP in the config (or one via
- * `--product-id`). Replaces existing images via `asc iap images update`.
+ * Update the App Review screenshot on every IAP in the config (or one via
+ * `--product-id`). Replaces existing screenshots via `asc iap review-screenshots`
+ * (NOT `asc iap images` — that's a different category for promotional images).
  */
 export async function updateIapReviewScreenshot(
   options: UpdateReviewScreenshotOptions,
@@ -94,7 +95,7 @@ export async function updateIapReviewScreenshot(
       logger.info(`No screenshot path configured for "${iap.ref_name}" — skipping.`);
       continue;
     }
-    await uploadIapReviewImage(appId, iap.product_id, iap.ref_name, filePath, {
+    await uploadIapReviewScreenshot(appId, iap.product_id, iap.ref_name, filePath, {
       force: true,
       promptOnSizeMismatch: true,
     });
