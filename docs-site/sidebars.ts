@@ -68,6 +68,7 @@ const sidebars: SidebarsConfig = {
       label: 'Guides',
       link: {type: 'generated-index', description: 'Setup guides and integrations.'},
       items: [
+        'guides/per-app-checklist',
         'guides/external-services',
         'guides/custom-templates',
         'guides/claude-code-skill',
