@@ -74,6 +74,12 @@ Create or reuse subscriptions from the config file. Idempotent — already-exist
 kappmaker gpc subscriptions push
 ```
 
+:::tip Adding ONE more subscription without editing the config
+
+`kappmaker subscription add --period weekly --price 9.99 --platform android` pushes a single new subscription with auto-aligned IDs across both stores. See [Quick-add Subscription / IAP](./quick-add.md).
+
+:::
+
 Uses the new monetization API. Auto-generated IDs:
 
 | Field | Format | Example ($6.99 weekly) |

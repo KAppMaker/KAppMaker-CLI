@@ -25,6 +25,7 @@ const sidebars: SidebarsConfig = {
         'store-publishing/create-appstore-app',
         'store-publishing/google-play-console',
         'store-publishing/adapty-setup',
+        'store-publishing/quick-add',
         'store-publishing/publish',
       ],
     },

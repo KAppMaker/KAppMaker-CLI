@@ -106,6 +106,8 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [`generate-image`](#generate-image)
   - [`create-appstore-app`](#create-appstore-app)
   - [`gpc`](#gpc) — Google Play Console management
+  - [`subscription add`](#subscription-add) — Quick-add a subscription to Play + ASC
+  - [`iap add`](#iap-add) — Quick-add a credit-pack IAP to Play + ASC + Adapty
   - [`adapty setup`](#adapty-setup)
   - [Image Tools](#image-tools)
   - [`convert-webp`](#convert-webp-source)
@@ -146,6 +148,8 @@ Claude will check your config, verify API keys are set, and walk you through any
 | [`kappmaker gpc iap list/push`](#gpc) | List or push one-time in-app products on Google Play Console |
 | [`kappmaker gpc data-safety push`](#gpc) | Push data safety declaration on Google Play Console |
 | [`kappmaker gpc app-check --package <pkg>`](#gpc) | Check if a package exists on Google Play Console |
+| [`kappmaker subscription add`](#subscription-add) | Quick-add one new subscription to Google Play + App Store Connect (auto-aligned IDs, full PPP fan-out, auto-creates ASC subscription group if missing) |
+| [`kappmaker iap add`](#iap-add) | Quick-add one new credit-pack IAP to Google Play + App Store Connect + Adapty (auto-aligned IDs, full PPP fan-out) |
 | [`kappmaker adapty setup`](#adapty-setup) | Set up Adapty products, paywalls, and placements |
 | [`kappmaker image-split <image>`](#image-split-source) | Split a grid image into individual tiles |
 | [`kappmaker image-remove-bg <image>`](#image-remove-bg-source) | Remove background from an image (fal.ai) |
@@ -923,6 +927,130 @@ All `gpc` subcommands except `app-check` load `./Assets/googleplay-config.json` 
 
 ---
 
+## `subscription add`
+
+Quick-add a single new subscription to Google Play and App Store Connect without editing config files. Auto-generates aligned product IDs across both stores, fans out PPP pricing across ~175 Play regions and ~155 ASC territories, and auto-creates the App Store Connect subscription group if it doesn't exist yet.
+
+```bash
+# Minimum invocation — defaults to --platform all (Play + ASC)
+kappmaker subscription add --period weekly --price 9.99
+
+# v2 product line alongside an existing v1
+kappmaker subscription add --period weekly --price 9.99 --version 2
+
+# Single store
+kappmaker subscription add --period monthly --price 19.99 --platform android
+kappmaker subscription add --period yearly --price 29.99 --platform ios
+
+# Full control — fully spelled out
+kappmaker subscription add \
+  --period weekly --price 6.99 --version 2 \
+  --name "Weekly Premium" \
+  --description "Full access for one week." \
+  --review-screenshot "Assets/appstore/review-screenshot_subscription.jpg" \
+  --group "myapp.premium.v2" --group-name "Premium Access" \
+  --app-name "MyApp"
+```
+
+**What it creates** (for `--period weekly --price 9.99 --version 1`):
+
+| Where | Field | Value |
+|---|---|---|
+| ASC | `product_id` | `myapp.premium.weekly.v1.999.v1` |
+| ASC | `ref_name` | `MyApp Premium Weekly v1 (9.99)` |
+| ASC | subscription period | `ONE_WEEK` |
+| ASC | localization (en-US) | name = `MyApp Premium Weekly`, description = `Full access for one week.` |
+| ASC | pricing | $9.99 USD anchor → PPP fan-out across ~155 territories in one `prices import` CSV call |
+| ASC | review screenshot | top-level `config.review_screenshot` (or `--review-screenshot`) |
+| ASC | subscription group | first group in config, OR `--group <ref>` (auto-created with en-US name if new) |
+| Play | `product_id` | `myapp.premium.weekly.v1` |
+| Play | base plan | `autorenew-weekly-999-v1`, period `P1W` |
+| Play | listing (en-US) | title = `MyApp Premium Weekly`, description = `Full access for one week.` |
+| Play | pricing | $9.99 USD anchor → PPP fan-out across ~173 billable regions via `convertRegionPrices` |
+
+**Flags:**
+
+| Flag | Required | Default |
+|---|---|---|
+| `--period <slug>` | yes | — — one of `weekly` / `monthly` / `twomonths` / `quarterly` / `semiannual` / `yearly` |
+| `--price <number>` | yes | — — USD anchor; PPP fans the rest |
+| `--platform <target>` | no | `all` (= Play + ASC) — `ios` = ASC only, `android` = Play only |
+| `--version <n>` | no | `1` — bumps every `v` marker, e.g. `--version 2` → `myapp.premium.weekly.v2.999.v2` + `myapp.premium.weekly.v2` + `autorenew-weekly-999-v2` |
+| `--name <text>` | no | `"<AppName> Premium <Period>"` — localized display name |
+| `--description <text>` | no | period-derived sentence: weekly → `"Full access for one week."`, monthly → `"Full access for one month."`, etc. |
+| `--review-screenshot <path>` | no | top-level `config.review_screenshot` from `Assets/appstore-config.json` |
+| `--group <ref>` | no | first group in `Assets/appstore-config.json` — if the ref doesn't exist on ASC yet, it's auto-created |
+| `--group-name <text>` | no | inherits from matching config group's `localizations[0].name`, else `"Premium Access"` — used when auto-creating a new group |
+| `--app-name <name>` | no | read from existing configs |
+
+**Idempotency:** safe to re-run. Existing products are PATCHed with refreshed PPP regional fan-out (same code path as `gpc subscriptions push` and `create-appstore-app`). Existing ASC subscriptions log `"already exists — refreshing pricing"` and continue.
+
+**Adapty is intentionally NOT included** — Adapty pulls live store prices at runtime via its store integrations, so creating an extra Adapty product entry adds noise without unlocking anything the SDK can't already fetch. Adapty product entries remain managed via `kappmaker adapty setup` for the canonical product set. (For credit packs `iap add` DOES include Adapty, see below.)
+
+**Notes:**
+- No `--free-trial` flag yet. For intro offers, edit `Assets/{googleplay,appstore}-config.json` and run `gpc subscriptions push` / `create-appstore-app`.
+- Only en-US localization is created. For multi-locale, edit the config files.
+- Only first regional price (`US/USD`) is set explicitly. Other regions come from PPP fan-out.
+
+---
+
+## `iap add`
+
+Quick-add a single credit-pack consumable IAP to Google Play, App Store Connect, AND Adapty (Adapty is included here because credit packs use the `credit_pack_access` access level to gate consumable entitlements that have no store-side equivalent). Auto-generates aligned product IDs across all three.
+
+```bash
+# Minimum invocation
+kappmaker iap add --credits 50 --price 14.99
+
+# v2 product line (appends "_v2" suffix to the ID)
+kappmaker iap add --credits 50 --price 14.99 --version 2
+
+# Single store
+kappmaker iap add --credits 100 --price 24.99 --platform ios
+
+# Full control
+kappmaker iap add \
+  --credits 10 --price 4.99 --version 2 \
+  --name "Basic Credit Pack" \
+  --description "10 credits to use in the app." \
+  --review-screenshot "Assets/appstore/review-screenshot_credits.jpg"
+```
+
+**What it creates** (for `--credits 10 --price 4.99 --version 1 --name "Basic Credit Pack"`):
+
+| Where | Field | Value |
+|---|---|---|
+| ASC | `product_id` | `credit_pack_10_499_myapp` (v2+ appends `_v2`) |
+| ASC | `type` | `CONSUMABLE` |
+| ASC | `ref_name` | `MyApp Basic Credit Pack v1 (4.99)` |
+| ASC | localization (en-US) | name = `Basic Credit Pack`, description = `10 credits to use in the app.` |
+| ASC | pricing | $4.99 USD anchor → PPP across ~155 territories |
+| Play | `sku` | `credit_pack_10_499_myapp` |
+| Play | `purchase_type` | `managed` |
+| Play | listing (en-US) | title = `Basic Credit Pack`, description = `10 credits to use in the app.` |
+| Play | pricing | $4.99 USD anchor → PPP across ~173 billable regions |
+| Adapty | `title` | `MyApp Basic Credit Pack v1 (4.99)` |
+| Adapty | `period` | `consumable` (routed via Adapty REST API since CLI rejects this period value) |
+| Adapty | `ios_product_id` / `android_product_id` | same ID on both — `credit_pack_10_499_myapp` |
+| Adapty | access level | `credit_pack_access` (falls back to first level if missing) |
+
+**Flags:**
+
+| Flag | Required | Default |
+|---|---|---|
+| `--credits <number>` | yes | — |
+| `--price <number>` | yes | — — USD anchor; PPP fans the rest |
+| `--platform <target>` | no | `all` (= Play + ASC + Adapty) — `ios` = ASC only, `android` = Play only |
+| `--version <n>` | no | `1` — v1 stays unsuffixed; v2+ appends `_v{n}` to the credit-pack ID |
+| `--name <text>` | no | `"<Credits> Credit Pack"` |
+| `--description <text>` | no | `"<Credits> credits to use in the app."` |
+| `--review-screenshot <path>` | no | top-level `config.review_screenshot` |
+| `--app-name <name>` | no | read from existing configs |
+
+**Idempotency:** safe to re-run. Play uses PATCH `?allowMissing=true` (upsert), ASC refreshes pricing on existing IAPs, Adapty pre-lists by title and skips matched.
+
+---
+
 ## `adapty setup`
 
 Sets up Adapty subscription products, paywalls, and placements using the [Adapty CLI](https://github.com/adaptyteam/adapty-cli).
@@ -1432,7 +1560,7 @@ Every generated file passes these checks before being written to disk:
 
 ### Supported locales
 
-Mode 1 uses a fixed set of 9. Mode 2 accepts ~30 locale codes covering both platforms — the workflow holds the iOS↔Play mapping (e.g. iOS `ko` ↔ Play `ko-KR`, iOS `zh-Hans` ↔ Play `zh-CN`). See [the skill file](skills/kappmaker/SKILL.md#localize-aso-metadata--per-locale-name--subtitle--keywords--description) for the full table.
+Mode 1 uses a fixed set of 9. Mode 2 accepts ~30 locale codes covering both platforms — the workflow holds the iOS↔Play mapping (e.g. iOS `ko` ↔ Play `ko-KR`, iOS `zh-Hans` ↔ Play `zh-CN`). See [the skill file](.claude/skills/kappmaker/SKILL.md#localize-aso-metadata--per-locale-name--subtitle--keywords--description) for the full table.
 
 ### Pair with screenshot translation
 

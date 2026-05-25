@@ -1,6 +1,6 @@
 ---
 name: kappmaker
-description: KAppMaker CLI - automate mobile app bootstrapping, AI logo/screenshot generation, App Store Connect setup, Google Play Console setup, Adapty subscriptions, image tools, Android builds, store publishing, package refactoring, and version bumping. Use when the user wants to create a mobile app, generate logos, screenshots, translate screenshots, set up App Store Connect, configure Google Play Console (listings, subscriptions, IAPs, data safety), configure Adapty, process images, convert images to WebP, build Android releases, generate keystores, publish to Play Store or App Store, refactor package names, or bump versions.
+description: KAppMaker CLI - automate mobile app bootstrapping, AI logo/screenshot generation, App Store Connect setup, Google Play Console setup, Adapty subscriptions, image tools, Android builds, store publishing, package refactoring, and version bumping. Use when the user wants to create a mobile app, generate logos, screenshots, translate screenshots, set up App Store Connect, configure Google Play Console (listings, subscriptions, IAPs, data safety), configure Adapty, add a new subscription or credit-pack IAP to an existing app, process images, convert images to WebP, build Android releases, generate keystores, publish to Play Store or App Store, refactor package names, or bump versions.
 argument-hint: "[command or description]"
 ---
 
@@ -33,6 +33,8 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 | Push/list Play one-time IAPs | `kappmaker gpc iap push` / `list` |
 | Push Play data safety form | `kappmaker gpc data-safety push` |
 | Check if an app exists on Play Console | `kappmaker gpc app-check --package <pkg>` |
+| Add ONE new subscription to Play + App Store (no config edit) | `kappmaker subscription add --period <slug> --price <usd>` — see "Quick-add Subscription / IAP" section |
+| Add ONE new credit-pack IAP to Play + App Store + Adapty (no config edit) | `kappmaker iap add --credits <n> --price <usd>` — see "Quick-add Subscription / IAP" section |
 | Set up Adapty subscriptions | `kappmaker adapty setup` |
 | Generate marketing screenshots | `kappmaker generate-screenshots` |
 | Generate Google Play feature graphic / play store banner | `kappmaker generate-feature-image` |
@@ -417,6 +419,69 @@ If a user reports HTTP 400 _"Unknown name 'otherRegionsConfig' at 'one_time_prod
 **Data safety schema**: The `data_safety` JSON block uses KAppMaker defaults: no account creation (`PSL_ACM_NONE`), data deletion question omitted (optional), collects Device ID + Crash logs + Diagnostics + Other performance + App interactions (only — not "Other app activity"), all processed **ephemerally**, collection **required** (users can't turn it off), collected only (not shared), encrypted in transit. Users can override specific answers via `data_safety.answers` with keys like `"QuestionID"` or `"QuestionID/ResponseID"` and values `true`/`false`/`"URL"`/`null`. Escape hatch: `data_safety_csv_path` uploads a pre-filled CSV from Play Console → Policy → App content → Data safety → Export to CSV.
 
 **Manual-only declarations**: The Play Publisher API does NOT expose content rating (IARC), target audience, ads declaration, health apps, financial features, government apps, news apps, gambling, COVID-19 tracing, app access (login walls), advertising ID usage, families compliance, or app pricing tier. Step 11 of `gpc setup` prints a checklist with a deep link to the Play Console App content page for the user to tick these off manually. No API workaround exists.
+
+---
+
+### Quick-add Subscription / IAP — One new product, no config edit
+
+For iterating on a live app after the initial setup is done. Instead of editing `Assets/{googleplay,appstore,adapty}-config.json` and re-running the full flow, these add ONE product end-to-end and push to all relevant stores in one command.
+
+**Trigger phrases**:
+- "add a new weekly subscription at $9.99"
+- "create a $19.99 monthly subscription for iOS only"
+- "add a 50-credit pack for $14.99"
+- "create a v2 yearly subscription"
+
+**Two commands**:
+
+`kappmaker subscription add --period <slug> --price <usd>` — Play + ASC. Adapty is intentionally NOT included (Adapty pulls live store prices at runtime via integrations, so adding an entry adds noise without unlocking anything).
+
+`kappmaker iap add --credits <n> --price <usd>` — Play + ASC + Adapty. Adapty IS included for credit packs because they use the `credit_pack_access` access level to gate consumable entitlements (no store-side equivalent).
+
+**Common flags** (both commands):
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--platform` | `all` | `all` / `ios` / `android`. `iap add` includes Adapty only in `all`. |
+| `--version <n>` | `1` | Bumps every `v` marker in the IDs. For subs: `--version 2` → `myapp.premium.weekly.v2.999.v2` + `myapp.premium.weekly.v2` + `autorenew-weekly-999-v2`. For IAPs: v1 stays unsuffixed; v2+ appends `_v2` to the credit-pack ID. |
+| `--name <text>` | derived | Localized display name. Subs default to `"<AppName> Premium <Period>"`, IAPs default to `"<credits> Credit Pack"`. |
+| `--description <text>` | derived | Subs: period-derived (e.g. `weekly → "Full access for one week."`). IAPs: `"<credits> credits to use in the app."`. |
+| `--review-screenshot <path>` | top-level `review_screenshot` | Apple required — without one, products stay in `MISSING_METADATA`. |
+| `--app-name <name>` | from configs | Override if no config exists yet. |
+
+**Subscription-only flags**:
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--period <slug>` | required | `weekly` / `monthly` / `twomonths` / `quarterly` / `semiannual` / `yearly` |
+| `--price <number>` | required | USD anchor; PPP fans the rest |
+| `--group <ref>` | first group in `appstore-config.json` | If the ref doesn't exist on ASC, it's auto-created |
+| `--group-name <text>` | inherits from config group's `localizations[0].name`, else `"Premium Access"` | Used only when auto-creating a new group |
+
+**IAP-only flags**:
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--credits <number>` | required | Positive integer |
+| `--price <number>` | required | USD anchor; PPP fans the rest |
+
+**What it creates**:
+- Auto-aligned product IDs across stores following the alignment table in `CLAUDE.md` (`{appname}.premium.<period>.v<N>.<priceDigits>.v<N>` for ASC, `{appname}.premium.<period>.v<N>` for Play product + `autorenew-<period>-<priceDigits>-v<N>` for base plan).
+- Full PPP fan-out across ~155 ASC territories (via `asc subscriptions pricing prices import` CSV) and ~173 Play billable regions (via `convertRegionPrices` + native-currency entries).
+- en-US listing/localization on both stores.
+- Review screenshot upload on ASC (resized to 1290 × 2796 if needed).
+- For new ASC subscription groups: auto-created with proper en-US localization so the App Store UI shows the right group name.
+
+**Idempotency**: safe to re-run. Existing products are PATCHed (Play) or report `"already exists — refreshing pricing"` (ASC) and re-apply the full PPP fan-out. To stand up a separate v2 line, use `--version 2`.
+
+**When to use vs. the full flow**:
+- Use **`subscription add` / `iap add`** when iterating on an existing app — adding one more price point, launching a v2, or replacing stuck legacy products.
+- Use **`create-appstore-app` / `gpc setup`** for initial setup with the full canonical product set, or when you need multi-locale, intro offers, or custom regional pricing overrides that aren't covered by the quick-add flags.
+
+**Not yet supported via flags** (require editing the JSON config):
+- Free trials / intro offers
+- Multi-locale listings
+- Custom per-territory price overrides (PPP covers the common case)
 
 ---
 

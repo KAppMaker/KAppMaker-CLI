@@ -28,6 +28,8 @@ import { generateFeatureImage } from './commands/generate-feature-image.js';
 import { generateIosIcons } from './commands/generate-ios-icons.js';
 import { generateAndroidIcons } from './commands/generate-android-icons.js';
 import { adaptySetup } from './commands/adapty-setup.js';
+import { subscriptionAdd } from './commands/subscription-add.js';
+import { iapAdd } from './commands/iap-add.js';
 import { updateVersion } from './commands/update-version.js';
 import { refactorCommand } from './commands/refactor.js';
 import { generateKeystoreCommand } from './commands/generate-keystore.js';
@@ -461,6 +463,48 @@ export function createCli(): Command {
     .option('--config <path>', 'Path to Adapty JSON config file')
     .action(async (options) => {
       await adaptySetup(options);
+    });
+
+  // ── Cross-platform Subscription / IAP add ─────────────────────────
+
+  const subscriptionCmd = program
+    .command('subscription')
+    .description('Cross-platform subscription management (Google Play + App Store Connect)');
+
+  subscriptionCmd
+    .command('add')
+    .description('Create a new subscription on Google Play and App Store Connect (auto-generates aligned product IDs)')
+    .requiredOption('--period <slug>', 'weekly | monthly | twomonths | quarterly | semiannual | yearly')
+    .requiredOption('--price <number>', 'USD price like 9.99')
+    .option('--platform <target>', 'all | ios | android (default: all = Play + ASC). ios = ASC only, android = Play only.', 'all')
+    .option('--version <n>', 'Product-family version (default: 1). Bumps every "v" marker in the IDs together, e.g. v1 → v2 produces myapp.premium.weekly.v2.999.v2 instead of v1.999.v1. Use to create a new product line alongside an existing v1.', '1')
+    .option('--name <text>', 'Localized display name (default: "<AppName> Premium <Period>")')
+    .option('--description <text>', 'Localized description (default: period-derived, e.g. "Full access for one week.")')
+    .option('--review-screenshot <path>', 'App Review screenshot path applied to this subscription (default: top-level review_screenshot from appstore-config.json)')
+    .option('--group <ref>', 'ASC subscription group reference name. If the group does not exist on App Store Connect, it is auto-created. (default: first group from appstore-config.json)')
+    .option('--group-name <text>', 'Localized display name (en-US) for the group, applied when it is auto-created. Ignored if the group already exists. (default: inherits from matching group in appstore-config.json if any, else "Premium Access")')
+    .option('--app-name <name>', 'App name override (default: read from existing configs)')
+    .action(async (options) => {
+      await subscriptionAdd(options);
+    });
+
+  const iapCmd = program
+    .command('iap')
+    .description('Cross-platform one-time in-app product management (Play + ASC + Adapty)');
+
+  iapCmd
+    .command('add')
+    .description('Create a new credit-pack IAP on Google Play, App Store Connect, and Adapty (auto-generates aligned product IDs)')
+    .requiredOption('--credits <number>', 'Credit count (e.g. 50)')
+    .requiredOption('--price <number>', 'USD price like 14.99')
+    .option('--platform <target>', 'all | ios | android (default: all). ios/android push only that store; "all" also pushes to Adapty.', 'all')
+    .option('--version <n>', 'Product-family version (default: 1). v1 keeps the existing credit_pack_{credits}_{priceDigits}_{appname} format unchanged; v2+ appends "_v{n}" to create a fresh product line.', '1')
+    .option('--name <text>', 'Localized display name (default: "<Credits> Credit Pack")')
+    .option('--description <text>', 'Localized description (default: "<Credits> credits to use in the app.")')
+    .option('--review-screenshot <path>', 'App Review screenshot path applied to this IAP (default: top-level review_screenshot from appstore-config.json)')
+    .option('--app-name <name>', 'App name override (default: read from existing configs)')
+    .action(async (options) => {
+      await iapAdd(options);
     });
 
   // ── Android Build ──────────────────────────────────────────────────

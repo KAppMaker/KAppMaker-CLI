@@ -67,6 +67,12 @@ npx tsx src/index.ts gpc iap list [--package <pkg>]            # List existing i
 npx tsx src/index.ts gpc iap push                  # Create/reuse IAPs from config
 npx tsx src/index.ts gpc data-safety push          # Push data safety declaration from config
 npx tsx src/index.ts adapty setup                  # Adapty products/paywall/placements setup
+npx tsx src/index.ts subscription add --period weekly --price 9.99                          # Create one new subscription on Play + ASC (auto-generates aligned IDs)
+npx tsx src/index.ts subscription add --period weekly --price 9.99 --version 2              # Same period/price but a fresh v2 product line (alongside existing v1)
+npx tsx src/index.ts subscription add --period monthly --price 19.99 --platform android     # Play only
+npx tsx src/index.ts iap add --credits 50 --price 14.99                                     # Create one new credit-pack IAP on Play + ASC + Adapty
+npx tsx src/index.ts iap add --credits 100 --price 24.99 --platform ios                     # ASC only
+npx tsx src/index.ts iap add --credits 50 --price 14.99 --version 2                         # Fresh v2 credit-pack line (appends "_v2" to the ID)
 npx tsx src/index.ts fastlane configure                                    # Set up Fastlane (Gemfile + Fastfile + bundle install)
 npx tsx src/index.ts publish --platform android                            # Publish Android to Play Store
 npx tsx src/index.ts publish --platform ios                                # Publish iOS to App Store
@@ -87,13 +93,13 @@ Some features run entirely inside the `kappmaker:kappmaker` Claude Code skill �
 
 Currently in this category:
 
-- **ASO keyword research** — discovers high-value keywords for a base topic using the [Astro MCP](https://tryastro.app/docs/mcp/) tools (`search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions`), filters by popularity/difficulty thresholds, clusters by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm (with `?` scores) when Astro MCP isn't connected. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "ASO Keyword Research" section. Natural chain: research → use the output keywords in `localize-metadata mode=keyword-expansion`.
+- **ASO keyword research** — discovers high-value keywords for a base topic using the [Astro MCP](https://tryastro.app/docs/mcp/) tools (`search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions`), filters by popularity/difficulty thresholds, clusters by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm (with `?` scores) when Astro MCP isn't connected. See [.claude/skills/kappmaker/SKILL.md](.claude/skills/kappmaker/SKILL.md) "ASO Keyword Research" section. Natural chain: research → use the output keywords in `localize-metadata mode=keyword-expansion`.
 
-  **Project convention — `AiGuidelines/`**: `AiGuidelines/` is the canonical home for AI-facing planning docs (`prd.md`, `app-idea.md`, `keywords.md`, `brand.md`, and any other `*.md` describing the product). The kappmaker skill reads this folder **before invoking any command** to fill in missing inputs (app description, app name, tagline, brand color, etc.) so the user isn't asked for things already written down. Cascade order: `AiGuidelines/*.md` → `README.md` → existing ASO metadata under `MobileApp/distribution/ios/appstore_metadata/texts/en-US/` → `Assets/googleplay-config.json` / `Assets/appstore-config.json`. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Context Gathering" section. The folder is created on first write if missing.
+  **Project convention — `AiGuidelines/`**: `AiGuidelines/` is the canonical home for AI-facing planning docs (`prd.md`, `app-idea.md`, `keywords.md`, `brand.md`, and any other `*.md` describing the product). The kappmaker skill reads this folder **before invoking any command** to fill in missing inputs (app description, app name, tagline, brand color, etc.) so the user isn't asked for things already written down. Cascade order: `AiGuidelines/*.md` → `README.md` → existing ASO metadata under `MobileApp/distribution/ios/appstore_metadata/texts/en-US/` → `Assets/googleplay-config.json` / `Assets/appstore-config.json`. See [.claude/skills/kappmaker/SKILL.md](.claude/skills/kappmaker/SKILL.md) "Context Gathering" section. The folder is created on first write if missing.
 
-- **ASO metadata localization** — generates per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files into `MobileApp/distribution/{ios/appstore_metadata/texts,android/playstore_metadata}/<locale>/`. Two modes (`keyword-expansion` and `market-localization`), invoked via natural-language trigger phrases the skill router picks up. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Localize ASO Metadata" section for the full procedure, the embedded ASO guideline checks, and the 30-row locale code table.
+- **ASO metadata localization** — generates per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files into `MobileApp/distribution/{ios/appstore_metadata/texts,android/playstore_metadata}/<locale>/`. Two modes (`keyword-expansion` and `market-localization`), invoked via natural-language trigger phrases the skill router picks up. See [.claude/skills/kappmaker/SKILL.md](.claude/skills/kappmaker/SKILL.md) "Localize ASO Metadata" section for the full procedure, the embedded ASO guideline checks, and the 30-row locale code table.
 
-When adding new skill-driven workflows: place the procedure as a new `###` section in `skills/kappmaker/SKILL.md`, add a row to the routing table at the top, and link it from the appropriate ASO / image / publishing docs page. No `src/commands/` file, no `src/cli.ts` entry.
+When adding new skill-driven workflows: place the procedure as a new `###` section in `.claude/skills/kappmaker/SKILL.md`, add a row to the routing table at the top, and link it from the appropriate ASO / image / publishing docs page. No `src/commands/` file, no `src/cli.ts` entry.
 
 ## Custom Template Support
 
@@ -163,6 +169,8 @@ src/
     create-play-app.ts      # Google Play Console setup (11-step orchestrator via direct Publisher API)
     gpc.ts                  # kappmaker gpc subcommands: setup, app-check, listings, subscriptions, iap, data-safety
     adapty-setup.ts         # Adapty setup (8-step orchestrator via adapty CLI)
+    subscription-add.ts     # `subscription add` — one-shot subscription push to Play + ASC + Adapty (no config writes)
+    iap-add.ts              # `iap add` — one-shot credit-pack IAP push to Play + ASC + Adapty (no config writes)
     split.ts                # image-split — grid image splitter
     remove-bg.ts            # image-remove-bg — background removal (fal.ai bria)
     enhance.ts              # image-enhance — upscale quality (fal.ai nano-banana-2/edit)
@@ -198,6 +206,7 @@ src/
     refactor.service.ts     # Package/app name refactoring (Kotlin sources, Gradle, iOS, Firebase, workflows)
     screenshot.service.ts   # Screenshot grid combine/split, locale mapping, Fastlane output
     version.service.ts      # Android + iOS version reading/writing (build.gradle.kts, pbxproj, Info.plist)
+    product-id.builder.ts   # Period + price → aligned ASC / Play / Adapty product IDs (shared by subscription-add and iap-add)
   utils/
     logger.ts               # chalk-based step/success/error logging
     exec.ts                 # execa wrapper with spinner and streaming modes
@@ -419,6 +428,39 @@ Default consumable in-app purchases (credit packs) ship in all three templates a
 **Default credit packs** ($USD): Basic — 10 credits / $4.99, Pro — 30 credits / $9.99, Ultimate — 80 credits / $19.99.
 
 The Adapty template also adds a `Credits Paywall` (linking the three credit pack products) and a `credits_pack` placement (Adapty `developer_id`) so the app can fetch them with `Adapty.getPaywall("credits_pack")`.
+
+### Quick-add commands (`subscription add` / `iap add`)
+
+Shortcuts for adding a single new subscription or credit-pack IAP without editing config files. `subscription add` pushes to Google Play + App Store Connect only. `iap add` pushes to Play + ASC + Adapty (kept for the credit-pack flow that needs Adapty to bridge both stores into one product).
+
+```bash
+# Subscription: pushes to Play + ASC (Adapty intentionally NOT included)
+kappmaker subscription add --period weekly --price 9.99
+
+# Single platform
+kappmaker subscription add --period monthly --price 19.99 --platform android
+
+# Credit pack IAP — still pushes to Play + ASC + Adapty
+kappmaker iap add --credits 50 --price 14.99
+kappmaker iap add --credits 100 --price 24.99 --platform ios
+```
+
+**Behaviour:**
+- **Push only, no config writes** — the local `Assets/*-config.json` files are read for context (app name, package, bundle ID, ASC subscription group) but never modified. Source of truth lives on the stores.
+- **Per-platform graceful skip** — if any platform's prerequisites aren't met (missing config, no service-account key, no uploaded build, no ASC group), that platform is logged as skipped and the others still run. The command errors only if ALL selected platforms were skipped.
+- **Adapty intentionally excluded from `subscription add`** — Adapty mirrors store prices at runtime via store integrations (per the existing "Adapty Prices Are Not Developer-Set" section), so creating a new subscription via `adapty.createProduct` adds noise without unlocking anything the SDK can't already fetch live from the stores. Adapty product entries remain managed via `kappmaker adapty setup` for the canonical product set. `iap add` still includes Adapty because credit packs use Adapty paywalls + `credit_pack_access` to gate consumable entitlements that have no store-side equivalent.
+- **Auto-aligned IDs** — `subscription add --period weekly --price 9.99` produces:
+  - ASC `product_id`: `{appname}.premium.weekly.v1.999.v1`, `ref_name`: `{AppName} Premium Weekly v1 (9.99)`
+  - Play `product_id`: `{appname}.premium.weekly.v1`, base plan `autorenew-weekly-999-v1`
+- **`--version <n>` for new product lines** — bumps every `v` marker in the IDs together. `--version 2` turns the above into `{appname}.premium.weekly.v2.999.v2` (ASC — both `v` markers bump), `{appname}.premium.weekly.v2` (Play), `autorenew-weekly-999-v2` (Play base plan), and `{AppName} Premium Weekly v2 (9.99)` (ref_name). Lets you stand up a fresh product family alongside the existing v1 — useful for stuck-product workarounds per the v3 PATCH constraints, or for relaunching pricing without disturbing v1 subscribers. For IAPs, `--version 2` appends `_v2` to the credit-pack ID (`credit_pack_10_499_myapp_v2`); v1 stays unsuffixed for back-compat with template defaults.
+- **`--description <text>`** — explicit localized description (en-US). Defaults to a period-derived sentence: `weekly → "Full access for one week."`, `monthly → "Full access for one month."`, `twomonths → "Full access for two months."`, `quarterly → "Full access for three months."`, `semiannual → "Full access for six months."`, `yearly → "Full access for one year."`. Applied to BOTH the ASC localization `description` AND the Play listing `description` so the two stores stay in sync. (Previously both `name` and `description` shared a single value — fixed in this iteration.)
+- **`--review-screenshot <path>`** — per-call override of the App Review screenshot. Defaults to the top-level `review_screenshot` from `Assets/appstore-config.json`. Set on the in-memory subscription / IAP object AND passed as `defaultReviewScreenshot` so `ascMoney.setupSubscriptions` / `setupInAppPurchases` will resize + upload it (subject to the existing 1290 × 2796 prompt). Missing files are silently skipped per existing convention.
+- **`--group <ref>` + `--group-name <text>` for auto-creating ASC subscription groups** — when the group reference doesn't yet exist on App Store Connect, `subscription add` auto-creates it via `asc subscriptions setup --group-reference-name <ref>` AND attaches an en-US localization so the group has a proper App-Store-facing display name (Apple requires one). Resolution order for the localized name: `--group-name <text>` → matching group's existing `localizations[0].name` in `Assets/appstore-config.json` → fallback `"Premium Access"`. For pre-existing groups, the duplicate-create localization call gracefully fails (`allowFailure: true` in `setupSubscriptions`) so existing names stay intact. Lets users create entirely new groups like `myapp.premium.v3` without first running `create-appstore-app` or editing the config.
+- **Idempotency** — Play and ASC pushes go through the same `setupSubscriptions` / `setupInAppProducts` paths as `gpc subscriptions push` and `create-appstore-app`, so re-running the same `subscription add` is safe (existing products get pricing refreshed with full PPP fan-out). For `iap add`, Adapty also pre-lists products by title and skips if already present.
+- **`--platform` semantics** — for `subscription add`: `all` (default) = Play + ASC, `ios` = ASC only, `android` = Play only. For `iap add`: `all` = Play + ASC + Adapty (single Adapty product spans both `ios_product_id` and `android_product_id`), `ios` = ASC only, `android` = Play only.
+- **No `--free-trial`** — intro offers / free trials aren't wired through these commands yet; for those, fall back to editing the config file and running `gpc subscriptions push` / `create-appstore-app`.
+
+Source: [src/commands/subscription-add.ts](src/commands/subscription-add.ts), [src/commands/iap-add.ts](src/commands/iap-add.ts), [src/services/product-id.builder.ts](src/services/product-id.builder.ts).
 
 ### Adapty Access Levels (`access_levels[]`)
 

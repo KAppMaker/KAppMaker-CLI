@@ -59,6 +59,12 @@ Layers are deep-merged (later overrides earlier):
 3. **Local config** (`./Assets/appstore-config.json` or `--config`)
 4. **Interactive prompts** — only for fields still empty
 
+:::tip Adding ONE more subscription without re-running the full flow
+
+After the initial `create-appstore-app` is done, you can add a single new subscription with `kappmaker subscription add --period weekly --price 9.99 --platform ios` (no config edit needed). See [Quick-add Subscription / IAP](./quick-add.md).
+
+:::
+
 ## Default Subscriptions
 
 | Subscription | Period | Price | Product ID |
