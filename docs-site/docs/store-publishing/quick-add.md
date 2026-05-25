@@ -22,7 +22,7 @@ These are intended for iterating on a live app after the initial `create-appstor
 kappmaker subscription add --period weekly --price 9.99
 
 # v2 product line alongside an existing v1
-kappmaker subscription add --period weekly --price 9.99 --version 2
+kappmaker subscription add --period weekly --price 9.99 --product-version 2
 
 # Single store
 kappmaker subscription add --period monthly --price 19.99 --platform android
@@ -30,7 +30,7 @@ kappmaker subscription add --period yearly --price 29.99 --platform ios
 
 # Full control
 kappmaker subscription add \
-  --period weekly --price 6.99 --version 2 \
+  --period weekly --price 6.99 --product-version 2 \
   --name "Weekly Premium" \
   --description "Full access for one week." \
   --review-screenshot "Assets/appstore/review-screenshot_subscription.jpg" \
@@ -45,13 +45,15 @@ kappmaker subscription add \
 | `--period <slug>` | yes | — — `weekly` / `monthly` / `twomonths` / `quarterly` / `semiannual` / `yearly` |
 | `--price <number>` | yes | — — USD anchor; PPP fans the rest |
 | `--platform <target>` | no | `all` (Play + ASC) — `ios` = ASC only, `android` = Play only |
-| `--version <n>` | no | `1` — bumps every `v` marker (e.g. `--version 2` → `myapp.premium.weekly.v2.999.v2` + `myapp.premium.weekly.v2` + `autorenew-weekly-999-v2`) |
+| `--product-version <n>` | no | `1` — bumps every `v` marker (e.g. `--product-version 2` → `myapp.premium.weekly.v2.999.v2` + `myapp.premium.weekly.v2` + `autorenew-weekly-999-v2`) |
 | `--name <text>` | no | `"<AppName> Premium <Period>"` |
 | `--description <text>` | no | period-derived sentence: weekly → `"Full access for one week."`, monthly → `"Full access for one month."`, etc. |
 | `--review-screenshot <path>` | no | top-level `review_screenshot` from `Assets/appstore-config.json` |
 | `--group <ref>` | no | first group in `Assets/appstore-config.json` — if the ref doesn't exist on ASC, it's auto-created |
 | `--group-name <text>` | no | inherits from matching config group's `localizations[0].name`, else `"Premium Access"` — used only when auto-creating a new group |
 | `--app-name <name>` | no | read from existing configs |
+| `--bundle-id <id>` | no | iOS bundle ID override (e.g. `com.example.myapp`) — use when `Assets/appstore-config.json` doesn't exist yet |
+| `--package-name <pkg>` | no | Android package name override — use when `Assets/googleplay-config.json` doesn't exist yet |
 
 ### What it creates
 
@@ -94,7 +96,7 @@ Safe to re-run. Both stores go through the same idempotent setup paths as [`gpc 
 - **Play**: existing products are PATCHed (`PATCH /subscriptions/{id}?updateMask=basePlans,listings`) with the freshly-built body, including the full PPP regional fan-out. Net effect of re-running: regional pricing gets refreshed.
 - **ASC**: `asc subscriptions setup` reports `"already been used"` on existing products → KAppMaker logs `existing — refreshing pricing` and runs the PPP fan-out (CSV import of per-territory price points).
 
-To stand up a fresh product family alongside an existing v1, use `--version 2` (or higher). The new IDs are entirely separate, no collision.
+To stand up a fresh product family alongside an existing v1, use `--product-version 2` (or higher). The new IDs are entirely separate, no collision.
 
 ### Notes & limitations
 
@@ -114,21 +116,21 @@ Quick-add a single credit-pack consumable IAP. Unlike `subscription add`, this D
 kappmaker iap add --credits 50 --price 14.99
 
 # v2 product line (appends "_v2" to the ID)
-kappmaker iap add --credits 50 --price 14.99 --version 2
+kappmaker iap add --credits 50 --price 14.99 --product-version 2
 
 # Single store
 kappmaker iap add --credits 100 --price 24.99 --platform ios
 
 # Full control — recreate Forevly's three default credit packs
-kappmaker iap add --credits 10 --price 4.99 --version 2 \
+kappmaker iap add --credits 10 --price 4.99 --product-version 2 \
   --name "Basic Credit Pack" \
   --review-screenshot "Assets/appstore/review-screenshot_credits.jpg"
 
-kappmaker iap add --credits 30 --price 9.99 --version 2 \
+kappmaker iap add --credits 30 --price 9.99 --product-version 2 \
   --name "Pro Credit Pack" \
   --review-screenshot "Assets/appstore/review-screenshot_credits.jpg"
 
-kappmaker iap add --credits 80 --price 19.99 --version 2 \
+kappmaker iap add --credits 80 --price 19.99 --product-version 2 \
   --name "Ultimate Credit Pack" \
   --review-screenshot "Assets/appstore/review-screenshot_credits.jpg"
 ```
@@ -140,11 +142,13 @@ kappmaker iap add --credits 80 --price 19.99 --version 2 \
 | `--credits <number>` | yes | — |
 | `--price <number>` | yes | — — USD anchor; PPP fans the rest |
 | `--platform <target>` | no | `all` (Play + ASC + Adapty) — `ios` = ASC only, `android` = Play only |
-| `--version <n>` | no | `1` — v1 stays unsuffixed; v2+ appends `_v{n}` to the credit-pack ID |
+| `--product-version <n>` | no | `1` — v1 stays unsuffixed; v2+ appends `_v{n}` to the credit-pack ID |
 | `--name <text>` | no | `"<Credits> Credit Pack"` |
 | `--description <text>` | no | `"<Credits> credits to use in the app."` |
 | `--review-screenshot <path>` | no | top-level `review_screenshot` from `Assets/appstore-config.json` |
 | `--app-name <name>` | no | read from existing configs |
+| `--bundle-id <id>` | no | iOS bundle ID override — use when no `Assets/appstore-config.json` yet |
+| `--package-name <pkg>` | no | Android package name override — use when no `Assets/googleplay-config.json` yet |
 
 ### What it creates
 

@@ -443,7 +443,9 @@ For iterating on a live app after the initial setup is done. Instead of editing 
 | Flag | Default | Notes |
 |---|---|---|
 | `--platform` | `all` | `all` / `ios` / `android`. `iap add` includes Adapty only in `all`. |
-| `--version <n>` | `1` | Bumps every `v` marker in the IDs. For subs: `--version 2` → `myapp.premium.weekly.v2.999.v2` + `myapp.premium.weekly.v2` + `autorenew-weekly-999-v2`. For IAPs: v1 stays unsuffixed; v2+ appends `_v2` to the credit-pack ID. |
+| `--product-version <n>` | `1` | Bumps every `v` marker in the IDs. For subs: `--product-version 2` → `myapp.premium.weekly.v2.999.v2` + `myapp.premium.weekly.v2` + `autorenew-weekly-999-v2`. For IAPs: v1 stays unsuffixed; v2+ appends `_v2` to the credit-pack ID. (Named `--product-version` rather than `--version` to avoid clashing with Commander's root `kappmaker --version`.) |
+| `--bundle-id <id>` | from configs | iOS bundle ID override — use when `Assets/appstore-config.json` doesn't exist yet. |
+| `--package-name <pkg>` | from configs | Android package name override — use when `Assets/googleplay-config.json` doesn't exist yet. |
 | `--name <text>` | derived | Localized display name. Subs default to `"<AppName> Premium <Period>"`, IAPs default to `"<credits> Credit Pack"`. |
 | `--description <text>` | derived | Subs: period-derived (e.g. `weekly → "Full access for one week."`). IAPs: `"<credits> credits to use in the app."`. |
 | `--review-screenshot <path>` | top-level `review_screenshot` | Apple required — without one, products stay in `MISSING_METADATA`. |
@@ -472,7 +474,7 @@ For iterating on a live app after the initial setup is done. Instead of editing 
 - Review screenshot upload on ASC (resized to 1290 × 2796 if needed).
 - For new ASC subscription groups: auto-created with proper en-US localization so the App Store UI shows the right group name.
 
-**Idempotency**: safe to re-run. Existing products are PATCHed (Play) or report `"already exists — refreshing pricing"` (ASC) and re-apply the full PPP fan-out. To stand up a separate v2 line, use `--version 2`.
+**Idempotency**: safe to re-run. Existing products are PATCHed (Play) or report `"already exists — refreshing pricing"` (ASC) and re-apply the full PPP fan-out. To stand up a separate v2 line, use `--product-version 2`.
 
 **When to use vs. the full flow**:
 - Use **`subscription add` / `iap add`** when iterating on an existing app — adding one more price point, launching a v2, or replacing stuck legacy products.

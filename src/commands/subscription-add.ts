@@ -38,7 +38,9 @@ export interface SubscriptionAddOptions {
   group?: string;
   groupName?: string;
   appName?: string;
-  version?: string;
+  bundleId?: string;
+  packageName?: string;
+  productVersion?: string;
 }
 
 interface AppContext {
@@ -89,8 +91,8 @@ async function detectContext(opts: SubscriptionAddOptions): Promise<AppContext> 
 
   return {
     appName,
-    bundleId: ascCfg?.app.bundle_id,
-    packageName: gpcCfg?.app.package_name,
+    bundleId: opts.bundleId ?? ascCfg?.app.bundle_id,
+    packageName: opts.packageName ?? gpcCfg?.app.package_name,
     defaultLocale:
       ascCfg?.app.primary_locale ?? gpcCfg?.app.default_language ?? 'en-US',
     ascAppId: ascCfg?.app.id,
@@ -120,9 +122,9 @@ export async function subscriptionAdd(options: SubscriptionAddOptions): Promise<
     process.exit(1);
   }
 
-  const version = options.version ? Number.parseInt(options.version, 10) : 1;
+  const version = options.productVersion ? Number.parseInt(options.productVersion, 10) : 1;
   if (!Number.isFinite(version) || version < 1) {
-    logger.fatal('--version must be a positive integer (e.g. 1, 2, 3)');
+    logger.fatal('--product-version must be a positive integer (e.g. 1, 2, 3)');
     process.exit(1);
   }
 
