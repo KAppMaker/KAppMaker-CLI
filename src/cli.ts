@@ -53,7 +53,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.13.1');
+    .version('1.13.7');
 
   program
     .command('create')
@@ -478,8 +478,8 @@ export function createCli(): Command {
     .requiredOption('--price <number>', 'USD price like 9.99')
     .option('--platform <target>', 'all | ios | android (default: all = Play + ASC). ios = ASC only, android = Play only.', 'all')
     .option('--product-version <n>', 'Product-family version (default: 1). Bumps every "v" marker in the IDs together, e.g. v1 → v2 produces myapp.premium.weekly.v2.999.v2 instead of v1.999.v1. Use to create a new product line alongside an existing v1.', '1')
-    .option('--name <text>', 'Localized display name (default: "<AppName> Premium <Period>")')
-    .option('--description <text>', 'Localized description (default: period-derived, e.g. "Full access for one week.")')
+    .option('--name <text>', 'ASC localization name (default: "<Period> Premium", e.g. "Weekly Premium"). Play listing title is automatically derived as "<AppName> <ASC name>" (e.g. "Mangit Weekly Premium") — ASC names are short (group context), Play titles include the app name (standalone).')
+    .option('--description <text>', 'Localized description applied to BOTH ASC and Play (default: period-derived, e.g. "Full access for one week.")')
     .option('--review-screenshot <path>', 'App Review screenshot path applied to this subscription (default: top-level review_screenshot from appstore-config.json)')
     .option('--group <ref>', 'ASC subscription group reference name. If the group does not exist on App Store Connect, it is auto-created. (default: first group from appstore-config.json)')
     .option('--group-name <text>', 'Localized display name (en-US) for the group, applied when it is auto-created. Ignored if the group already exists. (default: inherits from matching group in appstore-config.json if any, else "Premium Access")')

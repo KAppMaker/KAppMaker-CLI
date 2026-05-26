@@ -130,9 +130,19 @@ export async function subscriptionAdd(options: SubscriptionAddOptions): Promise<
 
   const ctx = await detectContext(options);
   const ids = subscriptionIds(period, price, ctx.appName, version);
-  const displayName = options.name ?? ids.playListingTitle;
+
+  // ASC localization name lives inside the subscription group context, so the
+  // short form ("Weekly Premium") is conventional. Default to "<Period> Premium"
+  // without the app name; `--name` overrides.
+  const ascDisplayName = options.name ?? `${ids.periodLabel} Premium`;
+  // Play listing is shown standalone in the Play Store search/listing UI, so
+  // prefix with the app name. Derived from the ASC name + app: e.g.
+  // ASC "Weekly Premium" → Play "Mangit Weekly Premium".
+  const playListingTitle = `${ctx.appName} ${ascDisplayName}`;
   const description = options.description ?? ids.defaultDescription;
-  const reviewScreenshot = options.reviewScreenshot ?? ctx.ascReviewScreenshot;
+  const reviewScreenshot = await resolveReviewScreenshot(
+    options.reviewScreenshot ?? ctx.ascReviewScreenshot,
+  );
 
   console.log('');
   console.log(chalk.bold('  Creating subscription:'));
@@ -141,7 +151,8 @@ export async function subscriptionAdd(options: SubscriptionAddOptions): Promise<
   console.log(`    ${chalk.cyan('Price:')}      $${price}`);
   console.log(`    ${chalk.cyan('Version:')}    v${version}`);
   console.log(`    ${chalk.cyan('Platform:')}   ${platform}`);
-  console.log(`    ${chalk.cyan('Display:')}    ${displayName}`);
+  console.log(`    ${chalk.cyan('ASC name:')}   ${ascDisplayName}`);
+  console.log(`    ${chalk.cyan('Play title:')} ${playListingTitle}`);
   console.log(`    ${chalk.cyan('Description:')} ${description}`);
   if (platform !== 'android') {
     console.log(`    ${chalk.cyan('ASC ID:')}     ${ids.ascProductId}`);
@@ -160,11 +171,11 @@ export async function subscriptionAdd(options: SubscriptionAddOptions): Promise<
   let pushed = 0;
 
   if (platform === 'all' || platform === 'android') {
-    if (await pushToPlay(ctx, ids, price, displayName, description)) pushed++;
+    if (await pushToPlay(ctx, ids, price, playListingTitle, description)) pushed++;
   }
   if (platform === 'all' || platform === 'ios') {
     const groupName = options.groupName ?? ctx.ascGroupLocalizationName ?? 'Premium Access';
-    if (await pushToAsc(ctx, ids, price, displayName, description, reviewScreenshot, groupName)) pushed++;
+    if (await pushToAsc(ctx, ids, price, ascDisplayName, description, reviewScreenshot, groupName)) pushed++;
   }
 
   console.log('');
@@ -287,8 +298,43 @@ async function pushToAsc(
     subscriptions: [sub],
   };
 
-  await ascMoney.setupSubscriptions(appId, group, ctx.ascAvailability, {
+  // Default to "available everywhere" when no config-based availability is
+  // present. Without this, asc's `subscriptions setup` doesn't pass --territories
+  // and Apple falls back to making the subscription available only in the
+  // anchor price territory (USA), which is almost never what the user wants.
+  // The PPP fan-out below sets per-territory prices but availability is separate.
+  const availability: AppStoreAvailability = ctx.ascAvailability ?? {
+    include_all: true,
+    territories: [],
+    available_in_new_territories: true,
+  };
+
+  await ascMoney.setupSubscriptions(appId, group, availability, {
     defaultReviewScreenshot: reviewScreenshot,
   });
   return true;
+}
+
+/**
+ * Verify the review screenshot file exists upfront and return the absolute path,
+ * so the user sees a loud warning immediately instead of an easily-missed
+ * info-level "not found, skipping" log buried inside the asc service call.
+ *
+ * Returns:
+ *   - undefined if no path was provided (nothing to do)
+ *   - the resolved absolute path if the file exists
+ *   - the original path with a warn-level log if the file is missing (the
+ *     downstream service will log its own info-level skip; this duplicates
+ *     to ensure visibility)
+ */
+async function resolveReviewScreenshot(filePath: string | undefined): Promise<string | undefined> {
+  if (!filePath) return undefined;
+  const abs = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+  if (!(await fs.pathExists(abs))) {
+    logger.warn(`Review screenshot not found at: ${abs}`);
+    logger.info('App Store products without a review screenshot stay in MISSING_METADATA state.');
+    logger.info(`Pass --review-screenshot <path> or set top-level "review_screenshot" in Assets/appstore-config.json.`);
+    return undefined;
+  }
+  return abs;
 }

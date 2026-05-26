@@ -144,7 +144,9 @@ export async function iapAdd(options: IapAddOptions): Promise<void> {
 
   const ctx = await detectContext(options);
   const ids = buildIapIds(credits, price, ctx.appName, options.name, options.description, version);
-  const reviewScreenshot = options.reviewScreenshot ?? ctx.ascReviewScreenshot;
+  const reviewScreenshot = await resolveReviewScreenshot(
+    options.reviewScreenshot ?? ctx.ascReviewScreenshot,
+  );
 
   console.log('');
   console.log(chalk.bold('  Creating credit-pack IAP:'));
@@ -331,4 +333,19 @@ async function pushToAdapty(
 
   await adapty.createProduct(appId, product, accessLevelId);
   return true;
+}
+
+/** Verify the review screenshot exists upfront so missing files surface as a
+ * loud warning before we start pushing to the stores. See subscription-add.ts
+ * for the rationale. */
+async function resolveReviewScreenshot(filePath: string | undefined): Promise<string | undefined> {
+  if (!filePath) return undefined;
+  const abs = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+  if (!(await fs.pathExists(abs))) {
+    logger.warn(`Review screenshot not found at: ${abs}`);
+    logger.info('App Store IAPs without a review screenshot stay in MISSING_METADATA state.');
+    logger.info('Pass --review-screenshot <path> or set top-level "review_screenshot" in Assets/appstore-config.json.');
+    return undefined;
+  }
+  return abs;
 }
