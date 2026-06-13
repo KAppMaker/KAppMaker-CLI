@@ -160,7 +160,7 @@ export async function createApp(
   if (await fs.pathExists(podfilePath)) {
     await ios.installPods(ctx.mobileDir);
   } else {
-    logger.warn('Podfile not found -- skipping CocoaPods install.');
+    logger.info('No Podfile (SwiftPM template) -- iOS dependencies resolve automatically at build time.');
   }
   // Generate signing keystore if missing (fast, <1s). The actual AAB build
   // happens later in step 12 when publishing to Play's internal track.

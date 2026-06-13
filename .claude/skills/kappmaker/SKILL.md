@@ -135,7 +135,7 @@ If the folder is missing and the user's request is rich enough to derive the inp
 6. Download Firebase SDK configs (verifies google-services.json package match)
 7. Logo generation (optional — asks user)
 8. Package refactor (renames packages, IDs, app name across all modules)
-9. Build environment + keystore (local.properties, CocoaPods, generates signing keystore)
+9. Build environment + keystore (local.properties, signing keystore; iOS deps via SwiftPM)
 10. Git remotes (template as upstream)
    -> Pre-store reminder: prompts user to create Google Play Console app; ASC is created automatically
 11. App Store Connect setup (optional — full asc CLI flow, app created automatically)

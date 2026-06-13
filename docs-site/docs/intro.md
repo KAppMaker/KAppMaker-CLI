@@ -17,7 +17,7 @@ A single `kappmaker create` command can:
 - Configure an existing Google Play Console app — store listings, subscriptions, one-time in-app products, and the data safety declaration
 - Set up Adapty subscription products, paywalls, and placements for both iOS and Android
 - Refactor Gradle package names and application IDs
-- Set up the build environment (Android SDK, CocoaPods)
+- Set up the build environment (Android SDK)
 - Produce a signed Android release build (AAB) via Fastlane, ready to upload to Google Play
 
 Standalone commands let you generate marketing screenshots from a text description, translate screenshots to 48+ locales in parallel, remove image backgrounds, enhance image quality, and split grid images — all powered by AI.
@@ -89,7 +89,6 @@ See the [Custom Templates guide](/guides/custom-templates) for details on what w
 - **Node.js** >= 20
 - **Git**
 - **Firebase CLI** — `npm install -g firebase-tools`
-- **CocoaPods** — `sudo gem install cocoapods`
 - **Fastlane** — via Bundler in the template repo
 - **Android SDK** — installed at `~/Library/Android/sdk` (configurable)
 - **asc CLI** (optional, for App Store Connect) — `brew install asc`
