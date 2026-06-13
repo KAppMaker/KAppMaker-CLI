@@ -27,13 +27,6 @@ const REQUIRED_DEPS: Dependency[] = [
     canAutoInstall: true,
   },
   {
-    command: 'pod',
-    versionArg: '--version',
-    name: 'CocoaPods',
-    installCommand: 'sudo gem install cocoapods',
-    canAutoInstall: true,
-  },
-  {
     command: 'bundle',
     versionArg: '--version',
     name: 'Bundler (for Fastlane)',

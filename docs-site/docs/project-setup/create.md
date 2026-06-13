@@ -32,7 +32,7 @@ kappmaker create Remimi
 | 6 | Download SDK configs | `google-services.json` + `GoogleService-Info.plist` (verifies package match, falls back to `Assets/`) |
 | 7 | Logo generation | *Optional* — AI logo + automatic background removal |
 | 8 | Package refactor | Renames packages, IDs, app name across all modules |
-| 9 | Build environment | `local.properties`, CocoaPods, generates signing keystore if missing |
+| 9 | Build environment | `local.properties`, generates signing keystore if missing (iOS deps resolve via SwiftPM) |
 | 10 | Git remotes | Renames origin to upstream |
 | | *Pre-store reminder* | *Prompts user to create Google Play Console app; ASC is created automatically* |
 | 11 | App Store Connect | *Optional* — full app setup (metadata, subs, privacy); app created automatically via `asc web apps create` |

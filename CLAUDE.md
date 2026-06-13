@@ -126,7 +126,7 @@ The `create` command is the main orchestrator that runs everything end-to-end:
 6. Download Firebase SDK configs (KAppMaker paths or `Assets/` fallback; verifies google-services.json package matches config)
 7. Logo generation (optional — asks user, then auto-removes background)
 8. Package refactor — renames packages, IDs, and app name across all modules (shared, androidApp, desktopApp, webApp, designsystem, libs; also walks legacy `composeApp/` for pre-rename projects)
-9. Build environment + keystore — local.properties, CocoaPods, generates signing keystore if missing
+9. Build environment + keystore — local.properties, signing keystore if missing (iOS deps via SwiftPM)
 10. Git remotes (template as upstream)
     ↕ Pre-store reminder: prompts user to create Google Play Console app; ASC is created automatically
 11. App Store Connect setup (optional — calls `createAppStoreApp`; app is created automatically via `asc web apps create`)

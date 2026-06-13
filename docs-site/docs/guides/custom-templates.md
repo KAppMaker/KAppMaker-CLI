@@ -36,7 +36,7 @@ Some steps in the `create` command assume the KAppMaker project structure and wi
 
 - **Package refactor** — Renames package name, app ID, and display name using the TypeScript refactor service
 - **Firebase SDK config placement** — Downloads configs to KAppMaker-specific paths (falls back to `Assets/`)
-- **Build environment** — Creates `local.properties` and runs CocoaPods in the `MobileApp/` directory
+- **Build environment** — Creates `local.properties`; iOS dependencies resolve via SwiftPM at build time (CocoaPods runs only if the template has a `Podfile`)
 - **Android release build** — Generates keystore and builds signed AAB
 - **Git remotes** — Renames origin to upstream (designed for the "fork from template" workflow)
 - **Screenshot translation default path** — Defaults to `MobileApp/distribution/ios/appstore_metadata/screenshots/en-US`

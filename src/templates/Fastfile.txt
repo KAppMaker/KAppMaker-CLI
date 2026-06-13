@@ -158,7 +158,7 @@ platform :ios do
     # Build IPA
     build_app(
       scheme: "iosApp",
-      workspace: "iosApp/iosApp.xcworkspace",
+      project: "iosApp/iosApp.xcodeproj",
       configuration: "Release",
       export_method: "app-store",
       silent: false,

@@ -12,7 +12,7 @@ A single `kappmaker create` command can:
 - Configure an existing Google Play Console app — store listings, subscriptions, one-time in-app products, and the data safety declaration — via a built-in wrapper around the Play Publisher API (no external CLI, no extra dependencies)
 - Set up Adapty subscription products, paywalls, and placements for both iOS and Android
 - Refactor Gradle package names and application IDs
-- Set up the build environment (Android SDK, CocoaPods)
+- Set up the build environment (Android SDK)
 - Produce a signed Android release build (AAB) via Fastlane, ready to upload to Google Play
 
 On top of that, standalone commands let you generate marketing screenshots from a text description, translate screenshots to 48+ locales in parallel, generate arbitrary images with AI, remove image backgrounds, enhance image quality, and split grid images — all powered by AI.
@@ -193,7 +193,7 @@ The `create` command runs the full end-to-end setup. Some steps assume the [KApp
 
 - **Package refactor** — Renames package name, app ID, and display name using the TypeScript refactor service (also available standalone via `kappmaker refactor`)
 - **Firebase SDK config placement** — Downloads `google-services.json` and `GoogleService-Info.plist` to KAppMaker-specific paths (falls back to `Assets/` for custom templates)
-- **Build environment** — Creates `local.properties` and runs CocoaPods in the `MobileApp/` directory
+- **Build environment** — Creates `local.properties`; iOS dependencies resolve via Swift Package Manager at build time (CocoaPods runs only if a custom template still has a `Podfile`)
 - **Android release build** — Generates keystore and builds signed AAB (also available standalone via `kappmaker android-release-build`)
 - **Git remotes** — Renames origin to upstream (designed for the "fork from template" workflow)
 - **Screenshot translation default path** — Defaults to `MobileApp/distribution/ios/appstore_metadata/screenshots/en-US` (falls back to parent of source directory)
@@ -205,7 +205,6 @@ The `create` command runs the full end-to-end setup. Some steps assume the [KApp
 - **Node.js** >= 20
 - **Git**
 - **Firebase CLI** — `npm install -g firebase-tools`
-- **CocoaPods** — `sudo gem install cocoapods`
 - **Fastlane** — via Bundler in the template repo
 - **Android SDK** — installed at `~/Library/Android/sdk` (configurable)
 - **asc CLI** (optional, for App Store Connect) — `brew install asc` (requires **≥ 1.4.0** as of KAppMaker 1.7.0 for the bulk CSV subscription-pricing path)
@@ -341,7 +340,7 @@ kappmaker create Remimi
 | 6 | Download SDK configs | `google-services.json` + `GoogleService-Info.plist` (verifies package match, falls back to `Assets/`) |
 | 7 | Logo generation | *Optional* — AI logo + automatic background removal |
 | 8 | Package refactor | Renames packages, IDs, app name across all modules (shared, androidApp, desktopApp, webApp, designsystem, libs; also walks legacy `composeApp/` for pre-rename projects) |
-| 9 | Build environment | `local.properties`, CocoaPods, generates signing keystore if missing |
+| 9 | Build environment | `local.properties`, generates signing keystore if missing (iOS deps resolve via SwiftPM) |
 | 10 | Git remotes | Renames origin to upstream |
 | | *Pre-store reminder* | *Prompts user to create Google Play Console app; App Store Connect is created automatically* |
 | 11 | App Store Connect | *Optional* — full app setup (metadata, subs, privacy); app created automatically via `asc web apps create` |
