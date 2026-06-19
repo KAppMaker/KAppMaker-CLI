@@ -22,6 +22,7 @@ import {
   gpcIapList,
   gpcIapPush,
   gpcDataSafetyPush,
+  gpcMonetizationPush,
 } from './commands/gpc.js';
 import { generateScreenshots } from './commands/generate-screenshots.js';
 import { generateImage } from './commands/generate-image.js';
@@ -460,6 +461,18 @@ export function createCli(): Command {
     .option('--config <path>', 'Path to Google Play JSON config file')
     .action(async (options) => {
       await gpcDataSafetyPush(options);
+    });
+
+  const gpcMonetization = gpcCmd.command('monetization').description('Push subscriptions + IAPs from config (standalone monetization step of gpc setup)');
+  gpcMonetization
+    .command('push')
+    .description('Push subscriptions and in-app products from the Google Play config file to Play Console')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--subscriptions-only', 'Push subscriptions only, skip IAPs')
+    .option('--iap-only', 'Push IAPs only, skip subscriptions')
+    .option('--recreate-stuck', 'Delete + recreate products stuck due to regionsVersion 2022/02 incompatibility')
+    .action(async (options) => {
+      await gpcMonetizationPush(options);
     });
 
   // ── Adapty ──────────────────────────────────────────────────────────

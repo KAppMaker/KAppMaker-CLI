@@ -55,6 +55,10 @@ npx tsx src/index.ts generate-feature-image --prompt "..." --app-name "FitTrack"
 npx tsx src/index.ts generate-ios-icons [--source <logo>]  # Generate all iOS AppIcon.appiconset PNGs + Contents.json (no AI)
 npx tsx src/index.ts generate-android-icons [--source <logo>] [--background "#RRGGBB"]  # Generate Android mipmap-* launcher icons + adaptive XML + colors.xml entry (no AI)
 npx tsx src/index.ts create-appstore-app           # App Store Connect setup
+npx tsx src/index.ts appstore-monetization-push                                    # Push subscriptions + IAPs from appstore-config.json to ASC (standalone monetization step)
+npx tsx src/index.ts appstore-monetization-push --config ./my-config.json          # Custom config path
+npx tsx src/index.ts appstore-monetization-push --subscriptions-only               # Subs only
+npx tsx src/index.ts appstore-monetization-push --iap-only                         # IAPs only
 npx tsx src/index.ts appstore-update-subscription-review-screenshot --file <path>  # Replace subscription review screenshots (1290×2796)
 npx tsx src/index.ts appstore-update-iap-review-screenshot --file <path>           # Replace IAP review images (1290×2796)
 npx tsx src/index.ts gpc setup                     # Google Play Console setup (full 11-step flow)
@@ -65,6 +69,9 @@ npx tsx src/index.ts gpc subscriptions list [--package <pkg>]  # List existing s
 npx tsx src/index.ts gpc subscriptions push        # Create/reuse subscriptions from config
 npx tsx src/index.ts gpc iap list [--package <pkg>]            # List existing in-app products
 npx tsx src/index.ts gpc iap push                  # Create/reuse IAPs from config
+npx tsx src/index.ts gpc monetization push         # Push subscriptions + IAPs together (standalone monetization step)
+npx tsx src/index.ts gpc monetization push --subscriptions-only  # Subs only
+npx tsx src/index.ts gpc monetization push --iap-only            # IAPs only
 npx tsx src/index.ts gpc data-safety push          # Push data safety declaration from config
 npx tsx src/index.ts adapty setup                  # Adapty products/paywall/placements setup
 npx tsx src/index.ts subscription add --period weekly --price 9.99                          # Create one new subscription on Play + ASC (auto-generates aligned IDs)
@@ -166,6 +173,7 @@ src/
     generate-ios-icons.ts   # iOS AppIcon.appiconset generator (sharp-only, 11 sizes + Contents.json, no AI)
     generate-android-icons.ts # Android mipmap-* launcher icon generator (sharp-only, 5 densities × 3 files + adaptive XML + colors.xml upsert, no AI)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator via asc CLI)
+    appstore-monetization-push.ts  # Push subscriptions + IAPs from appstore config to ASC (step 10 of create-appstore-app as standalone)
     create-play-app.ts      # Google Play Console setup (11-step orchestrator via direct Publisher API)
     gpc.ts                  # kappmaker gpc subcommands: setup, app-check, listings, subscriptions, iap, data-safety
     adapty-setup.ts         # Adapty setup (8-step orchestrator via adapty CLI)
@@ -286,6 +294,8 @@ Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fann
 - **IAPs**: `asc iap pricing schedules create --prices "PP_ID:DATE,..."` (already batch from earlier versions).
 
 **Tier resolution (1.7.0+)**: Apple's price-point catalog uses globally-stable tier numbers (1..800; tier N = the same USD-equivalent across every territory). We resolve each unique PPP USD target → tier ONCE via USA's catalog (where customerPrice is in USD), then synthesise per-territory price-point IDs locally using Apple's base64 `{s, t, p}` format (s = catalog-specific identifier, t = territory alpha-3, p = `10000 + tier`). This replaced 1.6.x's broken "compare USD target to local-currency price-points" which picked the **FREE tier (¥0)** for JPN/IDR/INR/KRW/etc.
+
+**Local-tier override for non-proportional markets (1.13.8+)**: Apple's tier structure is non-linear in some markets — Turkey being the confirmed case: tier 14 in TRY ≈ 3× tier 1, not 14×. Synthesising the USA tier number for these territories causes a double-PPP-discount (e.g. $29.99 → USA tier 88 → TRY 99.99 ≈ $2.17 instead of intended ~$13). `LOCAL_PRICE_TERRITORIES = {TUR, EGY, NGA, JPN, KOR, IDN, BRA}` marks territories where we must fetch the local catalog. `resolveLocalTier(appId, territory, usaTierNumber, opts)` fetches the territory's price-point catalog, finds tier-1's local price, computes `targetLocal = tier1_local × usaTierNumber`, then returns the tier number of the closest local price-point. The caller synthesises the final price-point ID via `encodePricePointId(s, territory, localTier)` using its own `s` value (which differs per catalog/subscription). Results cached by `(territory, usaTierNumber)` — subscription-agnostic — so weekly + yearly subscriptions sharing the same PPP USD target pay only one catalog fetch per territory per run. All `LOCAL_PRICE_TERRITORIES` lookups for a subscription are pre-warmed in parallel (`Promise.all`) before the CSV build loop, so the loop itself gets instant cache hits for all subsequent subscriptions and IAPs with the same base price.
 
 **Two catalogs, distinct IDs**:
 - `appPricePoints` (`asc pricing price-points`) — for IAPs. `s = appId`.
@@ -530,6 +540,8 @@ kappmaker gpc
 ├── iap
 │   ├── list               # GET /applications/{pkg}/oneTimeProducts (new monetization API)
 │   └── push               # Idempotent create via PATCH /onetimeproducts/{id}?allowMissing=true + activate purchase option
+├── monetization
+│   └── push               # Push subscriptions + IAPs together (monetization steps of gpc setup as a standalone; --subscriptions-only / --iap-only)
 └── data-safety
     └── push               # POST /applications/{pkg}/dataSafety (pass-through body)
 ```
