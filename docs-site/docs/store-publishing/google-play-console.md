@@ -225,6 +225,42 @@ The `Assets/googleplay-config.json` template ships with three default consumable
 
 ---
 
+## gpc monetization push
+
+Re-run only the subscription + IAP push steps from `gpc setup` — useful for refreshing PPP pricing across all ~175 regions without repeating listings, data safety, or the manual-checklist prompt.
+
+```bash
+# Push everything (subscriptions + IAPs)
+kappmaker gpc monetization push
+
+# Subscriptions only
+kappmaker gpc monetization push --subscriptions-only
+
+# IAPs only
+kappmaker gpc monetization push --iap-only
+
+# Custom config path
+kappmaker gpc monetization push --config ./path/to/googleplay-config.json
+
+# Re-create products stuck due to regionsVersion 2022/02 drift
+kappmaker gpc monetization push --recreate-stuck
+```
+
+Validates the service account and probes app state (requires at least one uploaded build — internal testing track is enough). Calls the same `setupSubscriptions` / `setupInAppProducts` functions as `gpc setup` — fully idempotent: existing products are PATCHed with refreshed PPP regional fan-out.
+
+| Flag | Description | Default |
+|---|---|---|
+| `--config <path>` | Path to JSON config file | `./Assets/googleplay-config.json` |
+| `--subscriptions-only` | Push subscriptions only, skip IAPs | — |
+| `--iap-only` | Push IAPs only, skip subscriptions | — |
+| `--recreate-stuck` | DELETE + recreate products stuck due to `regionsVersion=2022/02` incompatibility | — |
+
+:::tip When to use this vs `gpc setup`
+Use `gpc monetization push` when you've already run the full setup and just want to sync pricing (e.g. after upgrading KAppMaker for a PPP fix, or after adding a new product to the config). Use `gpc setup` for initial setup or when you also need to update listings or data safety.
+:::
+
+---
+
 ## gpc data-safety push
 
 Push only the data safety declaration. Faster than running the full `setup` when iterating on the privacy answers.

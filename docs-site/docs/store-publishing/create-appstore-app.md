@@ -191,6 +191,8 @@ These commands delete the existing screenshot and create a new one. Empirically 
 Versions 1.6.x had a bug where products silently landed at $0 in territories whose price-points are denominated in non-USD (JPN, IDR, INR, KRW, CHL, COL, HUN, NGA, PAK, PHL, RUS, THA, TZA, VNM, etc.). The old code compared the USD PPP target numerically against local-currency `customerPrice` values, picking the FREE tier as "closest" (e.g. for JPN: |¥0 − 3.99| = 3.99 < |¥50 − 3.99| = 46). 1.7.0's tier-based resolution avoids this entirely. **If your app is on 1.6.x and shows $0 prices on App Store Connect, upgrade and re-run `create-appstore-app`** — re-runs now refresh pricing.
 :::
 
+**Local-tier override for non-proportional markets (1.13.8+)**: Apple's tier structure is non-linear in some markets. In Turkey (TRY), for example, tier 14 ≈ 3× tier 1 locally — not 14×. Synthesising a USA tier number for these territories causes a double-PPP-discount (e.g. $29.99 → tier 88 → TRY 99.99 ≈ $2.15 instead of the intended ~$13.49). KAppMaker 1.13.8+ fetches the local price-point catalog for `LOCAL_PRICE_TERRITORIES = {TUR, EGY, NGA, JPN, KOR, IDN, BRA}`, computes `target_local = tier1_local × usaTierNumber`, and picks the closest price-point in local currency. Results are cached by `(territory, usaTierNumber)` so weekly + yearly subscriptions with the same USD target pay only one catalog fetch per territory per run.
+
 **Override rule**: any territory you list in `prices` is preserved as-is. PPP fills the rest.
 
 **Opt-out**: set `"ppp_enabled": false` on a subscription or IAP to skip the fan-out and stay with only your explicitly-listed `prices`.
@@ -209,6 +211,36 @@ Versions 1.6.x had a bug where products silently landed at $0 in territories who
 ```
 
 The `--territory` flag accepts alpha-2, alpha-3 ISO codes, or English country names; KAppMaker uses alpha-3.
+
+## appstore-monetization-push
+
+Re-run only the subscription + IAP push steps from `create-appstore-app` — useful for refreshing PPP pricing, adding a new product from the config, or fixing `MISSING_METADATA` state without repeating the full 13-step flow.
+
+```bash
+# Push everything (subscriptions + IAPs)
+kappmaker appstore-monetization-push
+
+# Subscriptions only
+kappmaker appstore-monetization-push --subscriptions-only
+
+# IAPs only
+kappmaker appstore-monetization-push --iap-only
+
+# Custom config path
+kappmaker appstore-monetization-push --config ./path/to/appstore-config.json
+```
+
+Reads `Assets/appstore-config.json` (or `--config`). Resolves the app by `app.id` or looks up `app.bundle_id` via `asc`. Calls the same `setupSubscriptions` / `setupInAppPurchases` functions as `create-appstore-app` — fully idempotent: existing products log `"existing — refreshing pricing"` and re-apply the full PPP fan-out.
+
+| Flag | Description | Default |
+|---|---|---|
+| `--config <path>` | Path to JSON config file | `./Assets/appstore-config.json` |
+| `--subscriptions-only` | Push subscription groups only, skip IAPs | — |
+| `--iap-only` | Push IAPs only, skip subscription groups | — |
+
+:::tip When to use this vs `create-appstore-app`
+Use `appstore-monetization-push` when you've already run the full setup and just want to sync pricing (e.g. after upgrading KAppMaker for a PPP fix, or after adding a new subscription/IAP to the config). Use `create-appstore-app` for initial setup or when you also need to update metadata, privacy, or review contact.
+:::
 
 ## Default Privacy
 
