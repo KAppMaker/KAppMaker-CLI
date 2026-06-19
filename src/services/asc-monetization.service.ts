@@ -529,6 +529,17 @@ async function setupInAppPurchase(
     result.exitCode !== 0 &&
     (combined.includes('already been used') || combined.includes('already exists'));
 
+  // Extract the internal IAP ID from the fresh setup response when available.
+  let iapId: string | null = null;
+  if (result.exitCode === 0 && result.stdout) {
+    try {
+      const data = JSON.parse(result.stdout);
+      iapId = data?.iapId ?? data?.id ?? data?.data?.id ?? null;
+    } catch {
+      // Fall through
+    }
+  }
+
   if (alreadyExists) {
     logger.info(`IAP "${iap.ref_name}" (${iap.product_id}) already exists — refreshing pricing.`);
   } else if (result.exitCode !== 0) {
@@ -537,25 +548,24 @@ async function setupInAppPurchase(
     return;
   }
 
+  // Mirror the subscription pattern: --iap-id accepts the product_id directly
+  // (per asc CLI 1.4+ behaviour), so fall back to product_id when the internal
+  // ID isn't available from the setup response (i.e. for pre-existing IAPs).
+  const idForCli = iapId ?? iap.product_id;
+
   // Per-territory PPP fan-out via a single `iap pricing schedules create` call.
   // Always run for both fresh and pre-existing IAPs — re-runs need to update prices.
   if (iap.ppp_enabled !== false && price?.price) {
-    const iapId = await resolveIapId(appId, iap.product_id);
-    if (iapId) await applyPppToIap(appId, iapId, iap, price.price);
+    await applyPppToIap(appId, idForCli, iap, price.price);
   }
 
   // Upload App Review image (Apple-required to leave MISSING_METADATA state).
   // Silently skipped if the file doesn't exist.
   const screenshotPath = iap.review_screenshot ?? reviewOpts.defaultReviewScreenshot;
   if (screenshotPath) {
-    // resolveIapId is cached after the PPP fan-out; if PPP was skipped (ppp_enabled=false),
-    // this call populates the cache.
-    const iapId = await resolveIapId(appId, iap.product_id);
-    if (iapId) {
-      await uploadIapReviewScreenshot(appId, iapId, iap.ref_name, screenshotPath, {
-        promptOnSizeMismatch: true,
-      });
-    }
+    await uploadIapReviewScreenshot(appId, idForCli, iap.ref_name, screenshotPath, {
+      promptOnSizeMismatch: true,
+    });
   }
 }
 
