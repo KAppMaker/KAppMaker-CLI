@@ -42,6 +42,14 @@ export async function appstoreMonetizationPush(options: AppStoreMonetizationPush
   const pushSubs = !options.iapOnly;
   const pushIaps = !options.subscriptionsOnly;
 
+  // Set app-level pricing + territory availability before IAP setup.
+  // In the full create-appstore-app flow this is done in step 10 via createPricing().
+  // Skipping it here leaves IAPs unavailable outside the base territory (no setAppAvailability call)
+  // and PPP prices silently set for territories where the IAP isn't actually listed.
+  if (pushIaps && config.pricing) {
+    await ascMoney.createPricing(appId, config.pricing);
+  }
+
   // ── Subscriptions ────────────────────────────────────────────────────
   if (pushSubs) {
     const groups = config.subscriptions?.groups ?? [];
