@@ -7,6 +7,7 @@ import { enhance } from './commands/enhance.js';
 import { translateScreenshots } from './commands/translate-screenshots.js';
 import { configList, configGet, configSet, configPath, configInit, configAppStoreDefaults, configAdaptyDefaults } from './commands/config.js';
 import { createAppStoreApp } from './commands/create-appstore-app.js';
+import { appstoreMonetizationPush } from './commands/appstore-monetization-push.js';
 import {
   updateSubscriptionReviewScreenshot,
   updateIapReviewScreenshot,
@@ -366,6 +367,16 @@ export function createCli(): Command {
     .option('--product-id <id>', 'Target a single IAP by product_id or ref_name (default: all IAPs in config)')
     .action(async (options) => {
       await updateIapReviewScreenshot(options);
+    });
+
+  program
+    .command('appstore-monetization-push')
+    .description('Push subscriptions and IAPs from appstore config to App Store Connect (monetization step of create-appstore-app as a standalone)')
+    .option('-c, --config <path>', `Path to App Store Connect JSON config (default: Assets/appstore-config.json)`)
+    .option('--subscriptions-only', 'Push subscription groups only, skip IAPs')
+    .option('--iap-only', 'Push IAPs only, skip subscription groups')
+    .action(async (options) => {
+      await appstoreMonetizationPush(options);
     });
 
   // ── Google Play Console ────────────────────────────────────────────
