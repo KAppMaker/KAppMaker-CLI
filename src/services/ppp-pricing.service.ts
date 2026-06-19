@@ -309,20 +309,33 @@ export const LOCAL_PRICE_TERRITORIES = new Set([
   'BRA', // Brazil  (BRL) — large non-linear BRL adjustments by Apple
 ]);
 
+// Tier cache for LOCAL_PRICE_TERRITORIES.
+// Key: `${territory}:${usaTierNumber}`.
+// Tier numbers are catalog-agnostic ('app' and 'subscription' share the same numbering)
+// and subscription-agnostic (same tier → same local price regardless of which
+// subscription's catalog was fetched). Safe to share across the entire run.
+const localTierCache = new Map<string, number>();
+
 /**
- * For territories in LOCAL_PRICE_TERRITORIES, find the price-point whose local price
- * is proportionally closest to our PPP USD target using Apple's own tier-1 price as anchor:
+ * For territories in LOCAL_PRICE_TERRITORIES, resolve the local tier number whose
+ * local price is proportionally closest to our PPP USD target:
  *   target_local = territory_tier1_price × usaTierNumber
- * Avoids the double-PPP-discount caused by using the USA tier number on a territory
- * where Apple's tiers don't scale linearly (e.g. Turkey tier 14 = 99.99 ₺ ≈ $2.17
- * instead of the intended ~490 ₺ ≈ $13.50 at Apple's implicit rate).
+ *
+ * Result cached by (territory, usaTierNumber) — subscription-agnostic — so
+ * multiple subscriptions with the same base price pay only one catalog fetch
+ * per territory per run. Caller synthesises the final price-point ID via
+ * encodePricePointId(s, territory, localTier) with its own `s` value.
  */
-export async function findLocalPricePoint(
+export async function resolveLocalTier(
   appId: string,
   territory: string,
   usaTierNumber: number,
   opts: { catalog: 'app' | 'subscription'; subscriptionId?: string },
-): Promise<string | null> {
+): Promise<number | null> {
+  const cacheKey = `${territory}:${usaTierNumber}`;
+  const cached = localTierCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   const points = await fetchPricePoints(appId, { ...opts, territory });
   if (points.length === 0) return null;
 
@@ -334,19 +347,25 @@ export async function findLocalPricePoint(
   if (!Number.isFinite(tier1Price) || tier1Price <= 0) return null;
 
   const targetLocal = tier1Price * usaTierNumber;
-
-  let best: PricePoint | null = null;
+  let bestTier: number | null = null;
   let bestDelta = Infinity;
   for (const p of points) {
     const num = Number(p.customerPrice);
     if (!Number.isFinite(num) || num <= 0) continue;
     const delta = Math.abs(num - targetLocal);
     if (delta < bestDelta) {
-      best = p;
-      bestDelta = delta;
+      const t = tierFromPricePointId(p.id);
+      if (t !== null) { bestTier = t; bestDelta = delta; }
     }
   }
-  return best?.id ?? null;
+
+  if (bestTier !== null) localTierCache.set(cacheKey, bestTier);
+  return bestTier;
+}
+
+/** Test-only: clear the local tier cache between runs. */
+export function _clearLocalTierCacheForTesting(): void {
+  localTierCache.clear();
 }
 
 /** Log a one-line summary of PPP fan-out results. */
