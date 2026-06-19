@@ -152,6 +152,54 @@ export async function gpcIapPush(options: CreatePlayAppOptions): Promise<void> {
   logger.success(`Processed ${config.in_app_products.length} in-app product(s).`);
 }
 
+export interface GpcMonetizationPushOptions {
+  config?: string;
+  subscriptionsOnly?: boolean;
+  iapOnly?: boolean;
+  recreateStuck?: boolean;
+}
+
+/** Push subscriptions + IAPs from config in one shot (idempotent). */
+export async function gpcMonetizationPush(options: GpcMonetizationPushOptions): Promise<void> {
+  await ensureAuth();
+  const { config } = await loadPlayConfigStrict(options.config);
+
+  const state = await gpc.fetchAppState(config.app.package_name);
+  if (state && !state.hasUploadedBuild) {
+    logger.fatal('No build uploaded to any Play Console track.');
+    logger.info('Google Play requires at least one build (with BILLING permission) uploaded');
+    logger.info('to a track before subscriptions/IAPs can be created via the API.');
+    logger.info('Upload one with: kappmaker publish --platform android --track internal');
+    process.exit(1);
+  }
+
+  const defaultLanguage = state?.defaultLanguage ?? config.app.default_language;
+  const pushSubs = !options.iapOnly;
+  const pushIaps = !options.subscriptionsOnly;
+
+  if (pushSubs) {
+    if (config.subscriptions.length > 0) {
+      logger.info(`Pushing ${config.subscriptions.length} subscription(s) to Google Play…`);
+      await gpcMoney.setupSubscriptions(config.app.package_name, config.subscriptions, defaultLanguage);
+    } else {
+      logger.info('No subscriptions in config — skipping.');
+    }
+  }
+
+  if (pushIaps) {
+    if (config.in_app_products.length > 0) {
+      logger.info(`Pushing ${config.in_app_products.length} in-app product(s) to Google Play…`);
+      await gpcMoney.setupInAppProducts(config.app.package_name, config.in_app_products, {
+        recreateStuck: options.recreateStuck === true,
+      });
+    } else {
+      logger.info('No in-app products in config — skipping.');
+    }
+  }
+
+  logger.success('Google Play monetization push complete.');
+}
+
 /**
  * Push only the data safety declaration. Priority:
  *   1. `data_safety_csv_path` — uploaded verbatim (escape hatch).

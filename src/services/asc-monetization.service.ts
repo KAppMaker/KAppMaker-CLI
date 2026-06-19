@@ -7,6 +7,8 @@ import {
   encodePricePointId,
   expandAscTerritories,
   findExactPricePointForPrice,
+  resolveLocalTier,
+  LOCAL_PRICE_TERRITORIES,
   logPppFanOut,
   resolveUsdTierWithS,
 } from './ppp-pricing.service.js';
@@ -326,6 +328,25 @@ async function applyPppToSubscription(
     return;
   }
 
+  // Pre-warm resolveLocalTier for LOCAL_PRICE_TERRITORIES in parallel.
+  // resolveLocalTier caches by (territory, usaTierNumber) — subscription-agnostic —
+  // so weekly + yearly with the same base price share the cache; only the first
+  // subscription pays the catalog fetch cost (~1 API call per territory).
+  const localPrewarm: Array<{ territory: string; tier: number }> = [];
+  const seenLocal = new Set<string>();
+  for (const f of fanOut) {
+    if (!LOCAL_PRICE_TERRITORIES.has(f.territory)) continue;
+    const tier = tierByUsd.get(f.targetPrice);
+    if (tier === undefined) continue;
+    const key = `${f.territory}:${tier}`;
+    if (!seenLocal.has(key)) { seenLocal.add(key); localPrewarm.push({ territory: f.territory, tier }); }
+  }
+  await Promise.all(
+    localPrewarm.map(({ territory, tier }) =>
+      resolveLocalTier(appId, territory, tier, { catalog: 'subscription', subscriptionId })
+    ),
+  );
+
   // Build the CSV. `price` column is required by the importer but is informational
   // when `price_point_id` is provided (Apple resolves the actual price from
   // the price-point ID). We pass the USD target for readability.
@@ -333,7 +354,17 @@ async function applyPppToSubscription(
   for (const item of fanOut) {
     const tier = tierByUsd.get(item.targetPrice);
     if (tier === undefined) continue;
-    const ppId = encodePricePointId(subInternalS, item.territory, tier);
+    let ppId: string;
+    if (LOCAL_PRICE_TERRITORIES.has(item.territory)) {
+      const localTier = await resolveLocalTier(appId, item.territory, tier, {
+        catalog: 'subscription',
+        subscriptionId,
+      });
+      if (localTier === null) continue;
+      ppId = encodePricePointId(subInternalS, item.territory, localTier);
+    } else {
+      ppId = encodePricePointId(subInternalS, item.territory, tier);
+    }
     rows.push(`${item.territory},${item.targetPrice},${ppId}`);
   }
 
@@ -583,12 +614,37 @@ async function applyPppToIap(
     if (r) tierByUsd.set(usd, r.tier);
   }
 
+  // Pre-warm resolveLocalTier for LOCAL_PRICE_TERRITORIES in parallel.
+  // IAP catalog is app-level (s = appId), so the cache is shared across ALL IAPs
+  // for this app — only the very first IAP per territory per run costs an API call.
+  const localIapPrewarm: Array<{ territory: string; tier: number }> = [];
+  const seenLocalIap = new Set<string>();
+  for (const f of fanOut) {
+    if (!LOCAL_PRICE_TERRITORIES.has(f.territory)) continue;
+    const tier = tierByUsd.get(f.targetPrice);
+    if (tier === undefined) continue;
+    const key = `${f.territory}:${tier}`;
+    if (!seenLocalIap.has(key)) { seenLocalIap.add(key); localIapPrewarm.push({ territory: f.territory, tier }); }
+  }
+  await Promise.all(
+    localIapPrewarm.map(({ territory, tier }) =>
+      resolveLocalTier(appId, territory, tier, { catalog: 'app' })
+    ),
+  );
+
   const startDate = new Date().toISOString().slice(0, 10);
   const entries: string[] = [];
   for (const item of fanOut) {
     const tier = tierByUsd.get(item.targetPrice);
     if (tier === undefined) continue;
-    const ppId = encodePricePointId(appId, item.territory, tier);
+    let ppId: string;
+    if (LOCAL_PRICE_TERRITORIES.has(item.territory)) {
+      const localTier = await resolveLocalTier(appId, item.territory, tier, { catalog: 'app' });
+      if (localTier === null) continue;
+      ppId = encodePricePointId(appId, item.territory, localTier);
+    } else {
+      ppId = encodePricePointId(appId, item.territory, tier);
+    }
     entries.push(`${ppId}:${startDate}`);
   }
 

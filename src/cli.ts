@@ -7,6 +7,7 @@ import { enhance } from './commands/enhance.js';
 import { translateScreenshots } from './commands/translate-screenshots.js';
 import { configList, configGet, configSet, configPath, configInit, configAppStoreDefaults, configAdaptyDefaults } from './commands/config.js';
 import { createAppStoreApp } from './commands/create-appstore-app.js';
+import { appstoreMonetizationPush } from './commands/appstore-monetization-push.js';
 import {
   updateSubscriptionReviewScreenshot,
   updateIapReviewScreenshot,
@@ -21,6 +22,7 @@ import {
   gpcIapList,
   gpcIapPush,
   gpcDataSafetyPush,
+  gpcMonetizationPush,
 } from './commands/gpc.js';
 import { generateScreenshots } from './commands/generate-screenshots.js';
 import { generateImage } from './commands/generate-image.js';
@@ -368,6 +370,16 @@ export function createCli(): Command {
       await updateIapReviewScreenshot(options);
     });
 
+  program
+    .command('appstore-monetization-push')
+    .description('Push subscriptions and IAPs from appstore config to App Store Connect (monetization step of create-appstore-app as a standalone)')
+    .option('-c, --config <path>', `Path to App Store Connect JSON config (default: Assets/appstore-config.json)`)
+    .option('--subscriptions-only', 'Push subscription groups only, skip IAPs')
+    .option('--iap-only', 'Push IAPs only, skip subscription groups')
+    .action(async (options) => {
+      await appstoreMonetizationPush(options);
+    });
+
   // ── Google Play Console ────────────────────────────────────────────
 
   program
@@ -449,6 +461,18 @@ export function createCli(): Command {
     .option('--config <path>', 'Path to Google Play JSON config file')
     .action(async (options) => {
       await gpcDataSafetyPush(options);
+    });
+
+  const gpcMonetization = gpcCmd.command('monetization').description('Push subscriptions + IAPs from config (standalone monetization step of gpc setup)');
+  gpcMonetization
+    .command('push')
+    .description('Push subscriptions and in-app products from the Google Play config file to Play Console')
+    .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--subscriptions-only', 'Push subscriptions only, skip IAPs')
+    .option('--iap-only', 'Push IAPs only, skip subscriptions')
+    .option('--recreate-stuck', 'Delete + recreate products stuck due to regionsVersion 2022/02 incompatibility')
+    .action(async (options) => {
+      await gpcMonetizationPush(options);
     });
 
   // ── Adapty ──────────────────────────────────────────────────────────

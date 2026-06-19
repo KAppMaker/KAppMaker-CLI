@@ -105,7 +105,9 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [`create-logo`](#create-logo)
   - [`generate-image`](#generate-image)
   - [`create-appstore-app`](#create-appstore-app)
+  - [`appstore-monetization-push`](#appstore-monetization-push) — Push subs + IAPs from config to ASC (standalone)
   - [`gpc`](#gpc) — Google Play Console management
+  - [`gpc monetization push`](#gpc-monetization-push) — Push subs + IAPs from config to Play (standalone)
   - [`subscription add`](#subscription-add) — Quick-add a subscription to Play + ASC
   - [`iap add`](#iap-add) — Quick-add a credit-pack IAP to Play + ASC + Adapty
   - [`adapty setup`](#adapty-setup)
@@ -142,12 +144,14 @@ Claude will check your config, verify API keys are set, and walk you through any
 | [`kappmaker create-logo`](#create-logo) | Generate an app logo with AI (fal.ai) |
 | [`kappmaker generate-image`](#generate-image) | Generate an arbitrary image with AI — generic wrapper around fal.ai nano-banana-2 |
 | [`kappmaker create-appstore-app`](#create-appstore-app) | Set up an app on App Store Connect (metadata, subscriptions, privacy) |
+| [`kappmaker appstore-monetization-push`](#appstore-monetization-push) | Push subscriptions + IAPs from `appstore-config.json` to App Store Connect (monetization step of `create-appstore-app` as a standalone; supports `--subscriptions-only`, `--iap-only`, `--config`) |
 | [`kappmaker gpc setup`](#gpc) | Set up an existing app on Google Play Console (listings, subscriptions, IAPs, data safety) |
 | [`kappmaker gpc listings push`](#gpc) | Push store listings from the Google Play config file |
 | [`kappmaker gpc subscriptions list/push`](#gpc) | List or push subscriptions on Google Play Console |
 | [`kappmaker gpc iap list/push`](#gpc) | List or push one-time in-app products on Google Play Console |
 | [`kappmaker gpc data-safety push`](#gpc) | Push data safety declaration on Google Play Console |
 | [`kappmaker gpc app-check --package <pkg>`](#gpc) | Check if a package exists on Google Play Console |
+| [`kappmaker gpc monetization push`](#gpc-monetization-push) | Push subscriptions + IAPs from `googleplay-config.json` to Google Play Console (monetization steps of `gpc setup` as a standalone; supports `--subscriptions-only`, `--iap-only`) |
 | [`kappmaker subscription add`](#subscription-add) | Quick-add one new subscription to Google Play + App Store Connect (auto-aligned IDs, full PPP fan-out, auto-creates ASC subscription group if missing) |
 | [`kappmaker iap add`](#iap-add) | Quick-add one new credit-pack IAP to Google Play + App Store Connect + Adapty (auto-aligned IDs, full PPP fan-out) |
 | [`kappmaker adapty setup`](#adapty-setup) | Set up Adapty products, paywalls, and placements |
@@ -706,6 +710,34 @@ During interactive setup, the CLI asks if the app accesses user content (AI imag
 
 ---
 
+## `appstore-monetization-push`
+
+Standalone command that re-runs only the subscription + IAP push step from `create-appstore-app`. Useful when you want to sync pricing (including PPP fan-out) without repeating the full 13-step setup — e.g. after adding a new subscription period, adjusting prices, or upgrading to a newer KAppMaker version with PPP fixes.
+
+```bash
+# Push everything (subscriptions + IAPs)
+kappmaker appstore-monetization-push
+
+# Subscriptions only
+kappmaker appstore-monetization-push --subscriptions-only
+
+# IAPs only
+kappmaker appstore-monetization-push --iap-only
+
+# Custom config path
+kappmaker appstore-monetization-push --config ./path/to/appstore-config.json
+```
+
+Reads `Assets/appstore-config.json` (or `--config <path>`). Resolves the ASC app ID from `app.id` or by looking up `app.bundle_id` via `asc`. Calls the same `setupSubscriptions` / `setupInAppPurchases` functions as `create-appstore-app` — fully idempotent: existing products get pricing refreshed with the full PPP regional fan-out.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config <path>` | Path to JSON config file | `./Assets/appstore-config.json` |
+| `--subscriptions-only` | Push subscription groups only, skip IAPs | — |
+| `--iap-only` | Push IAPs only, skip subscription groups | — |
+
+---
+
 ## `gpc`
 
 Google Play Console management — a tight wrapper around the official Google Play Android Publisher API. All subcommands authenticate via the service account JSON at `googleServiceAccountPath` (same one used by `publish --platform android`). **No external CLI and no extra npm dependencies** — the JWT flow and HTTPS calls are implemented with Node's built-in `crypto` and `fetch`.
@@ -923,6 +955,38 @@ All `gpc` subcommands except `app-check` load `./Assets/googleplay-config.json` 
 | `--package <name>` | (list commands) Override the package name from config | — |
 
 **Alias:** `kappmaker create-play-app` is kept as a shortcut for `kappmaker gpc setup` (the entire 11-step flow is also what the top-level `kappmaker create` calls under step 8 when you answer yes to the Google Play Console prompt).
+
+---
+
+## `gpc monetization push`
+
+Standalone command that re-runs only the subscription + IAP push steps from `gpc setup`. Useful when you want to sync pricing (including full PPP fan-out across ~175 regions) without repeating listings, data safety, or the manual-checklist prompt.
+
+```bash
+# Push everything (subscriptions + IAPs)
+kappmaker gpc monetization push
+
+# Subscriptions only
+kappmaker gpc monetization push --subscriptions-only
+
+# IAPs only
+kappmaker gpc monetization push --iap-only
+
+# Custom config path
+kappmaker gpc monetization push --config ./path/to/googleplay-config.json
+
+# Re-create products stuck due to regionsVersion 2022/02 drift
+kappmaker gpc monetization push --recreate-stuck
+```
+
+Reads `Assets/googleplay-config.json` (or `--config <path>`). Validates the service account and probes the app state (requires at least one uploaded build — internal testing track is enough). Calls the same `setupSubscriptions` / `setupInAppProducts` functions as `gpc setup` — fully idempotent: existing products are PATCHed with refreshed PPP regional fan-out.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--config <path>` | Path to JSON config file | `./Assets/googleplay-config.json` |
+| `--subscriptions-only` | Push subscriptions only, skip IAPs | — |
+| `--iap-only` | Push IAPs only, skip subscriptions | — |
+| `--recreate-stuck` | Delete + recreate products stuck due to regionsVersion 2022/02 incompatibility | — |
 
 ---
 
@@ -1810,6 +1874,7 @@ src/
     create-logo.ts          # AI logo generation (accepts --prompt or interactive)
     generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator)
+    appstore-monetization-push.ts  # Push subscriptions + IAPs from appstore config to ASC (step 10 of create-appstore-app as standalone)
     create-play-app.ts      # Google Play Console setup (11-step orchestrator, aliased by `gpc setup`)
     gpc.ts                  # kappmaker gpc subcommands (setup, listings, subscriptions, iap, data-safety, app-check)
     adapty-setup.ts         # Adapty setup (8-step orchestrator)
