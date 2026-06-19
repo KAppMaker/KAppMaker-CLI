@@ -7,6 +7,8 @@ import {
   encodePricePointId,
   expandAscTerritories,
   findExactPricePointForPrice,
+  findLocalPricePoint,
+  LOCAL_PRICE_TERRITORIES,
   logPppFanOut,
   resolveUsdTierWithS,
 } from './ppp-pricing.service.js';
@@ -326,6 +328,23 @@ async function applyPppToSubscription(
     return;
   }
 
+  // Pre-fetch local-price-territory catalogs in parallel so the per-territory
+  // lookup below doesn't stall sequentially (~1.5s per territory otherwise).
+  const localPpMap = new Map<string, string>(); // `territory:usdTarget` → ppId
+  await Promise.all(
+    fanOut
+      .filter((item) => LOCAL_PRICE_TERRITORIES.has(item.territory))
+      .map(async (item) => {
+        const tier = tierByUsd.get(item.targetPrice);
+        if (tier === undefined) return;
+        const ppId = await findLocalPricePoint(appId, item.territory, tier, {
+          catalog: 'subscription',
+          subscriptionId,
+        });
+        if (ppId) localPpMap.set(`${item.territory}:${item.targetPrice}`, ppId);
+      }),
+  );
+
   // Build the CSV. `price` column is required by the importer but is informational
   // when `price_point_id` is provided (Apple resolves the actual price from
   // the price-point ID). We pass the USD target for readability.
@@ -333,7 +352,10 @@ async function applyPppToSubscription(
   for (const item of fanOut) {
     const tier = tierByUsd.get(item.targetPrice);
     if (tier === undefined) continue;
-    const ppId = encodePricePointId(subInternalS, item.territory, tier);
+    const ppId = LOCAL_PRICE_TERRITORIES.has(item.territory)
+      ? localPpMap.get(`${item.territory}:${item.targetPrice}`)
+      : encodePricePointId(subInternalS, item.territory, tier);
+    if (!ppId) continue;
     rows.push(`${item.territory},${item.targetPrice},${ppId}`);
   }
 
@@ -583,12 +605,28 @@ async function applyPppToIap(
     if (r) tierByUsd.set(usd, r.tier);
   }
 
+  // Pre-fetch local-price-territory catalogs in parallel.
+  const localIapPpMap = new Map<string, string>(); // `territory:usdTarget` → ppId
+  await Promise.all(
+    fanOut
+      .filter((item) => LOCAL_PRICE_TERRITORIES.has(item.territory))
+      .map(async (item) => {
+        const tier = tierByUsd.get(item.targetPrice);
+        if (tier === undefined) return;
+        const ppId = await findLocalPricePoint(appId, item.territory, tier, { catalog: 'app' });
+        if (ppId) localIapPpMap.set(`${item.territory}:${item.targetPrice}`, ppId);
+      }),
+  );
+
   const startDate = new Date().toISOString().slice(0, 10);
   const entries: string[] = [];
   for (const item of fanOut) {
     const tier = tierByUsd.get(item.targetPrice);
     if (tier === undefined) continue;
-    const ppId = encodePricePointId(appId, item.territory, tier);
+    const ppId = LOCAL_PRICE_TERRITORIES.has(item.territory)
+      ? localIapPpMap.get(`${item.territory}:${item.targetPrice}`)
+      : encodePricePointId(appId, item.territory, tier);
+    if (!ppId) continue;
     entries.push(`${ppId}:${startDate}`);
   }
 
