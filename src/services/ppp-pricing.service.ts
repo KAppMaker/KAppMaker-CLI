@@ -127,10 +127,22 @@ export function expandAscTerritories(
 const pricePointCache = new Map<string, PricePoint[]>();
 
 interface FetchPricePointsOpts {
-  /** "app" → `asc pricing price-points` (for IAPs). "subscription" → `asc subscriptions pricing price-points list` */
-  catalog: 'app' | 'subscription';
+  /**
+   * "app" → `asc pricing price-points` (app-level catalog, `s` = appId).
+   * "iap" → `asc iap pricing price-points list --iap-id` (per-IAP catalog, `s` = iapId).
+   * "subscription" → `asc subscriptions pricing price-points list` (per-sub catalog, `s` = subId).
+   *
+   * NOTE: IAP price schedules require the per-IAP catalog ("iap"), NOT the
+   * app-level one ("app"). The two share tier numbering but encode a DIFFERENT
+   * `s` field — app-level uses appId, per-IAP uses the IAP's own ID. A schedule
+   * built from app-level IDs (s=appId) is silently rejected by Apple, leaving
+   * the IAP on auto-adjusted ("May Adjust Automatically") pricing.
+   */
+  catalog: 'app' | 'subscription' | 'iap';
   /** Required when catalog = "subscription". */
   subscriptionId?: string;
+  /** Required when catalog = "iap". Accepts the numeric IAP ID or the product ID. */
+  iapId?: string;
   /** ASC territory alpha-3 to filter (defaults to USA since tier numbering is global). */
   territory?: string;
 }
@@ -139,7 +151,9 @@ async function fetchPricePoints(appId: string, opts: FetchPricePointsOpts): Prom
   const territory = opts.territory ?? 'USA';
   const key = opts.catalog === 'subscription'
     ? `sub:${appId}:${opts.subscriptionId}:${territory}`
-    : `app:${appId}:${territory}`;
+    : opts.catalog === 'iap'
+      ? `iap:${appId}:${opts.iapId}:${territory}`
+      : `app:${appId}:${territory}`;
   const cached = pricePointCache.get(key);
   if (cached) return cached;
 
@@ -149,7 +163,13 @@ async function fetchPricePoints(appId: string, opts: FetchPricePointsOpts): Prom
        '--subscription-id', opts.subscriptionId!,
        '--territory', territory,
        '--paginate', '--output', 'json']
-    : ['pricing', 'price-points', '--app', appId, '--territory', territory, '--paginate', '--output', 'json'];
+    : opts.catalog === 'iap'
+      ? ['iap', 'pricing', 'price-points', 'list',
+         '--app', appId,
+         '--iap-id', opts.iapId!,
+         '--territory', territory,
+         '--paginate', '--output', 'json']
+      : ['pricing', 'price-points', '--app', appId, '--territory', territory, '--paginate', '--output', 'json'];
 
   const result = await run('asc', args, {
     label: `Fetching ${opts.catalog} price-point catalog for ${territory}`,
@@ -230,13 +250,14 @@ export function encodePricePointId(s: string, territory: string, tier: number): 
 export async function resolveUsdTierWithS(
   appId: string,
   targetUsdPrice: string,
-  opts: { catalog: 'app' | 'subscription'; subscriptionId?: string },
+  opts: { catalog: 'app' | 'subscription' | 'iap'; subscriptionId?: string; iapId?: string },
 ): Promise<{ tier: number; s: string } | null> {
   const target = Number(targetUsdPrice);
   if (!Number.isFinite(target) || target <= 0) return null;
   const points = await fetchPricePoints(appId, {
     catalog: opts.catalog,
     subscriptionId: opts.subscriptionId,
+    iapId: opts.iapId,
     territory: 'USA',
   });
   if (points.length === 0) return null;
@@ -271,13 +292,14 @@ export async function findExactPricePointForPrice(
   appId: string,
   territory: string,
   targetPrice: string,
-  opts: { catalog: 'app' | 'subscription'; subscriptionId?: string } = { catalog: 'app' },
+  opts: { catalog: 'app' | 'subscription' | 'iap'; subscriptionId?: string; iapId?: string } = { catalog: 'app' },
 ): Promise<string | null> {
   const target = Number(targetPrice);
   if (!Number.isFinite(target)) return null;
   const points = await fetchPricePoints(appId, {
     catalog: opts.catalog,
     subscriptionId: opts.subscriptionId,
+    iapId: opts.iapId,
     territory,
   });
   for (const p of points) {
@@ -330,7 +352,7 @@ export async function resolveLocalTier(
   appId: string,
   territory: string,
   usaTierNumber: number,
-  opts: { catalog: 'app' | 'subscription'; subscriptionId?: string },
+  opts: { catalog: 'app' | 'subscription' | 'iap'; subscriptionId?: string; iapId?: string },
 ): Promise<number | null> {
   const cacheKey = `${territory}:${usaTierNumber}`;
   const cached = localTierCache.get(cacheKey);

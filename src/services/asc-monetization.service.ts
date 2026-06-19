@@ -474,21 +474,60 @@ export async function setupInAppPurchases(
   appId: string,
   iaps: AppStoreInAppPurchase[],
   reviewOpts: ReviewScreenshotOptions = {},
+  availability?: AppStoreAvailability,
 ): Promise<void> {
   if (iaps.length === 0) {
     logger.info('No in-app purchases configured, skipping.');
     return;
   }
 
-  for (const iap of iaps) {
-    await setupInAppPurchase(appId, iap, reviewOpts);
+  // Resolve IAP availability territories once (shared across all IAPs).
+  // IAPs have their OWN availability, separate from app-level availability —
+  // without this, an IAP stays available only in its base territory even after
+  // PPP prices are set for ~175 territories (pricing and availability are
+  // independent fields on Apple's side).
+  let territories: string[] = [];
+  if (availability) {
+    territories = availability.territories;
+    if (availability.include_all && territories.length === 0) {
+      territories = await fetchAllTerritories();
+    }
   }
+
+  for (const iap of iaps) {
+    await setupInAppPurchase(appId, iap, reviewOpts, territories, availability?.available_in_new_territories ?? true);
+  }
+}
+
+async function setIapAvailability(
+  appId: string,
+  iapId: string,
+  refName: string,
+  territories: string[],
+  availableInNew: boolean,
+): Promise<void> {
+  if (territories.length === 0) return;
+  await run('asc', [
+    'iap', 'pricing', 'availability', 'set',
+    '--app', appId,
+    '--iap-id', iapId,
+    '--territories', territories.join(','),
+    '--available-in-new-territories', String(availableInNew),
+    '--output', 'json',
+  ], {
+    label: `Setting IAP availability for ${refName} (${territories.length} territories)`,
+    allowFailure: true,
+    timeout: 3 * 60_000,
+    env: { ASC_TIMEOUT: '180s' },
+  });
 }
 
 async function setupInAppPurchase(
   appId: string,
   iap: AppStoreInAppPurchase,
   reviewOpts: ReviewScreenshotOptions = {},
+  territories: string[] = [],
+  availableInNewTerritories = true,
 ): Promise<void> {
   const args = [
     'iap', 'setup',
@@ -553,6 +592,11 @@ async function setupInAppPurchase(
   // ID isn't available from the setup response (i.e. for pre-existing IAPs).
   const idForCli = iapId ?? iap.product_id;
 
+  // Set per-IAP territory availability (independent of app-level availability
+  // and of pricing). Without this the IAP stays available only in its base
+  // territory regardless of how many territories get PPP prices.
+  await setIapAvailability(appId, idForCli, iap.ref_name, territories, availableInNewTerritories);
+
   // Per-territory PPP fan-out via a single `iap pricing schedules create` call.
   // Always run for both fresh and pre-existing IAPs — re-runs need to update prices.
   if (iap.ppp_enabled !== false && price?.price) {
@@ -569,37 +613,14 @@ async function setupInAppPurchase(
   }
 }
 
-// Cache the IAP-list lookup so we only fetch once per orchestrator run.
-let iapListCache: Map<string, string> | null = null;
-async function resolveIapId(appId: string, productId: string): Promise<string | null> {
-  if (!iapListCache) {
-    const r = await run(
-      'asc',
-      ['iap', 'list', '--app', appId, '--paginate', '--output', 'json'],
-      { label: 'Listing in-app purchases', allowFailure: true },
-    );
-    iapListCache = new Map();
-    if (r.exitCode === 0 && r.stdout) {
-      try {
-        const data = JSON.parse(r.stdout);
-        const arr: Array<{ id?: string; attributes?: { productId?: string }; productId?: string }> = data?.data ?? data ?? [];
-        for (const e of arr) {
-          const attrs = e.attributes ?? e;
-          if (e.id && attrs.productId) iapListCache.set(attrs.productId, e.id);
-        }
-      } catch {
-        // Fall through
-      }
-    }
-  }
-  return iapListCache.get(productId) ?? null;
-}
-
 /**
  * Apply PPP pricing across ASC territories for an IAP via a single `schedules
- * create` call. The CLI's `--prices` list takes app-level price-point IDs
- * (territory-specific), so we:
- *   1. Resolve each unique USD target → CLI tier via USA's catalog (one fetch).
+ * create` call. Mirrors `applyPppToSubscription`:
+ *   1. Resolve each unique USD target → (tier, internal `s`) once via USA's
+ *      PER-IAP catalog (`asc iap pricing price-points list --iap-id`). The `s`
+ *      field there is the IAP's OWN ID — NOT the appId. (The app-level catalog
+ *      `asc pricing price-points` encodes s=appId, but schedule create rejects
+ *      those IDs, silently leaving the IAP on "May Adjust Automatically".)
  *   2. Construct each (territory, tier) price-point ID directly using Apple's
  *      base64 `{s, t, p}` format — avoids 174 per-territory CLI fetches.
  *   3. Submit all 174 entries in one `schedules create` call.
@@ -614,19 +635,25 @@ async function applyPppToIap(
   const fanOut = expandAscTerritories(baseUsdPrice, userTerritories);
   logPppFanOut(`IAP ${iap.ref_name}`, baseUsdPrice, fanOut.length, userTerritories.size);
 
-  // Resolve each unique USD target to a tier once via USA's app-level catalog.
-  // For IAPs `s = appId` (verified empirically — IAP price-points always
-  // encode the appId as the `s` field).
+  // Resolve each unique USD target → (tier, internal `s`) once via USA's per-IAP
+  // catalog. The first call also pulls the `s` field (the IAP's internal ID,
+  // shared by all its price-points) which we reuse to synthesise per-territory IDs.
   const uniqueTargets = new Set(fanOut.map((f) => f.targetPrice));
   const tierByUsd = new Map<string, number>();
+  let iapInternalS: string | null = null;
   for (const usd of uniqueTargets) {
-    const r = await resolveUsdTierWithS(appId, usd, { catalog: 'app' });
-    if (r) tierByUsd.set(usd, r.tier);
+    const r = await resolveUsdTierWithS(appId, usd, { catalog: 'iap', iapId });
+    if (r) {
+      tierByUsd.set(usd, r.tier);
+      iapInternalS ??= r.s;
+    }
+  }
+  if (!iapInternalS) {
+    logger.warn(`PPP IAP ${iap.ref_name}: could not resolve USA price-point catalog; skipping fan-out.`);
+    return;
   }
 
   // Pre-warm resolveLocalTier for LOCAL_PRICE_TERRITORIES in parallel.
-  // IAP catalog is app-level (s = appId), so the cache is shared across ALL IAPs
-  // for this app — only the very first IAP per territory per run costs an API call.
   const localIapPrewarm: Array<{ territory: string; tier: number }> = [];
   const seenLocalIap = new Set<string>();
   for (const f of fanOut) {
@@ -638,7 +665,7 @@ async function applyPppToIap(
   }
   await Promise.all(
     localIapPrewarm.map(({ territory, tier }) =>
-      resolveLocalTier(appId, territory, tier, { catalog: 'app' })
+      resolveLocalTier(appId, territory, tier, { catalog: 'iap', iapId })
     ),
   );
 
@@ -649,11 +676,11 @@ async function applyPppToIap(
     if (tier === undefined) continue;
     let ppId: string;
     if (LOCAL_PRICE_TERRITORIES.has(item.territory)) {
-      const localTier = await resolveLocalTier(appId, item.territory, tier, { catalog: 'app' });
+      const localTier = await resolveLocalTier(appId, item.territory, tier, { catalog: 'iap', iapId });
       if (localTier === null) continue;
-      ppId = encodePricePointId(appId, item.territory, localTier);
+      ppId = encodePricePointId(iapInternalS, item.territory, localTier);
     } else {
-      ppId = encodePricePointId(appId, item.territory, tier);
+      ppId = encodePricePointId(iapInternalS, item.territory, tier);
     }
     entries.push(`${ppId}:${startDate}`);
   }
@@ -661,7 +688,7 @@ async function applyPppToIap(
   // User-listed territory overrides go in the same schedule (last wins).
   for (const p of iap.prices) {
     if (!p.price || !p.territory) continue;
-    const ppId = await findExactPricePointForPrice(appId, p.territory, p.price, { catalog: 'app' });
+    const ppId = await findExactPricePointForPrice(appId, p.territory, p.price, { catalog: 'iap', iapId });
     if (ppId) entries.push(`${ppId}:${startDate}`);
   }
 
@@ -671,7 +698,7 @@ async function applyPppToIap(
   }
 
   const baseTerritory = iap.prices[0]?.territory ?? 'USA';
-  await run(
+  const result = await run(
     'asc',
     [
       'iap', 'pricing', 'schedules', 'create',
@@ -687,6 +714,11 @@ async function applyPppToIap(
       timeout: 3 * 60_000,
     },
   );
+  if (result.exitCode !== 0) {
+    logger.warn(`PPP IAP ${iap.ref_name}: schedule create failed — ${(result.stderr || result.stdout).slice(0, 300)}`);
+  } else {
+    logger.success(`PPP IAP ${iap.ref_name}: ${entries.length} territories applied via schedule create.`);
+  }
 }
 
 // ── App Review screenshots ─────────────────────────────────────────

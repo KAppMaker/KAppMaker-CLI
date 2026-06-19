@@ -139,7 +139,7 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
   } else {
     logger.info('No subscriptions configured, skipping.');
   }
-  await ascMoney.setupInAppPurchases(appId, config.in_app_purchases ?? [], reviewOpts);
+  await ascMoney.setupInAppPurchases(appId, config.in_app_purchases ?? [], reviewOpts, config.pricing?.availability);
 
   // Step 11: Set Privacy
   logger.step(11, TOTAL_STEPS, 'Setting privacy data usages');

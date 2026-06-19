@@ -274,6 +274,12 @@ async function pushToAsc(
 
   await ascMoney.setupInAppPurchases(appId, [iap], {
     defaultReviewScreenshot: reviewScreenshot,
+  }, {
+    // Default to "everywhere" so the IAP is available in every territory the
+    // PPP fan-out prices (mirrors subscription-add's territory default).
+    include_all: true,
+    territories: [],
+    available_in_new_territories: true,
   });
   return true;
 }

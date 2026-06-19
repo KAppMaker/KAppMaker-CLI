@@ -68,7 +68,7 @@ export async function appstoreMonetizationPush(options: AppStoreMonetizationPush
     const iaps = config.in_app_purchases ?? [];
     if (iaps.length > 0) {
       logger.info(`Pushing ${iaps.length} IAP(s) to App Store Connect…`);
-      await ascMoney.setupInAppPurchases(appId, iaps, reviewOpts);
+      await ascMoney.setupInAppPurchases(appId, iaps, reviewOpts, config.pricing?.availability);
     } else {
       logger.info('No IAPs in config — skipping.');
     }
