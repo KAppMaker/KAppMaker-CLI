@@ -1,5 +1,5 @@
-import * as fs from 'fs-extra';
-import * as path from 'node:path';
+import fs from 'fs-extra';
+import path from 'node:path';
 import { logger } from '../utils/logger.js';
 import * as asc from '../services/asc.service.js';
 import * as ascMoney from '../services/asc-monetization.service.js';
