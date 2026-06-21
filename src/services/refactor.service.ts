@@ -2,9 +2,6 @@ import path from 'path';
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
 
-export const DEFAULT_OLD_APP_ID = 'com.measify.kappmaker';
-export const DEFAULT_OLD_APP_NAME = 'KAppMakerAllModules';
-
 const SOURCE_DIRS = [
   'src/commonMain/kotlin',
   'src/commonTest/kotlin',
@@ -267,24 +264,24 @@ async function updateAppName(
 
 // Current package id = the android module `namespace` (tracks the Kotlin package even after a
 // previous skip-package-rename, which only changes applicationId).
-async function detectOldAppId(mobileDir: string): Promise<string> {
+async function detectOldAppId(mobileDir: string): Promise<string | null> {
   for (const f of ['androidApp/build.gradle.kts', 'composeApp/build.gradle.kts']) {
     const file = path.join(mobileDir, f);
     if (!(await fs.pathExists(file))) continue;
     const m = (await fs.readFile(file, 'utf8')).match(/namespace\s*=\s*["']([^"']+)["']/);
     if (m) return m[1];
   }
-  return DEFAULT_OLD_APP_ID;
+  return null; // not found — caller errors out rather than guessing
 }
 
 // Current display/app name = settings.gradle.kts `rootProject.name`.
-async function detectOldAppName(mobileDir: string): Promise<string> {
+async function detectOldAppName(mobileDir: string): Promise<string | null> {
   const file = path.join(mobileDir, 'settings.gradle.kts');
   if (await fs.pathExists(file)) {
     const m = (await fs.readFile(file, 'utf8')).match(/rootProject\.name\s*=\s*["']([^"']+)["']/);
     if (m) return m[1];
   }
-  return DEFAULT_OLD_APP_NAME;
+  return null; // not found — caller errors out rather than guessing
 }
 
 export async function refactor(
@@ -296,9 +293,16 @@ export async function refactor(
   oldAppNameOverride?: string,
 ): Promise<void> {
   // Auto-detect what's being replaced from the project (so re-refactoring an already-renamed
-  // app works with no extra flags); the explicit override args win when provided.
+  // app works with no extra flags); the explicit override args win when provided. If detection
+  // fails, error out instead of guessing a default that could rewrite the wrong string.
   const oldAppId = oldAppIdOverride ?? await detectOldAppId(mobileDir);
   const oldAppName = oldAppNameOverride ?? await detectOldAppName(mobileDir);
+  if (!oldAppId) {
+    throw new Error("Could not detect the current app id (no 'namespace' in androidApp/build.gradle.kts). Pass --old-app-id.");
+  }
+  if (!oldAppName) {
+    throw new Error("Could not detect the current app name (no 'rootProject.name' in settings.gradle.kts). Pass --old-app-name.");
+  }
   logger.info('Refactoring from ' + oldAppId + ' -> ' + newAppId + ', ' + oldAppName + ' -> ' + newAppName);
 
   if (!skipPackageRename) {
