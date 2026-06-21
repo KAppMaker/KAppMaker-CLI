@@ -284,6 +284,35 @@ async function detectOldAppName(mobileDir: string): Promise<string | null> {
   return null; // not found — caller errors out rather than guessing
 }
 
+// Docs, agent guidelines, and script header comments reference the package both as a dotted id
+// (`com.x.y`) and as a slashed path (`com/x/y`, e.g. example file locations). Source files only use
+// the dotted form; these prose/comment files use both, so update both. Full-rename mode only.
+async function updateDocReferences(
+  mobileDir: string, oldId: string, newId: string,
+): Promise<void> {
+  const repoRoot = path.dirname(mobileDir);
+  const oldPkgPath = oldId.replace(/\./g, '/');
+  const newPkgPath = newId.replace(/\./g, '/');
+
+  const files = [
+    path.join(repoRoot, 'README.md'),
+    path.join(repoRoot, 'AGENTS.md'),
+    path.join(mobileDir, 'README.md'),
+  ];
+  for (const dir of [path.join(repoRoot, 'skills'), path.join(repoRoot, 'AiGuidelines')]) {
+    files.push(...await walkFiles(dir, ['md']));
+  }
+  // Helper-script header comments — but never rewrite the refactor script's own examples.
+  const scripts = await walkFiles(path.join(mobileDir, 'scripts'), ['sh']);
+  files.push(...scripts.filter((f) => path.basename(f) !== 'refactor_package.sh'));
+
+  for (const f of files) {
+    const a = await replaceInFile(f, oldId, newId);
+    const b = await replaceInFile(f, oldPkgPath, newPkgPath);
+    if (a || b) logger.info('Updated package refs in: ' + path.relative(repoRoot, f));
+  }
+}
+
 export async function refactor(
   mobileDir: string,
   newAppId: string,
@@ -326,6 +355,7 @@ export async function refactor(
     await updateIosFiles(mobileDir, oldAppId, newAppId);
     await updateGithubWorkflows(mobileDir, oldAppId, newAppId);
     await updateAppName(mobileDir, oldAppName, newAppName, newAppId);
+    await updateDocReferences(mobileDir, oldAppId, newAppId);
   } else {
     logger.info('Skipping package rename -- updating IDs and app name only...');
     await updateApplicationIdOnly(mobileDir, newAppId);
