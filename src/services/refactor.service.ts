@@ -119,6 +119,29 @@ async function updateGradleFiles(
   }
 }
 
+// Custom Gradle tasks are grouped under the package's last segment (e.g. group = "kappmaker").
+// Rename that label to the new last segment. Only the exact `group = "<old-last>"` assignment is
+// touched — the bare segment is too generic (also the brand name) to replace globally.
+async function updateTaskGroup(
+  mobileDir: string, oldId: string, newId: string,
+): Promise<void> {
+  const oldLast = oldId.split('.').pop() ?? '';
+  const newLast = newId.split('.').pop() ?? '';
+  if (!oldLast || oldLast === newLast) return;
+  const escaped = oldLast.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(group\\s*=\\s*)"${escaped}"`, 'g');
+  for (const mod of REFACTOR_MODULES) {
+    const file = path.join(mobileDir, mod, 'build.gradle.kts');
+    if (!(await fs.pathExists(file))) continue;
+    const content = await fs.readFile(file, 'utf8');
+    const updated = content.replace(re, `$1"${newLast}"`);
+    if (content !== updated) {
+      await fs.writeFile(file, updated, 'utf8');
+      logger.info(`Updated task group in ${mod}/build.gradle.kts ("${oldLast}" -> "${newLast}")`);
+    }
+  }
+}
+
 async function updateApplicationIdOnly(
   mobileDir: string, newId: string,
 ): Promise<void> {
@@ -351,6 +374,7 @@ export async function refactor(
     }
 
     await updateGradleFiles(mobileDir, oldAppId, newAppId);
+    await updateTaskGroup(mobileDir, oldAppId, newAppId);
     await updateFirebaseConfigs(mobileDir, oldAppId, newAppId);
     await updateIosFiles(mobileDir, oldAppId, newAppId);
     await updateGithubWorkflows(mobileDir, oldAppId, newAppId);
