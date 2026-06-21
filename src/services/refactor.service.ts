@@ -265,14 +265,40 @@ async function updateAppName(
   }
 }
 
+// Current package id = the android module `namespace` (tracks the Kotlin package even after a
+// previous skip-package-rename, which only changes applicationId).
+async function detectOldAppId(mobileDir: string): Promise<string> {
+  for (const f of ['androidApp/build.gradle.kts', 'composeApp/build.gradle.kts']) {
+    const file = path.join(mobileDir, f);
+    if (!(await fs.pathExists(file))) continue;
+    const m = (await fs.readFile(file, 'utf8')).match(/namespace\s*=\s*["']([^"']+)["']/);
+    if (m) return m[1];
+  }
+  return DEFAULT_OLD_APP_ID;
+}
+
+// Current display/app name = settings.gradle.kts `rootProject.name`.
+async function detectOldAppName(mobileDir: string): Promise<string> {
+  const file = path.join(mobileDir, 'settings.gradle.kts');
+  if (await fs.pathExists(file)) {
+    const m = (await fs.readFile(file, 'utf8')).match(/rootProject\.name\s*=\s*["']([^"']+)["']/);
+    if (m) return m[1];
+  }
+  return DEFAULT_OLD_APP_NAME;
+}
+
 export async function refactor(
   mobileDir: string,
   newAppId: string,
   newAppName: string,
   skipPackageRename: boolean,
-  oldAppId: string = DEFAULT_OLD_APP_ID,
-  oldAppName: string = DEFAULT_OLD_APP_NAME,
+  oldAppIdOverride?: string,
+  oldAppNameOverride?: string,
 ): Promise<void> {
+  // Auto-detect what's being replaced from the project (so re-refactoring an already-renamed
+  // app works with no extra flags); the explicit override args win when provided.
+  const oldAppId = oldAppIdOverride ?? await detectOldAppId(mobileDir);
+  const oldAppName = oldAppNameOverride ?? await detectOldAppName(mobileDir);
   logger.info('Refactoring from ' + oldAppId + ' -> ' + newAppId + ', ' + oldAppName + ' -> ' + newAppName);
 
   if (!skipPackageRename) {
