@@ -6,11 +6,11 @@ import { logger } from '../utils/logger.js';
 import {
   encodePricePointId,
   expandAscTerritories,
+  fetchEqualizations,
   findExactPricePointForPrice,
-  resolveLocalTier,
-  LOCAL_PRICE_TERRITORIES,
   logPppFanOut,
   resolveUsdTierWithS,
+  type PricePoint,
 } from './ppp-pricing.service.js';
 import { prepareReviewScreenshot } from './review-screenshot.service.js';
 import type {
@@ -295,9 +295,10 @@ async function setupSubscription(
  *      same `s`).
  *   2. For each unique USD target, find the closest USA price-point and pull
  *      its tier (`p - 10000`).
- *   3. For each territory in the PPP fan-out, synthesise the price-point ID
- *      as base64(`{s, t: territory, p}`) — same tier ID lookup Apple uses
- *      internally, but no API call needed per territory.
+ *   3. For each unique target, fetch Apple's EQUALIZATIONS of that USA
+ *      price-point — Apple's own value-matched point per territory (handles
+ *      non-proportional local grids like KZT/PKR/INR/JPY/KRW). Territories
+ *      missing from the response fall back to base64(`{s, t, p}`) synthesis.
  *   4. Emit a single CSV with `territory,price,price_point_id` rows and pipe
  *      to `prices import`.
  */
@@ -328,44 +329,44 @@ async function applyPppToSubscription(
     return;
   }
 
-  // Pre-warm resolveLocalTier for LOCAL_PRICE_TERRITORIES in parallel.
-  // resolveLocalTier caches by (territory, usaTierNumber) — subscription-agnostic —
-  // so weekly + yearly with the same base price share the cache; only the first
-  // subscription pays the catalog fetch cost (~1 API call per territory).
-  const localPrewarm: Array<{ territory: string; tier: number }> = [];
-  const seenLocal = new Set<string>();
-  for (const f of fanOut) {
-    if (!LOCAL_PRICE_TERRITORIES.has(f.territory)) continue;
-    const tier = tierByUsd.get(f.targetPrice);
-    if (tier === undefined) continue;
-    const key = `${f.territory}:${tier}`;
-    if (!seenLocal.has(key)) { seenLocal.add(key); localPrewarm.push({ territory: f.territory, tier }); }
-  }
+  // Fetch Apple's equalizations for each unique USD target — the authoritative
+  // per-territory price points (one CLI call per target, ~6 for a typical base
+  // price). Tier-number synthesis is only a fallback: the same tier number is
+  // NOT the same USD value in every territory (KZT tier N ≈ 0.15× FX; JPY/KRW/
+  // BRL/IDR grids non-linear), which caused the pre-1.13.17 under/over-pricing.
+  const eqByUsd = new Map<string, Map<string, PricePoint>>();
   await Promise.all(
-    localPrewarm.map(({ territory, tier }) =>
-      resolveLocalTier(appId, territory, tier, { catalog: 'subscription', subscriptionId })
-    ),
+    [...tierByUsd.entries()].map(async ([usd, tier]) => {
+      const usaPpId = encodePricePointId(subInternalS!, 'USA', tier);
+      eqByUsd.set(usd, await fetchEqualizations(usaPpId, { catalog: 'subscription' }));
+    }),
   );
 
   // Build the CSV. `price` column is required by the importer but is informational
   // when `price_point_id` is provided (Apple resolves the actual price from
   // the price-point ID). We pass the USD target for readability.
   const rows: string[] = ['territory,price,price_point_id'];
+  let synthesised = 0;
   for (const item of fanOut) {
     const tier = tierByUsd.get(item.targetPrice);
     if (tier === undefined) continue;
+    const eq = eqByUsd.get(item.targetPrice)?.get(item.territory);
     let ppId: string;
-    if (LOCAL_PRICE_TERRITORIES.has(item.territory)) {
-      const localTier = await resolveLocalTier(appId, item.territory, tier, {
-        catalog: 'subscription',
-        subscriptionId,
-      });
-      if (localTier === null) continue;
-      ppId = encodePricePointId(subInternalS, item.territory, localTier);
+    if (eq) {
+      ppId = eq.id;
+    } else if (item.territory === 'USA') {
+      // Equalizations exclude the source point itself; synthesis is exact here.
+      ppId = encodePricePointId(subInternalS, 'USA', tier);
     } else {
       ppId = encodePricePointId(subInternalS, item.territory, tier);
+      synthesised++;
     }
     rows.push(`${item.territory},${item.targetPrice},${ppId}`);
+  }
+  if (synthesised > 0) {
+    logger.warn(
+      `PPP ${sub.ref_name}: ${synthesised} territories missing from Apple's equalizations — used tier synthesis fallback (may misprice non-proportional markets).`,
+    );
   }
 
   // User-listed territory overrides (e.g. DE: 5.99 EUR) — resolve the EXACT
@@ -621,9 +622,10 @@ async function setupInAppPurchase(
  *      field there is the IAP's OWN ID — NOT the appId. (The app-level catalog
  *      `asc pricing price-points` encodes s=appId, but schedule create rejects
  *      those IDs, silently leaving the IAP on "May Adjust Automatically".)
- *   2. Construct each (territory, tier) price-point ID directly using Apple's
- *      base64 `{s, t, p}` format — avoids 174 per-territory CLI fetches.
- *   3. Submit all 174 entries in one `schedules create` call.
+ *   2. For each unique USD target, fetch Apple's equalizations of the USA
+ *      price-point → per-territory value-matched IDs (synthesised base64
+ *      `{s, t, p}` IDs only as fallback for missing territories).
+ *   3. Submit all entries in one `schedules create` call.
  */
 async function applyPppToIap(
   appId: string,
@@ -653,36 +655,38 @@ async function applyPppToIap(
     return;
   }
 
-  // Pre-warm resolveLocalTier for LOCAL_PRICE_TERRITORIES in parallel.
-  const localIapPrewarm: Array<{ territory: string; tier: number }> = [];
-  const seenLocalIap = new Set<string>();
-  for (const f of fanOut) {
-    if (!LOCAL_PRICE_TERRITORIES.has(f.territory)) continue;
-    const tier = tierByUsd.get(f.targetPrice);
-    if (tier === undefined) continue;
-    const key = `${f.territory}:${tier}`;
-    if (!seenLocalIap.has(key)) { seenLocalIap.add(key); localIapPrewarm.push({ territory: f.territory, tier }); }
-  }
+  // Fetch Apple's equalizations for each unique USD target (see
+  // applyPppToSubscription for why tier synthesis alone is unsafe).
+  const eqByUsd = new Map<string, Map<string, PricePoint>>();
   await Promise.all(
-    localIapPrewarm.map(({ territory, tier }) =>
-      resolveLocalTier(appId, territory, tier, { catalog: 'iap', iapId })
-    ),
+    [...tierByUsd.entries()].map(async ([usd, tier]) => {
+      const usaPpId = encodePricePointId(iapInternalS!, 'USA', tier);
+      eqByUsd.set(usd, await fetchEqualizations(usaPpId, { catalog: 'iap' }));
+    }),
   );
 
   const startDate = new Date().toISOString().slice(0, 10);
   const entries: string[] = [];
+  let synthesised = 0;
   for (const item of fanOut) {
     const tier = tierByUsd.get(item.targetPrice);
     if (tier === undefined) continue;
+    const eq = eqByUsd.get(item.targetPrice)?.get(item.territory);
     let ppId: string;
-    if (LOCAL_PRICE_TERRITORIES.has(item.territory)) {
-      const localTier = await resolveLocalTier(appId, item.territory, tier, { catalog: 'iap', iapId });
-      if (localTier === null) continue;
-      ppId = encodePricePointId(iapInternalS, item.territory, localTier);
+    if (eq) {
+      ppId = eq.id;
+    } else if (item.territory === 'USA') {
+      ppId = encodePricePointId(iapInternalS, 'USA', tier);
     } else {
       ppId = encodePricePointId(iapInternalS, item.territory, tier);
+      synthesised++;
     }
     entries.push(`${ppId}:${startDate}`);
+  }
+  if (synthesised > 0) {
+    logger.warn(
+      `PPP IAP ${iap.ref_name}: ${synthesised} territories missing from Apple's equalizations — used tier synthesis fallback (may misprice non-proportional markets).`,
+    );
   }
 
   // User-listed territory overrides go in the same schedule (last wins).

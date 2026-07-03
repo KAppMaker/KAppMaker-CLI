@@ -213,18 +213,12 @@ export function decodePricePointId(id: string): { s: string; t: string; p: strin
   }
 }
 
-/** Convert an Apple price-point `p` value (e.g. "10049") to a CLI tier (1..800). */
-export function tierFromPricePointId(id: string): number | null {
-  const decoded = decodePricePointId(id);
-  if (!decoded) return null;
-  const tier = parseInt(decoded.p, 10) - 10000;
-  return Number.isFinite(tier) && tier >= 1 && tier <= 800 ? tier : null;
-}
-
 /**
  * Re-encode a price-point ID for a different territory using the same `s` and
- * `p`. Used to fan out across territories without 174 per-territory fetches —
- * we read the `s` from a single USA fetch and synthesise the rest.
+ * `p`. Used to reconstruct the USA price point from (s, tier) and as a
+ * FALLBACK for territories missing from Apple's equalizations — synthesis
+ * assumes tier N is FX-proportional in the target territory, which several
+ * local grids violate (see fetchEqualizations), so equalized IDs always win.
  *
  *  - For IAPs: `s` = the appId.
  *  - For subscriptions: `s` = an internal subscription identifier (different
@@ -309,85 +303,71 @@ export async function findExactPricePointForPrice(
   return null;
 }
 
-/** Test/diagnostic-only — clears the in-memory price-point cache. */
+/** Test/diagnostic-only — clears the in-memory price-point + equalization caches. */
 export function _clearPricePointCacheForTesting(): void {
   pricePointCache.clear();
+  equalizationCache.clear();
 }
 
-/**
- * Territories where Apple's price tiers scale non-proportionally vs USD tier numbers.
- * Synthesising from the USA tier under-prices these markets because Apple sets tier N's
- * local price to << N × tier-1 (e.g. Turkey: tier 14 ≈ 3× tier-1, not 14×).
- * We instead fetch the territory catalog and pick the price-point closest to
- * tier1_local × usaTierNumber — preserving the proportional ratio using Apple's own scale.
- */
-export const LOCAL_PRICE_TERRITORIES = new Set([
-  'TUR', // Turkey  (TRY) — tier 14 ≈ 3× tier-1, not 14× (confirmed 2026-06)
-  'EGY', // Egypt   (EGP) — post-2023 devaluation breaks proportionality
-  'NGA', // Nigeria (NGN) — pricing volatile/suspended periods
-  'JPN', // Japan   (JPY) — Apple updates JPY sporadically; may diverge between updates
-  'KOR', // S.Korea (KRW) — same sporadic update pattern
-  'IDN', // Indonesia (IDR) — large-denomination currency, historically divergent
-  'BRA', // Brazil  (BRL) — large non-linear BRL adjustments by Apple
-]);
+// ── Equalizations ───────────────────────────────────────────────────
+//
+// For a given USA price point, Apple's "equalizations" endpoint returns the
+// value-matched price point in every other territory — the same mapping App
+// Store Connect's UI applies when it fills all countries after you pick a
+// base price. This is the only reliable cross-territory fan-out: the same
+// tier NUMBER does not mean the same USD value in every territory. Apple
+// keeps several local grids non-proportional (KZT tier N ≈ 0.15× the
+// FX-proportional price; PKR/INR/RUB/TZS/VND similar; JPY/KRW/BRL/IDR/TRY
+// non-linear in the other direction), so synthesising `{s, t, p}` IDs with
+// the USA tier number under- or over-prices those markets by 2–7×.
 
-// Tier cache for LOCAL_PRICE_TERRITORIES.
-// Key: `${territory}:${usaTierNumber}`.
-// Tier numbers are catalog-agnostic ('app' and 'subscription' share the same numbering)
-// and subscription-agnostic (same tier → same local price regardless of which
-// subscription's catalog was fetched). Safe to share across the entire run.
-const localTierCache = new Map<string, number>();
+const equalizationCache = new Map<string, Map<string, PricePoint>>();
 
 /**
- * For territories in LOCAL_PRICE_TERRITORIES, resolve the local tier number whose
- * local price is proportionally closest to our PPP USD target:
- *   target_local = territory_tier1_price × usaTierNumber
- *
- * Result cached by (territory, usaTierNumber) — subscription-agnostic — so
- * multiple subscriptions with the same base price pay only one catalog fetch
- * per territory per run. Caller synthesises the final price-point ID via
- * encodePricePointId(s, territory, localTier) with its own `s` value.
+ * Fetch Apple's equalized price points for a USA price-point ID. Returns a
+ * map keyed by territory alpha-3 (decoded from each returned ID's `t` field).
+ * Empty map when the CLI call fails — caller should fall back to synthesis.
+ * Cached per (catalog, usaPricePointId) for the whole run.
  */
-export async function resolveLocalTier(
-  appId: string,
-  territory: string,
-  usaTierNumber: number,
-  opts: { catalog: 'app' | 'subscription' | 'iap'; subscriptionId?: string; iapId?: string },
-): Promise<number | null> {
-  const cacheKey = `${territory}:${usaTierNumber}`;
-  const cached = localTierCache.get(cacheKey);
-  if (cached !== undefined) return cached;
+export async function fetchEqualizations(
+  usaPricePointId: string,
+  opts: { catalog: 'app' | 'subscription' | 'iap' },
+): Promise<Map<string, PricePoint>> {
+  const key = `${opts.catalog}:${usaPricePointId}`;
+  const cached = equalizationCache.get(key);
+  if (cached) return cached;
 
-  const points = await fetchPricePoints(appId, { ...opts, territory });
-  if (points.length === 0) return null;
+  const args = opts.catalog === 'subscription'
+    ? ['subscriptions', 'pricing', 'price-points', 'equalizations',
+       '--price-point-id', usaPricePointId, '--paginate', '--output', 'json']
+    : opts.catalog === 'iap'
+      ? ['iap', 'pricing', 'price-points', 'equalizations',
+         '--id', usaPricePointId, '--paginate', '--output', 'json']
+      : ['pricing', 'price-points', 'equalizations',
+         '--price-point', usaPricePointId, '--paginate', '--output', 'json'];
 
-  let tier1Price = Infinity;
-  for (const p of points) {
-    const num = Number(p.customerPrice);
-    if (Number.isFinite(num) && num > 0 && num < tier1Price) tier1Price = num;
-  }
-  if (!Number.isFinite(tier1Price) || tier1Price <= 0) return null;
-
-  const targetLocal = tier1Price * usaTierNumber;
-  let bestTier: number | null = null;
-  let bestDelta = Infinity;
-  for (const p of points) {
-    const num = Number(p.customerPrice);
-    if (!Number.isFinite(num) || num <= 0) continue;
-    const delta = Math.abs(num - targetLocal);
-    if (delta < bestDelta) {
-      const t = tierFromPricePointId(p.id);
-      if (t !== null) { bestTier = t; bestDelta = delta; }
+  const byTerritory = new Map<string, PricePoint>();
+  const result = await run('asc', args, {
+    label: `Fetching ${opts.catalog} price equalizations`,
+    allowFailure: true,
+  });
+  if (result.exitCode === 0 && result.stdout) {
+    try {
+      const data = JSON.parse(result.stdout);
+      const arr: Array<{ id?: string; attributes?: { customerPrice?: string }; customerPrice?: string }> = data?.data ?? data ?? [];
+      for (const p of arr) {
+        if (!p?.id) continue;
+        const territory = decodePricePointId(p.id)?.t;
+        if (!territory) continue;
+        const attrs = p.attributes ?? p;
+        byTerritory.set(territory, { id: p.id, customerPrice: attrs.customerPrice ?? '' });
+      }
+    } catch {
+      // Leave empty — caller falls back to tier synthesis.
     }
   }
-
-  if (bestTier !== null) localTierCache.set(cacheKey, bestTier);
-  return bestTier;
-}
-
-/** Test-only: clear the local tier cache between runs. */
-export function _clearLocalTierCacheForTesting(): void {
-  localTierCache.clear();
+  equalizationCache.set(key, byTerritory);
+  return byTerritory;
 }
 
 /** Log a one-line summary of PPP fan-out results. */
