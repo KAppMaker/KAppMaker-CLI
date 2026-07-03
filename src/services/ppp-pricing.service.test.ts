@@ -3,6 +3,7 @@
 import assert from 'node:assert';
 import {
   applyPpp,
+  charmRound,
   expandAscTerritories,
   expandPlayRegions,
   getMultiplier,
@@ -47,17 +48,34 @@ check('getMultiplier returns default 0.60 for completely unknown region "ZZ"', (
 });
 
 check('applyPpp $4.99 in IN with round99 = $1.99', () => {
-  // 4.99 * 0.35 = 1.7465 → floor(1) + 0.99 = 1.99
+  // 4.99 * 0.35 = 1.7465 → nearest of {1.49, 1.99} = 1.99
   assert.strictEqual(applyPpp('4.99', 'IN'), '1.99');
 });
 
-check('applyPpp $4.99 in CH with round99 = $5.99', () => {
-  // 4.99 * 1.10 = 5.489 → floor(5) + 0.99 = 5.99
-  assert.strictEqual(applyPpp('4.99', 'CH'), '5.99');
+check('applyPpp $4.99 in CH = $5.49 (nearest charm, not floor+.99)', () => {
+  // 4.99 * 1.10 = 5.489 → nearest of {4.99, 5.49, 5.99} = 5.49
+  assert.strictEqual(applyPpp('4.99', 'CH'), '5.49');
+});
+
+check('applyPpp $6.99 in KZ = $2.49 (nearest charm)', () => {
+  // 6.99 * 0.35 = 2.4465 → nearest of {1.99, 2.49, 2.99} = 2.49
+  assert.strictEqual(applyPpp('6.99', 'KZ'), '2.49');
+});
+
+check('charmRound rounds down across the dollar boundary (2.10 → 1.99)', () => {
+  assert.strictEqual(charmRound(2.10).toFixed(2), '1.99');
+});
+
+check('charmRound resolves exact ties upward (2.74 → 2.99)', () => {
+  assert.strictEqual(charmRound(2.74).toFixed(2), '2.99');
+});
+
+check('charmRound floors at 0.49 for tiny values', () => {
+  assert.strictEqual(charmRound(0.20).toFixed(2), '0.49');
 });
 
 check('applyPpp $4.99 in US = $4.99 (multiplier 1.0)', () => {
-  // 4.99 * 1.00 = 4.99 → floor(4) + 0.99 = 4.99
+  // 4.99 * 1.00 = 4.99 → already a .99 ending
   assert.strictEqual(applyPpp('4.99', 'US'), '4.99');
 });
 
@@ -67,7 +85,7 @@ check('applyPpp without round99 keeps raw cents', () => {
 });
 
 check('applyPpp $19.99 in AR = $5.99', () => {
-  // 19.99 * 0.30 = 5.997 → floor(5) + 0.99 = 5.99
+  // 19.99 * 0.30 = 5.997 → nearest charm = 5.99
   assert.strictEqual(applyPpp('19.99', 'AR'), '5.99');
 });
 

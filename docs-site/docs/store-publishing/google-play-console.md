@@ -140,7 +140,7 @@ The CLI calls Google's `pricing:convertRegionPrices` endpoint with your USD base
 2. Returns fair FX-converted prices in each region's native currency.
 
 Then KAppMaker multiplies each native price by the region's PPP multiplier and charm-rounds:
-- **Decimal currencies** (USD, EUR, GBP, INR, BRL, etc.) — Spotify-style: floor to whole + `.99`. So `INR 415 × 0.35 ≈ 145.25 → INR 144.99` floor-and-99 logic.
+- **Decimal currencies** (USD, EUR, GBP, INR, BRL, etc.) — nearest `.49`/`.99` ending, ties rounding up (1.13.18+). So `INR 415 × 0.35 ≈ 145.25 → INR 145.49`, and `USD 6.99 × 0.35 ≈ 2.45 → USD 2.49` (pre-1.13.18 floor+`.99` gave `2.99`).
 - **Zero-decimal currencies** (JPY, KRW, CLP, ISK, VND, etc.) — round to the nearest `X99` / `X9` / integer. So `JPY 750 × 0.80 = 600 → JPY 599`.
 
 Typical apps with 5 distinct base prices (weekly sub + yearly sub + 3 credit packs) make ~5 `convertRegionPrices` calls per setup run.

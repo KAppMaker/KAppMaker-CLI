@@ -1,6 +1,6 @@
 import { logger } from '../utils/logger.js';
 import { apiRequest } from './gpc.service.js';
-import { getMultiplier, logPppFanOut } from './ppp-pricing.service.js';
+import { charmRound, getMultiplier, logPppFanOut } from './ppp-pricing.service.js';
 import type {
   GooglePlaySubscription,
   GooglePlayBasePlan,
@@ -233,8 +233,8 @@ function moneyToPriceString(m: Money): string {
 /**
  * Apply a PPP multiplier to a Money value, with charm-rounding appropriate to
  * the currency: zero-decimal currencies (JPY/KRW/etc.) round to the nearest
- * X99 / X9 / X integer; decimal currencies (USD/EUR/INR/etc.) get the
- * Spotify-style "floor to whole + .99" treatment.
+ * X99 / X9 / X integer; decimal currencies (USD/EUR/INR/etc.) round to the
+ * nearest .49/.99 ending (ties up) via the shared charmRound helper.
  */
 function applyPppCharmRound(m: Money, multiplier: number): Money {
   const baseValue = moneyToFloat(m);
@@ -252,8 +252,10 @@ function applyPppCharmRound(m: Money, multiplier: number): Money {
     else rounded = Math.max(1, Math.round(scaled));
     return { currencyCode: m.currencyCode, units: String(rounded), nanos: 0 };
   }
-  const whole = Math.max(0, Math.floor(scaled));
-  return { currencyCode: m.currencyCode, units: String(whole), nanos: 990000000 };
+  const rounded = charmRound(scaled);
+  const units = Math.floor(rounded + 1e-9);
+  const cents = Math.round((rounded - units) * 100); // 49 or 99
+  return { currencyCode: m.currencyCode, units: String(units), nanos: cents * 10_000_000 };
 }
 
 /**

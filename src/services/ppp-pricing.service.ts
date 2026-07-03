@@ -46,8 +46,27 @@ export function getMultiplier(regionAlpha2: string): number {
 }
 
 /**
- * Apply PPP to a USD base price. By default rounds to .99 endings (e.g.
- * 4.99 × 0.30 = 1.497 → "1.99"). Set `round99: false` to keep raw cents.
+ * Charm-round to the NEAREST x.49 / x.99 ending (ties round up). Examples:
+ * 2.45 → 2.49, 2.10 → 1.99, 2.74 → 2.99, 5.49 → 5.49. Smallest output 0.49.
+ * Replaces the pre-1.13.18 "floor + .99" rule, which inflated mid-dollar
+ * values (2.45 → 2.99, +22% over the PPP intent).
+ */
+export function charmRound(value: number): number {
+  const whole = Math.floor(value);
+  let best = 0.49;
+  for (const c of [whole - 0.01, whole + 0.49, whole + 0.99]) {
+    if (c <= 0) continue;
+    const d = Math.abs(c - value);
+    const bd = Math.abs(best - value);
+    if (d < bd - 1e-9 || (Math.abs(d - bd) < 1e-9 && c > best)) best = c;
+  }
+  return best;
+}
+
+/**
+ * Apply PPP to a USD base price. By default charm-rounds to the nearest
+ * .49/.99 ending (e.g. 4.99 × 0.35 = 1.7465 → "1.99"; 6.99 × 0.35 = 2.4465
+ * → "2.49"). Set `round99: false` to keep raw cents.
  */
 export function applyPpp(
   baseUsdPrice: string,
@@ -60,10 +79,7 @@ export function applyPpp(
   const raw = base * m;
 
   if (opts.round99 === false) return raw.toFixed(2);
-
-  // Spotify-style: floor to whole dollar, then add .99. Smallest output is 0.99.
-  const dollars = Math.max(0, Math.floor(raw));
-  return (dollars + 0.99).toFixed(2);
+  return charmRound(raw).toFixed(2);
 }
 
 /**
