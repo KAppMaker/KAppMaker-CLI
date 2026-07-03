@@ -392,45 +392,115 @@ async function applyPppToSubscription(
   // We split into chunks of 50 so the user sees regular progress updates
   // instead of one long silent spinner.
   //
-  // We deliberately omit `--start-date` so each row is treated as a STARTING
-  // price (effective immediately). Adding `--start-date` would file the rows
-  // as future-dated price changes, which Apple rejects for territories that
-  // don't yet have a starting price ("Create a starting price before creating
-  // future prices") — common on freshly created subscriptions.
-  const CHUNK_SIZE = 50;
   const header = rows[0];
   const dataRows = rows.slice(1);
-  const chunks: string[][] = [];
-  for (let i = 0; i < dataRows.length; i += CHUNK_SIZE) {
-    chunks.push(dataRows.slice(i, i + CHUNK_SIZE));
+  const chunks = chunkRows(dataRows);
+
+  // Pass 1: no start date (rows land as STARTING prices — correct for subs
+  // that have never been approved). Apple rejects starting-price rows on an
+  // APPROVED subscription with "Initial price cannot be created again after
+  // subscription is approved" — those territories need a future-dated price
+  // CHANGE instead, handled by pass 2 below.
+  const pass1 = await importSubscriptionPriceRows(appId, subscriptionId, sub.ref_name, header, chunks);
+  let totalCreated = pass1.created;
+  let totalFailed = pass1.failed;
+  let allFailures = pass1.failures;
+
+  const approvedTerritories = new Set(
+    pass1.failures
+      .filter((f) => /Initial price cannot be created again/i.test(f.error))
+      .map((f) => f.territory),
+  );
+  if (approvedTerritories.size > 0) {
+    const retryRows = dataRows.filter((r) => approvedTerritories.has(r.split(',')[0]));
+    // Apple demands a strictly-future start date and validates it against its
+    // own day boundary (empirically ~today+2 near midnight UTC). Try
+    // tomorrow-UTC first; if Apple answers "must be on or after YYYY-MM-DD",
+    // reparse and retry once with the exact date it asked for.
+    let startDate = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 10);
+    logger.info(
+      `PPP ${sub.ref_name}: subscription already approved — scheduling ${retryRows.length} territories as price changes starting ${startDate}. Decreases apply to existing subscribers automatically; increases trigger Apple's consent flow.`,
+    );
+    let pass2 = await importSubscriptionPriceRows(
+      appId, subscriptionId, sub.ref_name, header, chunkRows(retryRows), startDate,
+    );
+    const dateHint = pass2.failures
+      .map((f) => /must be on or after (\d{4}-\d{2}-\d{2})/.exec(f.error)?.[1])
+      .find(Boolean);
+    if (dateHint && pass2.failed > 0) {
+      startDate = dateHint;
+      const stillFailing = new Set(pass2.failures.map((f) => f.territory));
+      const pass3 = await importSubscriptionPriceRows(
+        appId, subscriptionId, sub.ref_name, header,
+        chunkRows(retryRows.filter((r) => stillFailing.has(r.split(',')[0]))), startDate,
+      );
+      pass2 = {
+        created: pass2.created + pass3.created,
+        failed: pass3.failed,
+        failures: pass3.failures,
+      };
+    }
+    totalCreated += pass2.created;
+    totalFailed = totalFailed - approvedTerritories.size + pass2.failed;
+    allFailures = allFailures
+      .filter((f) => !approvedTerritories.has(f.territory))
+      .concat(pass2.failures);
   }
 
-  let totalCreated = 0;
-  let totalFailed = 0;
-  const allFailures: Array<{ territory: string; error: string }> = [];
+  const total = dataRows.length;
+  if (totalFailed > 0) {
+    const sample = allFailures.slice(0, 3).map((f) => `${f.territory}: ${f.error.slice(0, 100)}`).join('\n    ');
+    logger.warn(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied; ${totalFailed} failed.\n    ${sample}${totalFailed > 3 ? `\n    … (${totalFailed - 3} more)` : ''}`);
+  } else {
+    logger.success(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied via CSV import.`);
+  }
+}
 
+const IMPORT_CHUNK_SIZE = 50;
+
+function chunkRows(rows: string[]): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < rows.length; i += IMPORT_CHUNK_SIZE) {
+    chunks.push(rows.slice(i, i + IMPORT_CHUNK_SIZE));
+  }
+  return chunks;
+}
+
+interface ImportResult {
+  created: number;
+  failed: number;
+  failures: Array<{ territory: string; error: string }>;
+}
+
+/** Run `asc subscriptions pricing prices import` over pre-chunked CSV rows. */
+async function importSubscriptionPriceRows(
+  appId: string,
+  subscriptionId: string,
+  refName: string,
+  header: string,
+  chunks: string[][],
+  startDate?: string,
+): Promise<ImportResult> {
+  const out: ImportResult = { created: 0, failed: 0, failures: [] };
   for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
     const chunk = chunks[chunkIdx];
-    const csvPath = path.join(os.tmpdir(), `kappmaker-ppp-${sub.product_id}-${Date.now()}-${chunkIdx}.csv`);
+    const csvPath = path.join(os.tmpdir(), `kappmaker-ppp-${subscriptionId}-${Date.now()}-${chunkIdx}.csv`);
     await fs.writeFile(csvPath, [header, ...chunk].join('\n') + '\n', 'utf-8');
     try {
-      const result = await run(
-        'asc',
-        [
-          'subscriptions', 'pricing', 'prices', 'import',
-          '--app', appId,
-          '--subscription-id', subscriptionId,
-          '--input', csvPath,
-          '--output', 'json',
-        ],
-        {
-          label: `PPP ${sub.ref_name}: importing batch ${chunkIdx + 1}/${chunks.length} (${chunk.length} territories, ~${Math.round(chunk.length * 1.75)}s)`,
-          allowFailure: true,
-          timeout: 5 * 60_000,
-        },
-      );
+      const args = [
+        'subscriptions', 'pricing', 'prices', 'import',
+        '--app', appId,
+        '--subscription-id', subscriptionId,
+        '--input', csvPath,
+        '--output', 'json',
+      ];
+      if (startDate) args.push('--start-date', startDate);
+      const result = await run('asc', args, {
+        label: `PPP ${refName}: importing batch ${chunkIdx + 1}/${chunks.length}${startDate ? ` (price change ${startDate})` : ''} (${chunk.length} territories, ~${Math.round(chunk.length * 1.75)}s)`,
+        allowFailure: true,
+        timeout: 5 * 60_000,
+      });
       type ImportResp = {
-        total?: number;
         created?: number;
         failed?: number;
         failures?: Array<{ territory: string; error: string }>;
@@ -442,25 +512,19 @@ async function applyPppToSubscription(
         // Fall through.
       }
       if (!parsed) {
-        logger.warn(`PPP ${sub.ref_name} batch ${chunkIdx + 1}: import failed — ${(result.stderr || result.stdout).slice(0, 300)}`);
-        totalFailed += chunk.length;
+        logger.warn(`PPP ${refName} batch ${chunkIdx + 1}: import failed — ${(result.stderr || result.stdout).slice(0, 300)}`);
+        out.failed += chunk.length;
+        out.failures.push(...chunk.map((row) => ({ territory: row.split(',')[0], error: 'import call failed (no JSON response)' })));
         continue;
       }
-      totalCreated += parsed.created ?? 0;
-      totalFailed += parsed.failed ?? 0;
-      if (parsed.failures?.length) allFailures.push(...parsed.failures);
+      out.created += parsed.created ?? 0;
+      out.failed += parsed.failed ?? 0;
+      if (parsed.failures?.length) out.failures.push(...parsed.failures);
     } finally {
       await fs.unlink(csvPath).catch(() => undefined);
     }
   }
-
-  const total = dataRows.length;
-  if (totalFailed > 0) {
-    const sample = allFailures.slice(0, 3).map((f) => `${f.territory}: ${f.error.slice(0, 100)}`).join('\n    ');
-    logger.warn(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied; ${totalFailed} failed.\n    ${sample}${totalFailed > 3 ? `\n    … (${totalFailed - 3} more)` : ''}`);
-  } else {
-    logger.success(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied via CSV import.`);
-  }
+  return out;
 }
 
 // ── In-app purchases (consumable / non-consumable / non-renewing) ───
