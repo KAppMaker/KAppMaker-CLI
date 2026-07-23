@@ -26,6 +26,8 @@ import {
 } from './firebase.js';
 import { configInit } from './config.js';
 import { loadConfig, getConfigPath } from '../utils/config.js';
+import { printBundledSkillsHint } from '../utils/skills-hint.js';
+import { initSetupProgress, markSetupStep } from '../utils/setup-progress.js';
 import { hasKeystore, generateKeystore } from '../services/keystore.service.js';
 import type { CreateOptions, DerivedConfig, StepContext, KAppMakerConfig } from '../types/index.js';
 
@@ -81,11 +83,23 @@ export async function createApp(
   const targetPath = await cloneCommand(appName, {
     templateRepo: config.templateRepo,
     targetDir: config.targetDir,
+    skipSkillsHint: true,
   });
+
+  // Committed checklist at the project root, ticked as steps complete, so an
+  // interrupted setup can resume from the first unchecked item.
+  const progressVars = {
+    appName: config.appName,
+    packageName: config.packageName,
+    firebaseProject: config.firebaseProject,
+  };
+  await initSetupProgress(targetPath, progressVars);
+  await markSetupStep(targetPath, 1);
 
   // Step 2: Firebase login
   logger.step(2, TOTAL_STEPS, 'Firebase authentication');
   await firebaseLoginCommand();
+  await markSetupStep(targetPath, 2);
 
   // Step 3: Create Firebase project
   logger.step(3, TOTAL_STEPS, 'Creating Firebase project');
@@ -93,8 +107,8 @@ export async function createApp(
     projectId: config.firebaseProject,
     displayName: config.appName,
   });
-
   if (firebaseReady) {
+    await markSetupStep(targetPath, 3);
     // Step 4: Create Firebase apps
     logger.step(4, TOTAL_STEPS, 'Creating Firebase apps');
     const apps = await firebaseAppsCommand({
@@ -102,10 +116,12 @@ export async function createApp(
       appName: config.appName,
       packageName: config.packageName,
     });
+    await markSetupStep(targetPath, 4);
 
     // Step 5: Enable anonymous authentication
     logger.step(5, TOTAL_STEPS, 'Enabling anonymous authentication');
     await firebaseAuthAnonymousCommand({ project: config.firebaseProject });
+    await markSetupStep(targetPath, 5);
 
     // Step 6: Download SDK configs (auto-detects androidApp/ vs composeApp/, falls back to Assets/)
     logger.step(6, TOTAL_STEPS, 'Downloading Firebase SDK configs');
@@ -118,6 +134,7 @@ export async function createApp(
       mobileDir: ctx.mobileDir,
       assetsDir: path.join(targetPath, 'Assets'),
     });
+    await markSetupStep(targetPath, 6);
   } else {
     logger.warn('Skipping steps 4-6 (Firebase apps, auth, SDK configs) -- project not available.');
     logger.info('You can set up Firebase manually later and re-run these steps.');
@@ -135,8 +152,10 @@ export async function createApp(
       logger.info('Removing background from logo...');
       await removeBackground(logoOutput, { output: logoOutput });
     }
+    await markSetupStep(targetPath, 7);
   } else {
     logger.info('Skipping logo generation.');
+    await markSetupStep(targetPath, 7, 'skipped');
   }
 
   // Step 8: Package refactor
@@ -147,6 +166,7 @@ export async function createApp(
   console.log(chalk.gray('  * No -- keeps the template package name for easier syncing with the base repo'));
   const shouldUpdatePackageName = await confirm('  Update package name?');
   await refactor(ctx.mobileDir, config.packageName, config.appName, !shouldUpdatePackageName);
+  await markSetupStep(targetPath, 8);
 
   // Step 9: Build environment + keystore
   logger.step(9, TOTAL_STEPS, 'Setting up build environment');
@@ -168,10 +188,12 @@ export async function createApp(
     logger.info('Generating Android signing keystore...');
     await generateKeystore(ctx.mobileDir, '', org);
   }
+  await markSetupStep(targetPath, 9);
 
   // Step 10: Git remotes
   logger.step(10, TOTAL_STEPS, 'Setting up git remotes');
   await gitSetupUpstreamCommand(targetPath);
+  await markSetupStep(targetPath, 10);
 
   // ── Pre-store-setup reminder ──────────────────────────────────────
   console.log('');
@@ -193,8 +215,10 @@ export async function createApp(
   const wantsAppStore = await confirm('  Set up App Store Connect?');
   if (wantsAppStore) {
     await createAppStoreApp({ config: ascConfigPath });
+    await markSetupStep(targetPath, 11);
   } else {
     logger.info('Skipping App Store Connect setup. Run "kappmaker create-appstore-app" later.');
+    await markSetupStep(targetPath, 11, 'skipped');
   }
 
   // Step 12: Google Play Console setup (optional)
@@ -234,8 +258,10 @@ export async function createApp(
     }
 
     await createPlayApp({ config: gpcConfigPath });
+    await markSetupStep(targetPath, 12);
   } else {
     logger.info('Skipping Google Play Console setup. Run "kappmaker gpc setup" later.');
+    await markSetupStep(targetPath, 12, 'skipped');
   }
 
   // Step 13: Adapty setup (optional)
@@ -243,9 +269,12 @@ export async function createApp(
   const wantsAdapty = await confirm('  Set up Adapty subscriptions?');
   if (wantsAdapty) {
     await adaptySetup({ config: adaptyConfigPath });
+    await markSetupStep(targetPath, 13);
   } else {
     logger.info('Skipping Adapty setup. Run "kappmaker adapty setup" later.');
+    await markSetupStep(targetPath, 13, 'skipped');
   }
 
   logger.done();
+  await printBundledSkillsHint(targetPath);
 }

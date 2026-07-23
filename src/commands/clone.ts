@@ -5,11 +5,14 @@ import { validateAppName } from '../utils/validator.js';
 import { confirm } from '../utils/prompt.js';
 import * as git from '../services/git.service.js';
 import { loadConfig, getConfigPath } from '../utils/config.js';
+import { printBundledSkillsHint } from '../utils/skills-hint.js';
 import { configInit } from './config.js';
 
 export interface CloneOptions {
   templateRepo?: string;
   targetDir?: string;
+  /** Suppress the bundled-skills next-steps hint (used by `create`, which prints its own at the end). */
+  skipSkillsHint?: boolean;
 }
 
 export async function cloneCommand(
@@ -41,5 +44,8 @@ export async function cloneCommand(
 
   await git.cloneTemplate(templateRepo, targetDir);
   logger.success(`Cloned to ${targetPath}`);
+  if (!options.skipSkillsHint) {
+    await printBundledSkillsHint(targetPath);
+  }
   return targetPath;
 }

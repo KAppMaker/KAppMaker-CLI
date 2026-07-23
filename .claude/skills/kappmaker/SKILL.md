@@ -18,6 +18,8 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 |--------|---------|
 | Create/bootstrap a new app (full 13 steps) | `kappmaker create <AppName>` |
 | Clone the template only (skip Firebase, ASC, etc.) | `kappmaker clone <AppName>` |
+| Start from a raw idea, no name/PRD yet ("build me a habit tracker") | Interview-first flow — see "Starting from a raw idea" |
+| Build the app's actual features / continue the dev journey after scaffolding | Project-bundled skills — see "Template-Bundled Agent Skills" |
 | Rename `origin` → `upstream` after a manual clone | `kappmaker git setup-upstream` |
 | Authenticate the Firebase CLI | `kappmaker firebase login` |
 | Create a Firebase project | `kappmaker firebase project --app-name <Name>` |
@@ -116,6 +118,35 @@ For anything inferable, **state the source briefly** ("Using app name 'Masclet' 
 
 If the folder is missing and the user's request is rich enough to derive the inputs (e.g., they said "generate a feature graphic for my AI mascot app called Masclet, red theme"), proceed without prompting. If the folder is missing AND the request is sparse, offer to create `AiGuidelines/app-idea.md` from a few quick answers — once it's written, every future kappmaker command in this project benefits.
 
+## Template-Bundled Agent Skills — the project has its own playbook
+
+The KAppMaker boilerplate ships ~36 agent skills **inside every scaffolded project**: a `skills/` folder at the repo root, auto-discovered by Claude Code via the `.claude/skills` symlink (other agents find them through `AGENTS.md` / `GEMINI.md` / `.cursorrules` pointers). The index is `<project>/skills/README.md`. They cover what this CLI does not: **writing the actual app**.
+
+- **Phase guides** — ordered blueprints for the developer journey: `getting-started` (Phase 1: run locally + build the MVP, no accounts), `integrations` (Firebase, auth, web-proxy), `publishing` (icons, signing, listings), `monetization` (subscriptions, credit packs, paywall, ads), `growth` (analytics, push, onboarding, virality). Progress is tracked in committed `PROGRESS_FEATURES.md` / `PROGRESS_P1…P5*.md` files at the project's git repo root — read them first, continue from the first unchecked item. The CLI follows the same convention for its own 13-step setup via `PROGRESS_SETUP.md` (see the `create` section).
+- **Task skills** — one job each: `new-app` (idea → PRD interview), `build-features`, `new-screen`, `new-local-model`, `add-api-service`, `run-the-app`, `run-quality-gates`, `verify-ui`, and more.
+
+**Division of labor**:
+
+- **This CLI / this skill** → scaffolding, AI assets (logos, screenshots, icons), Firebase / App Store / Play Console / Adapty automation, builds, publishing, ASO, version bumps.
+- **Project-bundled skills** → in-repo development (features, screens, models, wiring, quality gates) and the phase-by-phase journey. Several bundled skills invoke kappmaker commands at the right moment — when following one, let it drive.
+
+**Handoff rules**:
+
+- After `create` or `clone` finishes, point the user at the bundled skills. If they arrived with just an idea and no PRD, follow the project's `new-app` skill (interview → `AiGuidelines/prd.md` → hands off to `getting-started`) instead of inventing features yourself.
+- When the user asks for in-project work this CLI doesn't cover, check `<project>/skills/README.md` for a matching skill before improvising — the skills know the repo's real paths and conventions.
+- Projects cloned from older template versions (or a custom `--template-repo`) may have no `skills/` folder — fall back to normal engineering.
+
+### Starting from a raw idea (interview-first flow)
+
+When the user arrives with only an idea — "build me a habit tracker", "I want to make an app that…" — and there's no app name, no PRD, no project directory yet, do **not** jump straight into `kappmaker create`'s prompts, and do **not** invent the product for them. The boilerplate's bundled **`new-app`** skill owns the idea-to-PRD interview; your job pre-clone is only to unblock the one input scaffolding needs (the name), then hand off:
+
+1. **Name first** (the only thing `clone`/`create` truly needs): if the user has no name, suggest **3 candidates** with one marked ✅ recommended, and derive the app id from the pick (`com.<org>.<appname>`, lowercase). Validate PascalCase. If they say "you decide", take the ✅ one and say so.
+2. **Scaffold light**: run `kappmaker clone <AppName>` (not the full `create`). Phase 1 of the bundled journey needs no Firebase / store / Adapty accounts — the template ships a mock subscription provider and a no-Firebase AI path — so deferring the 13-step flow keeps the user moving in minutes instead of front-loading account setup.
+3. **Hand off to the project's `new-app` skill** (`<project>/skills/new-app/SKILL.md`): it interviews the user properly — core loop, target audience, pain points, MVP scope, first-taste moment, monetization intent, UI direction — in small batches of 2–3 questions, each with concrete options and a ✅ recommended pick plus "decide for me" / "later" escape hatches. It writes `AiGuidelines/prd.md` / `user_flow.md` / `ui_ux.md`, records deferred decisions, then hands off to the `getting-started` guide (which runs the rebrand via `refactor-package` using the name/id from step 1).
+4. **Infra when a phase demands it**: Firebase → the `integrations` guide (calls `kappmaker firebase …`); stores/monetization → `publishing`/`monetization` guides (call `kappmaker create-appstore-app`, `gpc setup`, `adapty setup`). The full `kappmaker create` remains the right call when the user explicitly wants everything provisioned up front — name still gets decided via step 1's pattern first.
+
+Follow the interview style, don't just reference it: **never ask an open-ended question when options will do, batch 2–3 questions max, always mark a ✅ recommended choice, and stop and wait after each batch.**
+
 ## Commands
 
 ### create — Full App Setup
@@ -150,6 +181,10 @@ If the folder is missing and the user's request is rich enough to derive the inp
 - Whether they plan to use the optional steps (logo, ASC, Google Play Console, Adapty) so they know what to expect. The build + refactor happens BEFORE store setup (steps 8-11), then the CLI pauses and reminds the user to create their app in App Store Connect and/or Google Play Console before continuing. Google Play Console setup (step 13) auto-uploads the AAB to the internal track first.
 
 Run the command and let the user interact with it directly.
+
+**Setup progress file (`PROGRESS_SETUP.md`)**: right after cloning, `create` writes a committed checklist of all 13 steps to the project root and ticks each step off as it completes (optional steps the user declines are checked with a "(skipped — run later)" note). **If a setup was interrupted** (crash, Ctrl-C, network) — read `<project>/PROGRESS_SETUP.md`, find the first unchecked item, and resume with the standalone command listed next to it (`kappmaker firebase configs …`, `kappmaker gpc setup`, etc.) instead of re-running the full `create`. Every step is independently re-runnable and idempotent.
+
+**After `create` finishes**: `cd` into the new project and continue with the template-bundled skills (see "Template-Bundled Agent Skills" above) — `new-app` first if the product isn't defined yet, then the `getting-started` guide to build the MVP.
 
 ---
 
