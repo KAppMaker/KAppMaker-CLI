@@ -108,6 +108,18 @@ Currently in this category:
 
 When adding new skill-driven workflows: place the procedure as a new `###` section in `.claude/skills/kappmaker/SKILL.md`, add a row to the routing table at the top, and link it from the appropriate ASO / image / publishing docs page. No `src/commands/` file, no `src/cli.ts` entry.
 
+## Version Bumping (this repo's own releases)
+
+Two independent version schemes — bump ALL locations of the relevant one, they do not sync automatically:
+
+- **CLI (npm) version** — lives in THREE places; keep them identical:
+  1. `package.json` → `"version"`
+  2. `src/cli.ts` → the Commander `.version('…')` call (hardcoded string, ~line 58)
+  3. `package-lock.json` → root `version` + `packages[""].version` — regenerate with `npm install --package-lock-only`, don't hand-edit
+- **Claude Code plugin version** — `.claude-plugin/plugin.json` → `"version"`. Bump on **any** change to `.claude/skills/kappmaker/SKILL.md` (or other plugin-shipped files): Claude Code caches installed plugins by version (`~/.claude/plugins/cache/KAppMaker-CLI/kappmaker/<version>/`), so without a bump `claude plugin update` keeps serving the stale cache and skill changes never reach users.
+
+Rule of thumb: code change → bump CLI version (all three spots); skill change → bump plugin version; PR touching both → bump both.
+
 ## Custom Template Support
 
 The CLI defaults to the [KAppMaker](https://kappmaker.com) boilerplate but supports custom templates via `--template-repo` or `kappmaker config set templateRepo <url>`.
