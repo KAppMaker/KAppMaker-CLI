@@ -18,6 +18,7 @@ Match the user's intent (from `$ARGUMENTS` or conversation context) to the right
 |--------|---------|
 | Create/bootstrap a new app (full 13 steps) | `kappmaker create <AppName>` |
 | Clone the template only (skip Firebase, ASC, etc.) | `kappmaker clone <AppName>` |
+| Start from a raw idea, no name/PRD yet ("build me a habit tracker") | Interview-first flow — see "Starting from a raw idea" |
 | Build the app's actual features / continue the dev journey after scaffolding | Project-bundled skills — see "Template-Bundled Agent Skills" |
 | Rename `origin` → `upstream` after a manual clone | `kappmaker git setup-upstream` |
 | Authenticate the Firebase CLI | `kappmaker firebase login` |
@@ -134,6 +135,17 @@ The KAppMaker boilerplate ships ~36 agent skills **inside every scaffolded proje
 - After `create` or `clone` finishes, point the user at the bundled skills. If they arrived with just an idea and no PRD, follow the project's `new-app` skill (interview → `AiGuidelines/prd.md` → hands off to `getting-started`) instead of inventing features yourself.
 - When the user asks for in-project work this CLI doesn't cover, check `<project>/skills/README.md` for a matching skill before improvising — the skills know the repo's real paths and conventions.
 - Projects cloned from older template versions (or a custom `--template-repo`) may have no `skills/` folder — fall back to normal engineering.
+
+### Starting from a raw idea (interview-first flow)
+
+When the user arrives with only an idea — "build me a habit tracker", "I want to make an app that…" — and there's no app name, no PRD, no project directory yet, do **not** jump straight into `kappmaker create`'s prompts, and do **not** invent the product for them. The boilerplate's bundled **`new-app`** skill owns the idea-to-PRD interview; your job pre-clone is only to unblock the one input scaffolding needs (the name), then hand off:
+
+1. **Name first** (the only thing `clone`/`create` truly needs): if the user has no name, suggest **3 candidates** with one marked ✅ recommended, and derive the app id from the pick (`com.<org>.<appname>`, lowercase). Validate PascalCase. If they say "you decide", take the ✅ one and say so.
+2. **Scaffold light**: run `kappmaker clone <AppName>` (not the full `create`). Phase 1 of the bundled journey needs no Firebase / store / Adapty accounts — the template ships a mock subscription provider and a no-Firebase AI path — so deferring the 13-step flow keeps the user moving in minutes instead of front-loading account setup.
+3. **Hand off to the project's `new-app` skill** (`<project>/skills/new-app/SKILL.md`): it interviews the user properly — core loop, target audience, pain points, MVP scope, first-taste moment, monetization intent, UI direction — in small batches of 2–3 questions, each with concrete options and a ✅ recommended pick plus "decide for me" / "later" escape hatches. It writes `AiGuidelines/prd.md` / `user_flow.md` / `ui_ux.md`, records deferred decisions, then hands off to the `getting-started` guide (which runs the rebrand via `refactor-package` using the name/id from step 1).
+4. **Infra when a phase demands it**: Firebase → the `integrations` guide (calls `kappmaker firebase …`); stores/monetization → `publishing`/`monetization` guides (call `kappmaker create-appstore-app`, `gpc setup`, `adapty setup`). The full `kappmaker create` remains the right call when the user explicitly wants everything provisioned up front — name still gets decided via step 1's pattern first.
+
+Follow the interview style, don't just reference it: **never ask an open-ended question when options will do, batch 2–3 questions max, always mark a ✅ recommended choice, and stop and wait after each batch.**
 
 ## Commands
 
