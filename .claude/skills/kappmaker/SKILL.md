@@ -577,6 +577,8 @@ For credit pack IAPs (entries with `credits` field): `ios_product_id` = `android
 
 **Style presets** (1-8): Different visual styles for the screenshots. Ask the user what style they prefer if not specified.
 
+**Where the reference screenshots come from**: `--input` / `--reference` want plain captures of the app's real screens — no headlines, no device frames. In a KMPStarterKit-based project those are produced by the `capture-app-screens` skill (`MobileApp/./scripts/generate_store_screenshots.sh`), which renders `@Preview @StoreScreenshot` composables at storefront pixel sizes into `distribution/store_screenshots/<locale>/<device>/`. Point `--input` there rather than asking the user to screenshot a simulator by hand. That skill only produces the bare screen art; the design pass — marketing copy, brand panel, device frames — is this command's job, so the two are complementary, not alternatives.
+
 ---
 
 ### generate-feature-image — AI Feature Graphic Generation
