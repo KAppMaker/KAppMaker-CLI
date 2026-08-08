@@ -1,6 +1,6 @@
 import path from 'node:path';
 import fs from 'fs-extra';
-import sharp from 'sharp';
+import sharp, { type OverlayOptions } from 'sharp';
 
 // ── Locale mapping (Play Store → App Store) ─────────────────────────
 
@@ -87,7 +87,7 @@ export async function combineScreenshots(
   const canvasW = cols * tileW;
   const canvasH = rows * tileH;
 
-  const compositeInputs: sharp.OverlayOptions[] = [];
+  const compositeInputs: OverlayOptions[] = [];
   const count = Math.min(imagePaths.length, rows * cols);
 
   for (let i = 0; i < count; i++) {
