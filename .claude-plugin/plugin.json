@@ -1,7 +1,7 @@
 {
   "name": "kappmaker",
-  "description": "KAppMaker CLI skill for Claude Code — automate mobile app bootstrapping, AI logo/screenshot generation, App Store Connect setup, Adapty subscriptions, and image tools.",
-  "version": "1.1.1",
+  "description": "KAppMaker CLI for Claude Code \u2014 routed skills for building a new app, Firebase, subscriptions and IAP, store listings, ASO keywords, logos and icons, marketing screenshots, and builds and releases.",
+  "version": "1.2.0",
   "author": {
     "name": "KAppMaker",
     "url": "https://kappmaker.com"
