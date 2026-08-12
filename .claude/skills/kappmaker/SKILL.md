@@ -1,6 +1,6 @@
 ---
 name: kappmaker
-description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill for building a new app, Firebase, subscriptions and IAP, store listings, ASO keywords, logos and icons, marketing screenshots, or builds and releases. Use when the user mentions kappmaker, or wants to work on a mobile app but it is not yet clear which part.
+description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, App Store Connect, Google Play Console, ASO keywords, logos, illustrations, app icons, store screenshots, the feature graphic, building and publishing, version bumps, or renaming the package.
 argument-hint: "[command or description]"
 ---
 
