@@ -51,3 +51,8 @@ description: Set up an app on App Store Connect (ASC) for iOS — the app record
 `--file` applies to all matched products; without it, the commands use the per-product `review_screenshot` from the config. `--product-id` targets a single product. These commands FORCE-REPLACE existing screenshots by delete+create — empirically `asc … update` (both `screenshots update` and `images update --file`) doesn't actually swap the file on Apple's side, only marks the record as "uploaded".
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-new-app** (bundle ID comes from the project).
+- **After this:** **kappmaker-aso-metadata** for the listing text, **kappmaker-screenshots**, then **kappmaker-publish**.

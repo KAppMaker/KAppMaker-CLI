@@ -70,3 +70,8 @@ Note: `generate-screenshots` already splits its own output internally into `apps
 **What it does**: Converts PNG, JPG, JPEG, BMP, TIFF, and GIF images to WebP format — similar to Android Studio's built-in converter. Shows before/after file sizes and percentage saved for each file. Works on single files or entire directories (with `--recursive`).
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-image** or **kappmaker-logo** produced the source image.
+- **After this:** —

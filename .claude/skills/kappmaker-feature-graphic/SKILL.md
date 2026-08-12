@@ -38,3 +38,8 @@ description: Generate the Google Play feature graphic. Use when the user asks fo
 **Tips**: Pass `--logo` to keep the exact app icon (the model will reproduce, not redraw, image #1). Pass `--reference` screenshots in the order they should appear inside the device mockups.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-logo** for brand consistency.
+- **After this:** **kappmaker-gpc** — the feature graphic is a Play Store asset.

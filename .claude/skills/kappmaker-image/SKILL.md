@@ -37,3 +37,8 @@ description: Generate any other AI image for a KAppMaker app — illustrations, 
 **When to use this vs `create-logo`**: Use `create-logo` when the user specifically wants an app logo (grid selection, background removal flow). Use `generate-image` for one-off marketing images, hero shots, backgrounds, illustrations, mockups, or any other general-purpose image task.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** —
+- **After this:** **kappmaker-image-tools** if the result needs cropping, background removal or WebP.

@@ -29,6 +29,16 @@ use that skill — do not hand-roll a command a skill already documents.
 | Bump the version | **kappmaker-version** |
 | Rename the package, bundle ID or app name | **kappmaker-refactor** |
 
+## The usual journey
+
+Idea → **new-app** → *(interview via the project's own `new-app` skill)* → **firebase** →
+**monetization** + **adapty** → **logo** → **app-icons** → build features →
+**asc** / **gpc** → **aso** → **aso-metadata** → **screenshots** + **feature-graphic** →
+**version** → **publish**.
+
+Nobody does all of it at once. Each skill ends with what comes before and after it, so if a step
+turns out to need something earlier, follow the pointer rather than improvising.
+
 **Starting from a raw idea?** Scaffold with **kappmaker-new-app**, then follow the project's own
 bundled `new-app` skill for the PRD interview — it lives *inside* the project and does not exist
 until it has been cloned.

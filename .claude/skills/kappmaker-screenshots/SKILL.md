@@ -50,3 +50,8 @@ description: Generate and translate App Store and Play Store screenshots. Use wh
 **What it does**: Combines source screenshots into a grid, translates to all target locales in parallel via fal.ai, splits translated grids back into individual images, saves to Fastlane distribution structure for both iOS and Android.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** A running app to capture, and **kappmaker-app-icons** for a finished look.
+- **After this:** **kappmaker-asc** / **kappmaker-gpc** to attach them to the listing.

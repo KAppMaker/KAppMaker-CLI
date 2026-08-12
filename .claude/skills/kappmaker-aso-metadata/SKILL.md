@@ -1,15 +1,149 @@
 ---
 name: kappmaker-aso-metadata
-description: Write the per-locale App Store metadata for a KAppMaker app — name, subtitle, keywords and description across locales, and the rules that decide what goes where (no word repeated within a locale, uniqueness across locales, quality over uniqueness). Use when the user asks what to call the app in the stores, or to write or fix the title, subtitle, keyword field or localized listing text.
+description: Write the per-locale App Store metadata for a KAppMaker app — name, subtitle, keywords and description across locales, plus the rules that decide what goes where: no word repeated within a locale, uniqueness across locales, and quality over uniqueness. Use when the user asks what to call the app in the stores, or to write or fix the title, subtitle, keyword field or localized listing.
 ---
 
-# KAppMaker — Aso Metadata
+# KAppMaker — ASO Metadata (per locale)
 
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+2. **Read `AiGuidelines/` first** — the PRD and positioning already answer most questions.
+
+### Localize ASO Metadata — Per-locale Name / Subtitle / Keywords / Description
+
+This is a **skill-driven procedure**, not an external CLI command. Claude (you) executes the prompts in this section directly using the Read/Write tools — there is no shell binary to invoke and no AI API key required. All text generation and ASO-rule enforcement happens in-conversation.
+
+**Trigger phrases** (any of these in the user's message routes here):
+- `Using kappmaker, localize metadata mode=keyword-expansion ...`
+- `Using kappmaker, localize metadata mode=market-localization ...`
+- "localize aso", "localize metadata", "aso keyword expansion", "aso keywords"
+
+**Argument parsing** (extract from the user message):
+- `mode` — required, one of `keyword-expansion` | `market-localization`
+- `keywords` — required for `keyword-expansion`; comma-separated list (strip surrounding quotes, trim each entry, drop empties)
+- `base` — optional for `market-localization`; defaults to `en-US`
+- `locales` — required for `market-localization`; comma- or space-separated codes (no autodetect)
+- `distribution_dir` — optional override. Default resolution: search upward from cwd for a directory containing `MobileApp/distribution/`; if not found, use `./MobileApp/distribution`. If neither exists, create `./MobileApp/distribution/` and use that.
+
+If `mode` is missing or invalid, stop and ask the user to pick one of the two modes and provide its required args.
+
+#### Output layout (strict — same for both modes)
+
+- **iOS**: `<distribution_dir>/ios/appstore_metadata/texts/<iosLocale>/{name,subtitle,keywords,description}.txt`
+  - The `texts/` subfolder IS literal and intentional. Not standard Fastlane `deliver` layout.
+- **Android**: `<distribution_dir>/android/playstore_metadata/<playLocale>/{title,short_description,full_description}.txt`
+
+`en-US` (or the user-chosen base) is **never** modified once it exists. No images, screenshots, or other files are touched.
+
+#### Preflight checklist (run BEFORE either mode procedure)
+
+1. Resolve `<distribution_dir>` (see argument parsing above).
+2. **Base-locale bootstrap (NEVER fail when missing)**: read the base-locale folders:
+   - iOS: `<distribution_dir>/ios/appstore_metadata/texts/<base>/{name,subtitle,keywords,description}.txt`
+   - Android: `<distribution_dir>/android/playstore_metadata/<base>/{title,short_description,full_description}.txt`
+   
+   If either folder is missing entirely, OR any of the expected files is missing OR empty (zero bytes), enter **bootstrap mode**:
+   - Ask the user (single prompt): `"Base locale '<base>' is missing some metadata. Briefly describe the app and its core value (1–2 sentences):"` Wait for the reply.
+   - For Mode 1 (`keyword-expansion`), use the user's app description + the `keywords=` list to compose the base-locale files. For Mode 2 (`market-localization`), use just the app description.
+   - Apply the **ASO Guidelines** (see bottom of this section) to the bootstrapped output: front-load the strongest keyword in `name`/`title`, no spaces after commas in keywords, no word repetition across `name`/`subtitle`/`keywords` in the iOS folder, respect every char limit.
+   - Write the missing base files first (only those that were missing or empty — preserve any non-empty siblings as the source for the rest).
+3. After bootstrap (or directly if everything was present), read all 7 base-locale files into local variables you can reference as `<BASE_NAME>`, `<BASE_SUBTITLE>`, `<BASE_KEYWORDS>`, `<BASE_DESCRIPTION>`, `<BASE_TITLE>`, `<BASE_SHORT_DESC>`, `<BASE_FULL_DESC>`.
+4. For Mode 2: validate every code in `locales=` resolves in the **Mode 2 Locale Table** (below). If any code is unknown, abort with the full supported-codes list printed and do NOT create any folders.
+
+#### Mode 1 — keyword-expansion procedure
+
+**Locale set (FIXED)** — the 9 US-indexed locales:
+
+| iOS folder | Play folder |
+|---|---|
+| `ar-SA`   | `ar` |
+| `fr-FR`   | `fr-FR` |
+| `ko`      | `ko-KR` |
+| `pt-BR`   | `pt-BR` |
+| `ru`      | `ru-RU` |
+| `vi`      | `vi` |
+| `zh-Hans` | `zh-CN` |
+| `zh-Hant` | `zh-TW` |
+| `es-MX`   | `es-MX` |
+
+**Overwrite behavior**: always overwrite these 9 locales without prompting. The base locale (`en-US`) is the only protected folder and is never touched (except by the bootstrap step above, which writes it once if missing).
+
+**Reasoning script** (execute this prompt yourself — do NOT print it to the user; you ARE the senior ASO strategist):
+
+```
+# ROLE
+You are a senior ASO strategist specialized in App Store keyword indexing
+mechanics and Google Play metadata optimization.
+
+# CONTEXT
+The US App Store indexes keywords from `name`, `subtitle`, and `keywords`
+fields across these 9 additional locales (beyond en-US):
+
+INDEXED_LOCALES = {
+  iOS folder → Play Store folder
+  "ar-SA"    → "ar"
+  "fr-FR"    → "fr-FR"
+  "ko"       → "ko-KR"
+  "pt-BR"    → "pt-BR"
+  "ru"       → "ru-RU"
+  "vi"       → "vi"
+  "zh-Hans"  → "zh-CN"
+  "zh-Hant"  → "zh-TW"
+  "es-MX"    → "es-MX"
+}
+
+More unique indexed keywords = more ranking surface = more organic installs.
+
+# OBJECTIVE
+Maximize unique keyword coverage in the US App Store by distributing
+English keywords (NOT translations) across these 9 locales.
+
+# INPUTS
+- Existing en-US iOS metadata:
+    name:        <BASE_NAME>
+    subtitle:    <BASE_SUBTITLE>
+    keywords:    <BASE_KEYWORDS>
+    description: <BASE_DESCRIPTION>
+- Existing en-US Android metadata:
+    title:             <BASE_TITLE>
+    short_description: <BASE_SHORT_DESC>
+    full_description:  <BASE_FULL_DESC>
+- Target keywords to rank for:
+    <LIST_KEYWORDS_HERE>
+
+# HARD RULES
+1. DO NOT modify en-US. Leave it untouched.
+2. Generate ENGLISH content in all 9 locale folders (this is intentional —
+   Apple indexes them regardless of declared language).
+3. ZERO keyword duplication WITHIN a locale:
+   - title ≠ subtitle ≠ keywords (no word overlap inside one locale)
+4. PREFER zero duplication ACROSS the 9 locales, but allow strategic repetition
+   when the keyword pool is exhausted (see KEYWORD DISTRIBUTION STRATEGY below).
+5. Apple character limits (enforce strictly):
+   - name (title):    ≤ 30 chars
+   - subtitle:        ≤ 30 chars
+   - keywords field:  ≤ 100 chars, comma-separated, NO spaces after commas
+6. No brand name in the iOS keywords field.
+7. Avoid plural/singular duplication unless it unlocks a distinct search.
+8. Avoid generic filler ("app", "best", "free", "new") — wasted slots.
+9. Front-load highest-volume keywords in the iOS name (left = stronger).
+10. For Android (Play Store), write NATURALLY phrased English short/full
+    descriptions in each locale folder, embedding the same locale's keywords.
+    title ≤ 30 chars, short_description ≤ 80 chars, full_description ≤ 4000 chars.
+11. For iOS `description.txt` (per locale): write a fresh English description
+    that naturally embeds that locale's assigned keywords. Same length range
+    as the en-US description. NOT a translation; NOT a verbatim copy.
+
+# PROCESS
+1. Read en-US metadata to understand the app's purpose, tone, and primary value.
+2. Cluster the target keywords by semantic theme (e.g., "design", "tuning",
+   "customization", "AI", "mechanic").
+3. Assign each cluster to one locale to keep them coherent and discoverable.
+4. Draft title/subtitle/keywords per locale, then verify with the checklist below.
+
+# KEYWORD DISTRIBUTION STRATEGY
 
 ## Language rule
 Generate ENGLISH content in all 9 locale folders. This is intentional —
@@ -17,6 +151,29 @@ the US App Store indexes these fields regardless of the folder's declared
 language. Localization is NOT the goal here; keyword surface area is.
 
 ## Uniqueness rules (in priority order)
+
+### Rule A — Within a single locale: ZERO repetition (hard rule)
+Inside ONE locale, no word may appear in more than one field.
+- title ∩ subtitle = ∅
+- title ∩ keywords = ∅
+- subtitle ∩ keywords = ∅
+Apple does not re-index a word that already appears in title/subtitle when
+it also appears in the keywords field — it's wasted space.
+
+### Rule B — Across the 9 locales: PREFER uniqueness, allow strategic repetition
+The goal is to maximize TOTAL unique keywords indexed across all 9 locales.
+So the default is: every keyword appears in exactly ONE locale.
+
+But do not force uniqueness at the cost of relevance:
+1. Build a ranked list of candidates (user-provided keywords + tight synonyms
+   + adjacent relevant terms), ordered by relevance × search-volume potential.
+2. Distribute across the 9 locales, filling them with UNIQUE keywords first.
+3. If you run out of strongly-relevant unique keywords before all 9 locales
+   are filled, DO NOT invent weak, generic, or off-topic terms to maintain
+   uniqueness. Instead: reuse strongest keywords in remaining locales paired
+   with different secondary/long-tail terms so the title + subtitle + keywords
+   COMBINATION still differs.
+4. NEVER produce two locales with identical title AND subtitle AND keywords.
 
 ## Quality-over-uniqueness principle
 A relevant keyword indexed twice is more valuable than an irrelevant keyword
@@ -223,136 +380,7 @@ If the user provides a Play code in `locales=` (e.g. `ko-KR`), accept it and loo
 
 ---
 
-### Localize ASO Metadata — Per-locale Name / Subtitle / Keywords / Description
+## Where this sits in the flow
 
-This is a **skill-driven procedure**, not an external CLI command. Claude (you) executes the prompts in this section directly using the Read/Write tools — there is no shell binary to invoke and no AI API key required. All text generation and ASO-rule enforcement happens in-conversation.
-
-**Trigger phrases** (any of these in the user's message routes here):
-- `Using kappmaker, localize metadata mode=keyword-expansion ...`
-- `Using kappmaker, localize metadata mode=market-localization ...`
-- "localize aso", "localize metadata", "aso keyword expansion", "aso keywords"
-
-**Argument parsing** (extract from the user message):
-- `mode` — required, one of `keyword-expansion` | `market-localization`
-- `keywords` — required for `keyword-expansion`; comma-separated list (strip surrounding quotes, trim each entry, drop empties)
-- `base` — optional for `market-localization`; defaults to `en-US`
-- `locales` — required for `market-localization`; comma- or space-separated codes (no autodetect)
-- `distribution_dir` — optional override. Default resolution: search upward from cwd for a directory containing `MobileApp/distribution/`; if not found, use `./MobileApp/distribution`. If neither exists, create `./MobileApp/distribution/` and use that.
-
-If `mode` is missing or invalid, stop and ask the user to pick one of the two modes and provide its required args.
-
-#### Output layout (strict — same for both modes)
-
-- **iOS**: `<distribution_dir>/ios/appstore_metadata/texts/<iosLocale>/{name,subtitle,keywords,description}.txt`
-  - The `texts/` subfolder IS literal and intentional. Not standard Fastlane `deliver` layout.
-- **Android**: `<distribution_dir>/android/playstore_metadata/<playLocale>/{title,short_description,full_description}.txt`
-
-`en-US` (or the user-chosen base) is **never** modified once it exists. No images, screenshots, or other files are touched.
-
-#### Preflight checklist (run BEFORE either mode procedure)
-
-1. Resolve `<distribution_dir>` (see argument parsing above).
-2. **Base-locale bootstrap (NEVER fail when missing)**: read the base-locale folders:
-   - iOS: `<distribution_dir>/ios/appstore_metadata/texts/<base>/{name,subtitle,keywords,description}.txt`
-   - Android: `<distribution_dir>/android/playstore_metadata/<base>/{title,short_description,full_description}.txt`
-   
-   If either folder is missing entirely, OR any of the expected files is missing OR empty (zero bytes), enter **bootstrap mode**:
-   - Ask the user (single prompt): `"Base locale '<base>' is missing some metadata. Briefly describe the app and its core value (1–2 sentences):"` Wait for the reply.
-   - For Mode 1 (`keyword-expansion`), use the user's app description + the `keywords=` list to compose the base-locale files. For Mode 2 (`market-localization`), use just the app description.
-   - Apply the **ASO Guidelines** (see bottom of this section) to the bootstrapped output: front-load the strongest keyword in `name`/`title`, no spaces after commas in keywords, no word repetition across `name`/`subtitle`/`keywords` in the iOS folder, respect every char limit.
-   - Write the missing base files first (only those that were missing or empty — preserve any non-empty siblings as the source for the rest).
-3. After bootstrap (or directly if everything was present), read all 7 base-locale files into local variables you can reference as `<BASE_NAME>`, `<BASE_SUBTITLE>`, `<BASE_KEYWORDS>`, `<BASE_DESCRIPTION>`, `<BASE_TITLE>`, `<BASE_SHORT_DESC>`, `<BASE_FULL_DESC>`.
-4. For Mode 2: validate every code in `locales=` resolves in the **Mode 2 Locale Table** (below). If any code is unknown, abort with the full supported-codes list printed and do NOT create any folders.
-
-#### Mode 1 — keyword-expansion procedure
-
-**Locale set (FIXED)** — the 9 US-indexed locales:
-
-| iOS folder | Play folder |
-|---|---|
-| `ar-SA`   | `ar` |
-| `fr-FR`   | `fr-FR` |
-| `ko`      | `ko-KR` |
-| `pt-BR`   | `pt-BR` |
-| `ru`      | `ru-RU` |
-| `vi`      | `vi` |
-| `zh-Hans` | `zh-CN` |
-| `zh-Hant` | `zh-TW` |
-| `es-MX`   | `es-MX` |
-
-**Overwrite behavior**: always overwrite these 9 locales without prompting. The base locale (`en-US`) is the only protected folder and is never touched (except by the bootstrap step above, which writes it once if missing).
-
-**Reasoning script** (execute this prompt yourself — do NOT print it to the user; you ARE the senior ASO strategist):
-
-```
-# ROLE
-You are a senior ASO strategist specialized in App Store keyword indexing
-mechanics and Google Play metadata optimization.
-
-# CONTEXT
-The US App Store indexes keywords from `name`, `subtitle`, and `keywords`
-fields across these 9 additional locales (beyond en-US):
-
-INDEXED_LOCALES = {
-  iOS folder → Play Store folder
-  "ar-SA"    → "ar"
-  "fr-FR"    → "fr-FR"
-  "ko"       → "ko-KR"
-  "pt-BR"    → "pt-BR"
-  "ru"       → "ru-RU"
-  "vi"       → "vi"
-  "zh-Hans"  → "zh-CN"
-  "zh-Hant"  → "zh-TW"
-  "es-MX"    → "es-MX"
-}
-
-More unique indexed keywords = more ranking surface = more organic installs.
-
-# OBJECTIVE
-Maximize unique keyword coverage in the US App Store by distributing
-English keywords (NOT translations) across these 9 locales.
-
-# INPUTS
-- Existing en-US iOS metadata:
-    name:        <BASE_NAME>
-    subtitle:    <BASE_SUBTITLE>
-    keywords:    <BASE_KEYWORDS>
-    description: <BASE_DESCRIPTION>
-- Existing en-US Android metadata:
-    title:             <BASE_TITLE>
-    short_description: <BASE_SHORT_DESC>
-    full_description:  <BASE_FULL_DESC>
-- Target keywords to rank for:
-    <LIST_KEYWORDS_HERE>
-
-# HARD RULES
-1. DO NOT modify en-US. Leave it untouched.
-2. Generate ENGLISH content in all 9 locale folders (this is intentional —
-   Apple indexes them regardless of declared language).
-3. ZERO keyword duplication WITHIN a locale:
-   - title ≠ subtitle ≠ keywords (no word overlap inside one locale)
-4. PREFER zero duplication ACROSS the 9 locales, but allow strategic repetition
-   when the keyword pool is exhausted (see KEYWORD DISTRIBUTION STRATEGY below).
-5. Apple character limits (enforce strictly):
-   - name (title):    ≤ 30 chars
-   - subtitle:        ≤ 30 chars
-   - keywords field:  ≤ 100 chars, comma-separated, NO spaces after commas
-6. No brand name in the iOS keywords field.
-7. Avoid plural/singular duplication unless it unlocks a distinct search.
-8. Avoid generic filler ("app", "best", "free", "new") — wasted slots.
-9. Front-load highest-volume keywords in the iOS name (left = stronger).
-10. For Android (Play Store), write NATURALLY phrased English short/full
-    descriptions in each locale folder, embedding the same locale's keywords.
-    title ≤ 30 chars, short_description ≤ 80 chars, full_description ≤ 4000 chars.
-11. For iOS `description.txt` (per locale): write a fresh English description
-    that naturally embeds that locale's assigned keywords. Same length range
-    as the en-US description. NOT a translation; NOT a verbatim copy.
-
-# PROCESS
-1. Read en-US metadata to understand the app's purpose, tone, and primary value.
-2. Cluster the target keywords by semantic theme (e.g., "design", "tuning",
-   "customization", "AI", "mechanic").
-3. Assign each cluster to one locale to keep them coherent and discoverable.
-4. Draft title/subtitle/keywords per locale, then verify with the checklist below.
-
-# KEYWORD DISTRIBUTION STRATEGY
+- **Before this:** **kappmaker-aso** — you need the keyword research before writing the fields.
+- **After this:** **kappmaker-asc** / **kappmaker-gpc** to upload the metadata to the stores.

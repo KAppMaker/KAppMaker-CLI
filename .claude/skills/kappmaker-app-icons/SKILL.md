@@ -58,3 +58,8 @@ description: Generate platform app-icon sets for a KAppMaker app — iOS AppIcon
 **Tips**: Run after `create-logo` to mint the full Android iconset in one shot. The default `--foreground-padding 0.25` matches Android Asset Studio's behavior — drop it to `0.1` for icons that fill more of the adaptive frame, or up to `0.4` for very small logo content. Pass `--background "#0F0A0D"` (or any brand hex) to set the adaptive icon backdrop.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-logo** — icons are generated from the logo.
+- **After this:** **kappmaker-publish** (icons must exist before a release build).

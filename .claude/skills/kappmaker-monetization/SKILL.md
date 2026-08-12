@@ -81,3 +81,8 @@ For iterating on a live app after the initial setup is done. Instead of editing 
 - Custom per-territory price overrides (PPP covers the common case)
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-asc** and/or **kappmaker-gpc** — products need the store app record to exist first.
+- **After this:** **kappmaker-adapty** to wire the products to the provider.

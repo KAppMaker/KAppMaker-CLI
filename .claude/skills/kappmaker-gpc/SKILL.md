@@ -122,3 +122,8 @@ If a user reports HTTP 400 _"Unknown name 'otherRegionsConfig' at 'one_time_prod
 **Manual-only declarations**: The Play Publisher API does NOT expose content rating (IARC), target audience, ads declaration, health apps, financial features, government apps, news apps, gambling, COVID-19 tracing, app access (login walls), advertising ID usage, families compliance, or app pricing tier. Step 11 of `gpc setup` prints a checklist with a deep link to the Play Console App content page for the user to tick these off manually. No API workaround exists.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-new-app** (package name comes from the project).
+- **After this:** **kappmaker-aso-metadata** for listing text, **kappmaker-screenshots**, **kappmaker-feature-graphic**, then **kappmaker-publish**.

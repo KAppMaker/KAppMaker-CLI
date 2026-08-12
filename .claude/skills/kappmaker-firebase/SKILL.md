@@ -53,3 +53,8 @@ Same probe for iOS (`MobileApp/iosApp/iosApp/GoogleService-Info.plist` first). O
 The full `create` orchestrator calls these five commands internally for steps 2–6.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-new-app** — the project must exist.
+- **After this:** **kappmaker-monetization**, or straight to building features.

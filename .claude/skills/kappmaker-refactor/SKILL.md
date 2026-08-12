@@ -35,3 +35,8 @@ kappmaker refactor --app-id com.new.app --app-name NewApp --old-app-id com.previ
 ```
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** Do this EARLY, before any store record exists — the package name and bundle ID are what **kappmaker-asc** and **kappmaker-gpc** register.
+- **After this:** Rebuild and re-run **kappmaker-publish**.

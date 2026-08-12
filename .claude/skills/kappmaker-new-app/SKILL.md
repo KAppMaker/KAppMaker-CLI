@@ -93,3 +93,8 @@ kappmaker refactor --app-id com.example.myapp --app-name MyApp
 **When to suggest this**: After the user has manually cloned the template (or used `kappmaker clone`) and is about to push to their own repo. The full `create` calls this automatically as step 10.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** —
+- **After this:** **kappmaker-firebase** (if the app needs auth/analytics), **kappmaker-monetization** (if it sells anything), **kappmaker-logo**. The product interview itself is the project's own bundled `new-app` skill.

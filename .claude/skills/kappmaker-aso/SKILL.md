@@ -1,61 +1,15 @@
 ---
 name: kappmaker-aso
-description: Research App Store keywords for a KAppMaker app via the Astro MCP, and produce the keyword report — primary keywords, sub-niche clusters and what was discarded. Use when the user asks about ASO, app store keywords, search ranking or which keywords to target. For writing the actual title, subtitle and keyword fields use kappmaker-aso-metadata.
+description: Research App Store keywords for a KAppMaker app via the Astro MCP and produce the keyword report — primary keywords, sub-niche clusters, and what was discarded and why. Use when the user asks about ASO, app store keywords, search ranking or which keywords to target. For writing the actual title, subtitle and keyword fields use kappmaker-aso-metadata.
 ---
 
-# KAppMaker — Aso
+# KAppMaker — ASO Keyword Research
 
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
-
-## Recommended primary keywords (top 5)
-
-These are the highest-value picks across all sub-niches — strong popularity, low-to-moderate difficulty. Use these in the iOS `name` and `subtitle` and as the front-loaded terms in `keywords.txt` for `en-US`.
-
-| Keyword | Popularity | Difficulty | Why |
-|---------|-----------:|-----------:|-----|
-| <kw>    | 72         | 28         | Highest popularity in the pool with low competition — strongest single bet. |
-| ...
-
-## Sub-niche clusters
-
-## Discarded (for reference)
-
-Keywords that hit the filter cutoff. Listed so the user can sanity-check the threshold choice and see what was rejected.
-
-| Keyword | Popularity | Difficulty | Reason dropped |
-|---------|-----------:|-----------:|---------------|
-| ai photo            | 95 | 78 | Difficulty too high (saturated by mega-apps) |
-| free image generator| 18 |  9 | Popularity too low |
-| ...
-```
-
-#### Manual brainstorm fallback (when Astro MCP is unavailable)
-
-If the user chose to brainstorm without Astro MCP:
-
-1. Use your own knowledge of the App Store category around the base keyword to generate 30–50 sub-niche candidates. Cluster them the same way (sub-niche groupings).
-2. Mark `Popularity` and `Difficulty` columns as `?` (unknown) so the user understands these aren't measured numbers — they're hypothesis-only.
-3. In the file header, add a prominent note: `> ⚠️ Popularity/difficulty scores are NOT included — Astro MCP was unavailable. Validate these candidates on App Store Connect, [Astro](https://tryastro.app/docs/mcp/), AppTweak, or Sensor Tower before using them in production listings.`
-4. Skip the "Discarded" section (there's nothing to filter against).
-
-The file structure (clusters + recommended primary keywords) stays the same so the user gets the same downstream value.
-
-#### Tips and edge cases
-
-- **Free-tier rate limits**: Astro free tier limits tracked-app count. If `add_app` fails with quota error, work with whatever competitors are already tracked + AI suggestions. Don't abort.
-- **Very narrow niches**: if the base keyword is hyper-specific (e.g. "vintage manga panel translator"), `extract_competitors_keywords` may return only 5–10 keywords post-filter. That's fine — write them all and let the user know the niche is small.
-- **Very broad keywords**: if the base is generic (e.g. "ai", "photo"), the candidate pool will be huge and the filter cutoffs may still leave 200+ entries. Cap output at `target_count × 1.5` and tell the user to narrow the base.
-- **Multi-language base**: if the user's base keyword is non-English, the App Store search results are localized — Astro returns keywords in that language. The workflow still works; just note in the file header which storefront / language the data is for.
-- **Chain to localize-metadata**: at the end of `AiGuidelines/keywords.md`, include a ready-to-paste command line suggestion using the top ~10 keywords:
-  ```
-  Using kappmaker, localize metadata mode=keyword-expansion keywords="<10 picks comma-separated>"
-  ```
-
----
+2. **Read `AiGuidelines/` first** — the PRD and positioning already answer most questions.
 
 ### ASO Keyword Research — Find high-value keywords via Astro MCP
 
@@ -136,3 +90,71 @@ If none of those tools are present:
 **Generated:** <ISO date>
 **Filters:** popularity ≥ <min_popularity>, difficulty ≤ <max_difficulty>
 **Sources:** <competitor app names, comma-separated> + AI suggestions
+
+## Recommended primary keywords (top 5)
+
+These are the highest-value picks across all sub-niches — strong popularity, low-to-moderate difficulty. Use these in the iOS `name` and `subtitle` and as the front-loaded terms in `keywords.txt` for `en-US`.
+
+| Keyword | Popularity | Difficulty | Why |
+|---------|-----------:|-----------:|-----|
+| <kw>    | 72         | 28         | Highest popularity in the pool with low competition — strongest single bet. |
+| ...
+
+## Sub-niche clusters
+
+### Cluster 1 — <theme, e.g. "AI text-to-image">
+
+| Keyword | Popularity | Difficulty | Description |
+|---------|-----------:|-----------:|-------------|
+| ai text to image       | 65 | 38 | Direct text-to-image generation — main user search intent. |
+| prompt to picture      | 42 | 22 | Long-tail variant; lower volume but very low competition. |
+| ai art from text       | 38 | 31 | Adjacent phrasing common among casual users. |
+| ...
+
+### Cluster 2 — <theme, e.g. "Image editing">
+
+| Keyword | Popularity | Difficulty | Description |
+|---------|-----------:|-----------:|-------------|
+| ...
+
+(repeat per cluster)
+
+## Discarded (for reference)
+
+Keywords that hit the filter cutoff. Listed so the user can sanity-check the threshold choice and see what was rejected.
+
+| Keyword | Popularity | Difficulty | Reason dropped |
+|---------|-----------:|-----------:|---------------|
+| ai photo            | 95 | 78 | Difficulty too high (saturated by mega-apps) |
+| free image generator| 18 |  9 | Popularity too low |
+| ...
+```
+
+#### Manual brainstorm fallback (when Astro MCP is unavailable)
+
+If the user chose to brainstorm without Astro MCP:
+
+1. Use your own knowledge of the App Store category around the base keyword to generate 30–50 sub-niche candidates. Cluster them the same way (sub-niche groupings).
+2. Mark `Popularity` and `Difficulty` columns as `?` (unknown) so the user understands these aren't measured numbers — they're hypothesis-only.
+3. In the file header, add a prominent note: `> ⚠️ Popularity/difficulty scores are NOT included — Astro MCP was unavailable. Validate these candidates on App Store Connect, [Astro](https://tryastro.app/docs/mcp/), AppTweak, or Sensor Tower before using them in production listings.`
+4. Skip the "Discarded" section (there's nothing to filter against).
+
+The file structure (clusters + recommended primary keywords) stays the same so the user gets the same downstream value.
+
+#### Tips and edge cases
+
+- **Free-tier rate limits**: Astro free tier limits tracked-app count. If `add_app` fails with quota error, work with whatever competitors are already tracked + AI suggestions. Don't abort.
+- **Very narrow niches**: if the base keyword is hyper-specific (e.g. "vintage manga panel translator"), `extract_competitors_keywords` may return only 5–10 keywords post-filter. That's fine — write them all and let the user know the niche is small.
+- **Very broad keywords**: if the base is generic (e.g. "ai", "photo"), the candidate pool will be huge and the filter cutoffs may still leave 200+ entries. Cap output at `target_count × 1.5` and tell the user to narrow the base.
+- **Multi-language base**: if the user's base keyword is non-English, the App Store search results are localized — Astro returns keywords in that language. The workflow still works; just note in the file header which storefront / language the data is for.
+- **Chain to localize-metadata**: at the end of `AiGuidelines/keywords.md`, include a ready-to-paste command line suggestion using the top ~10 keywords:
+  ```
+  Using kappmaker, localize metadata mode=keyword-expansion keywords="<10 picks comma-separated>"
+  ```
+
+---
+
+## Where this sits in the flow
+
+- **Before this:** The app's positioning in `AiGuidelines/`.
+- **After this:** **kappmaker-aso-metadata** — turn the chosen keywords into the actual title, subtitle and keyword fields.

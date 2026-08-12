@@ -44,3 +44,8 @@ For credit pack IAPs (entries with `credits` field): `ios_product_id` = `android
 **Prerequisite ordering**: If the user wants Adapty on Android, the Play Console products must exist first. The `create` orchestrator handles this automatically (step 8 runs `gpc setup` before step 9 runs Adapty), but if invoked standalone, tell the user to run `kappmaker gpc setup` (or at least `gpc subscriptions push`) before `kappmaker adapty setup`.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-monetization** — create the store products first; Adapty references them.
+- **After this:** Paywall work in the app itself.

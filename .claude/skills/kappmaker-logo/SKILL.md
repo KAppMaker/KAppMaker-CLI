@@ -29,3 +29,8 @@ description: Generate the app's logo with AI — the brand mark used for icons, 
 **Interactive**: Always interactive for the grid selection (number prompt). The initial app-idea prompt can be skipped by passing `--prompt "..."` up front.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-new-app**.
+- **After this:** **kappmaker-app-icons** — turn the finished logo into iOS and Android icon sets.

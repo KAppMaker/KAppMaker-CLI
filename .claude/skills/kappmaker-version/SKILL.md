@@ -28,3 +28,8 @@ description: Bump the version of a KAppMaker app. Use when the user asks to bump
 If a platform's files are missing, that platform is skipped with a warning.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** —
+- **After this:** **kappmaker-publish** — bump, then ship.
