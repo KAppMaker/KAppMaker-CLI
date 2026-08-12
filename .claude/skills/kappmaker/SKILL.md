@@ -18,7 +18,8 @@ use that skill — do not hand-roll a command a skill already documents.
 | App Store Connect, iOS listing, Apple's side | **kappmaker-asc** |
 | Google Play Console, Android listing, data safety, releases | **kappmaker-gpc** |
 | App store keywords, ASO, what to call the app | **kappmaker-aso** |
-| A logo or an AI image | **kappmaker-logo** |
+| The app logo / brand mark | **kappmaker-logo** |
+| Any other image — illustrations, empty states, onboarding art | **kappmaker-image** |
 | App icons, launcher icons, WebP conversion | **kappmaker-app-icons** |
 | Store screenshots, or screenshots in other languages | **kappmaker-screenshots** |
 | The Play feature graphic | **kappmaker-feature-graphic** |
