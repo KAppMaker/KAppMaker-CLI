@@ -1,6 +1,6 @@
 ---
 name: kappmaker-new-app
-description: Scaffold a new mobile app with the KAppMaker CLI — clone the template, run the full 13-step create flow, and set up the git remotes. Use when the user wants to build a new app, start a new project, has an app idea, or asks to clone or create a KAppMaker app.
+description: Scaffold a new mobile app with the KAppMaker CLI — clone the template, run the full create flow, and set up git remotes. Use when the user wants to build a new app, start a new project, has an app idea, or asks to clone or create a KAppMaker app.
 ---
 
 # KAppMaker — New App
@@ -8,22 +8,14 @@ description: Scaffold a new mobile app with the KAppMaker CLI — clone the temp
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
-   missing the CLI says so; re-run `kappmaker config init` to add it.
-2. **Read the project's own docs first** — `AiGuidelines/` holds the PRD, user flow and UI spec for
-   this app. Never invent product decisions the docs already answer.
-3. **In-project work has its own playbook** — check `<project>/.claude/skills/README.md` before
-   hand-rolling anything.
+   missing the CLI says so; re-run `kappmaker config init`.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
 
-## Starting from a raw idea (interview-first flow)
+## Starting from a raw idea
 
 The `new-app` interview skill ships **inside** a project, so it does not exist until one is cloned.
-The order that works:
-
-1. `kappmaker clone <AppName>` — light scaffold, no accounts needed (ships a mock subscription
-   provider). Use `kappmaker create <AppName>` only when the user explicitly wants full infra now.
-2. `cd` into the project; read its `CLAUDE.md` and `.claude/skills/README.md`.
-3. Follow the project's bundled **`new-app`** skill — it interviews the user and writes
-   `AiGuidelines/prd.md`, the user flow and UI docs. Do not invent the product yourself.
+Order: `kappmaker clone <AppName>` → `cd` in and read its `CLAUDE.md` + `.claude/skills/README.md`
+→ then follow that project's bundled **`new-app`** skill for the PRD interview.
 
 
 ### create — Full App Setup
@@ -101,3 +93,8 @@ kappmaker refactor --app-id com.example.myapp --app-name MyApp
 **When to suggest this**: After the user has manually cloned the template (or used `kappmaker clone`) and is about to push to their own repo. The full `create` calls this automatically as step 10.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** —
+- **After this:** **kappmaker-firebase** (if the app needs auth/analytics), **kappmaker-monetization** (if it sells anything), **kappmaker-logo**. The product interview itself is the project's own bundled `new-app` skill.

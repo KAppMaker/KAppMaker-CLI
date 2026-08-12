@@ -1,16 +1,48 @@
 ---
 name: kappmaker-publish
-description: Build, sign and ship a KAppMaker app to the stores — signed Android AAB, keystore generation, and uploading to Google Play and the App Store. Use when the user asks to build a release, create a keystore, ship, upload or publish the app.
+description: Build, sign and ship a KAppMaker app — Fastlane setup, signed Android AAB, keystore generation, and uploading to Google Play and the App Store. Use when the user asks to build a release, create a keystore, configure fastlane, ship, upload or publish the app.
 ---
 
 # KAppMaker — Publish
+
+## Shipping order — read this first
+
+Publishing is a chain, and the first release differs from later ones.
+
+**Android, first ever release**
+1. **Keystore** — `generate-keystore` (below). One per app, forever. Losing it means you can never
+   update that app again, so back it up before continuing.
+2. The Play app record must exist → **kappmaker-gpc**.
+3. `android-release-build` (below) — signed AAB.
+4. `publish` (below) — upload.
+
+**Android, every release after that**
+Skip the keystore, it already exists. Bump the version first (**kappmaker-version**), then
+`android-release-build` → `publish`.
+
+**iOS**
+The App Store Connect record must exist first → **kappmaker-asc**. Signing is handled by Fastlane
+(`fastlane configure` below), not by a keystore.
+
+If a step fails because something upstream is missing, go to that skill and come back — do not
+improvise around it.
 
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
+
+### fastlane configure — Set Up Fastlane
+
+**Syntax**: `kappmaker fastlane configure`
+
+**Prerequisites**: Ruby and Bundler (`gem install bundler`). Run from the project root or inside `MobileApp/`.
+
+**What it does**: Creates `Gemfile` + `fastlane/Fastfile` in the mobile app directory, then runs `bundle install`. Skips files that already exist. This is a prerequisite for `kappmaker publish`.
+
+---
 
 ### publish — Build & Upload to Stores
 

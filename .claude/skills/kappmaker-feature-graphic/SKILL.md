@@ -1,6 +1,6 @@
 ---
 name: kappmaker-feature-graphic
-description: Generate the Google Play feature graphic for a KAppMaker app. Use when the user asks for a feature graphic, Play Store banner or store header image.
+description: Generate the Google Play feature graphic. Use when the user asks for a feature graphic, Play Store banner or store header image.
 ---
 
 # KAppMaker — Feature Graphic
@@ -9,8 +9,8 @@ description: Generate the Google Play feature graphic for a KAppMaker app. Use w
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### generate-feature-image — AI Feature Graphic Generation
 
@@ -38,3 +38,8 @@ description: Generate the Google Play feature graphic for a KAppMaker app. Use w
 **Tips**: Pass `--logo` to keep the exact app icon (the model will reproduce, not redraw, image #1). Pass `--reference` screenshots in the order they should appear inside the device mockups.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-logo** for brand consistency.
+- **After this:** **kappmaker-gpc** — the feature graphic is a Play Store asset.

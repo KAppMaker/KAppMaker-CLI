@@ -1,6 +1,6 @@
 ---
 name: kappmaker-screenshots
-description: Generate and translate App Store and Play Store screenshots for a KAppMaker app. Use when the user asks for store screenshots, marketing screenshots, or screenshots in other languages or locales.
+description: Generate and translate App Store and Play Store screenshots. Use when the user asks for store screenshots, marketing screenshots, or screenshots in other languages or locales.
 ---
 
 # KAppMaker — Screenshots
@@ -9,8 +9,8 @@ description: Generate and translate App Store and Play Store screenshots for a K
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### generate-screenshots — AI Screenshot Generation
 
@@ -50,3 +50,8 @@ description: Generate and translate App Store and Play Store screenshots for a K
 **What it does**: Combines source screenshots into a grid, translates to all target locales in parallel via fal.ai, splits translated grids back into individual images, saves to Fastlane distribution structure for both iOS and Android.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** A running app to capture, and **kappmaker-app-icons** for a finished look.
+- **After this:** **kappmaker-asc** / **kappmaker-gpc** to attach them to the listing.

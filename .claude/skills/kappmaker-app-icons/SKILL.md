@@ -1,6 +1,6 @@
 ---
 name: kappmaker-app-icons
-description: Generate platform app-icon sets for a KAppMaker app — iOS AppIcon.appiconset and Android launcher icons — and convert images to WebP. Use when the user asks for app icons, launcher icons, adaptive icons, or to optimise or convert images.
+description: Generate platform app-icon sets for a KAppMaker app — iOS AppIcon.appiconset and Android launcher icons. Use when the user asks for app icons, launcher icons or adaptive icons.
 ---
 
 # KAppMaker — App Icons
@@ -9,8 +9,8 @@ description: Generate platform app-icon sets for a KAppMaker app — iOS AppIcon
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### generate-ios-icons — iOS AppIcon.appiconset Generator
 
@@ -59,18 +59,7 @@ description: Generate platform app-icon sets for a KAppMaker app — iOS AppIcon
 
 ---
 
-### convert-webp — Image to WebP Conversion
+## Where this sits in the flow
 
-**Syntax**: `kappmaker convert-webp <source> [options]`
-
-**Options**:
-- `--quality <n>` — WebP quality, 0–100 (default: 75)
-- `--recursive` — Search directories recursively (default: false)
-- `--delete-originals` — Delete original files after conversion (default: false)
-- `--output <dir>` — Output directory (default: same directory as source)
-
-**Prerequisites**: None (uses local sharp library, no API key needed).
-
-**What it does**: Converts PNG, JPG, JPEG, BMP, TIFF, and GIF images to WebP format — similar to Android Studio's built-in converter. Shows before/after file sizes and percentage saved for each file. Works on single files or entire directories (with `--recursive`).
-
----
+- **Before this:** **kappmaker-logo** — icons are generated from the logo.
+- **After this:** **kappmaker-publish** (icons must exist before a release build).

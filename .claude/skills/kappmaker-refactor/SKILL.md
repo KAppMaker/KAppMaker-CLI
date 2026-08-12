@@ -1,6 +1,6 @@
 ---
 name: kappmaker-refactor
-description: Rename a KAppMaker app's package name, bundle ID or display name across the codebase. Use when the user asks to rename the app, change the package name or bundle identifier.
+description: Rename a KAppMaker app's package name, bundle ID or display name across the codebase. Use when the user asks to rename the app or change the package name or bundle identifier.
 ---
 
 # KAppMaker — Refactor
@@ -9,8 +9,8 @@ description: Rename a KAppMaker app's package name, bundle ID or display name ac
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### refactor — Package & App Name Refactoring
 
@@ -35,3 +35,8 @@ kappmaker refactor --app-id com.new.app --app-name NewApp --old-app-id com.previ
 ```
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** Do this EARLY, before any store record exists — the package name and bundle ID are what **kappmaker-asc** and **kappmaker-gpc** register.
+- **After this:** Rebuild and re-run **kappmaker-publish**.

@@ -1,6 +1,6 @@
 ---
 name: kappmaker-monetization
-description: Add and manage subscriptions and in-app purchases for a KAppMaker app — defining the products themselves on App Store Connect and Google Play, including credit-pack IAPs. Use when the user asks to add a subscription, add an in-app purchase, add credit packs, change pricing, or set up paywall products. For the subscription PROVIDER's own configuration, use the provider skill: kappmaker-adapty (RevenueCat and others follow the same pattern).
+description: Add and manage the subscription and in-app purchase PRODUCTS for a KAppMaker app on App Store Connect and Google Play, including credit packs and pricing. Use when the user asks to add a subscription, add an IAP, add credit packs or change pricing. For the subscription provider's own dashboard use kappmaker-adapty.
 ---
 
 # KAppMaker — Monetization
@@ -8,11 +8,13 @@ description: Add and manage subscriptions and in-app purchases for a KAppMaker a
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
-   missing the CLI says so; re-run `kappmaker config init` to add it.
-2. **Read the project's own docs first** — `AiGuidelines/` holds the PRD, user flow and UI spec for
-   this app. Never invent product decisions the docs already answer.
-3. **In-project work has its own playbook** — check `<project>/.claude/skills/README.md` before
-   hand-rolling anything.
+   missing the CLI says so; re-run `kappmaker config init`.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
+## The provider is a separate skill
+
+This skill covers the products. Wiring them to a provider's dashboard and SDK is that provider's
+skill — today **kappmaker-adapty** (RevenueCat will slot in the same way).
 
 
 ### Quick-add Subscription / IAP — One new product, no config edit
@@ -80,15 +82,7 @@ For iterating on a live app after the initial setup is done. Instead of editing 
 
 ---
 
-## The provider is a separate skill
+## Where this sits in the flow
 
-This skill covers the **products** — what exists on App Store Connect and Google Play, at what price.
-Wiring those products to a subscription provider's dashboard and SDK is that provider's own skill:
-
-| Provider | Skill |
-|---|---|
-| Adapty | **kappmaker-adapty** |
-
-`subscription add` deliberately does **not** touch the provider — see the note in the command above.
-`iap add` does include Adapty for credit packs, because credit balances are tracked there.
-
+- **Before this:** **kappmaker-asc** and/or **kappmaker-gpc** — products need the store app record to exist first.
+- **After this:** **kappmaker-adapty** to wire the products to the provider.

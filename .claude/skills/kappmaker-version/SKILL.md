@@ -9,8 +9,8 @@ description: Bump the version of a KAppMaker app. Use when the user asks to bump
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### update-version — Version Bumping
 
@@ -28,3 +28,8 @@ description: Bump the version of a KAppMaker app. Use when the user asks to bump
 If a platform's files are missing, that platform is skipped with a warning.
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** —
+- **After this:** **kappmaker-publish** — bump, then ship.
