@@ -12,24 +12,26 @@ use that skill — do not hand-roll a command a skill already documents.
 | The user wants… | Use this skill |
 |---|---|
 | A new app, a new project, "I have an app idea" | **kappmaker-new-app** |
-| Firebase, google-services files, auth/analytics | **kappmaker-firebase** |
-| Subscriptions, IAPs, credit packs, pricing | **kappmaker-monetization** |
-| Adapty — provider dashboard, entitlements, paywall delivery | **kappmaker-adapty** |
-| App Store Connect, iOS listing, Apple's side | **kappmaker-asc** |
+| Firebase, google-services, auth/analytics | **kappmaker-firebase** |
+| Subscription / IAP products, credit packs, pricing | **kappmaker-monetization** |
+| Adapty — provider dashboard, entitlements, paywalls | **kappmaker-adapty** |
+| App Store Connect, iOS listing | **kappmaker-asc** |
 | Google Play Console, Android listing, data safety, releases | **kappmaker-gpc** |
-| App store keywords, ASO, what to call the app | **kappmaker-aso** |
+| Which keywords to target, ASO research | **kappmaker-aso** |
+| What to write in title / subtitle / keywords, per locale | **kappmaker-aso-metadata** |
 | The app logo / brand mark | **kappmaker-logo** |
 | Any other image — illustrations, empty states, onboarding art | **kappmaker-image** |
-| App icons, launcher icons, WebP conversion | **kappmaker-app-icons** |
+| Edit an existing image — split, remove background, enhance, WebP | **kappmaker-image-tools** |
+| App icons, launcher icons | **kappmaker-app-icons** |
 | Store screenshots, or screenshots in other languages | **kappmaker-screenshots** |
 | The Play feature graphic | **kappmaker-feature-graphic** |
-| Build, sign, ship — keystore, AAB, upload to the stores | **kappmaker-publish** |
+| Build, sign, ship — fastlane, keystore, AAB, upload | **kappmaker-publish** |
 | Bump the version | **kappmaker-version** |
 | Rename the package, bundle ID or app name | **kappmaker-refactor** |
 
 **Starting from a raw idea?** Scaffold with **kappmaker-new-app**, then follow the project's own
-bundled `new-app` skill for the PRD interview — that one lives *inside* the project and does not
-exist until it has been cloned.
+bundled `new-app` skill for the PRD interview — it lives *inside* the project and does not exist
+until it has been cloned.
 
 **Chained work.** Shipping is keystore → signed AAB → upload; all three live in
 **kappmaker-publish** because they are one flow, not three separate asks.
@@ -160,3 +162,20 @@ Some common workflows:
 5. **Iterate on Play Store copy without a full upload**: edit `Assets/googleplay-config.json`, then `kappmaker gpc listings push` (skips Fastlane, talks to the API directly)
 5. **Rebrand app**: `refactor --app-id <new-id> --app-name <new-name>`, then `update-version`
 6. **First publish**: `fastlane configure`, then `android-release-build`, then `publish`
+
+### config — Configuration Management
+
+**Subcommands**:
+- `kappmaker config list` — Show all config values
+- `kappmaker config get <key>` — Get a specific value
+- `kappmaker config set <key> <value>` — Set a value
+- `kappmaker config path` — Show config file path
+- `kappmaker config init` — Interactive setup wizard (has prompts). Also offers to initialize global App Store and Adapty defaults at the end.
+- `kappmaker config appstore-defaults --init` — Interactive App Store defaults setup. Backfills missing credit-pack IAPs from the template on re-run (useful after upgrading from pre-1.4 defaults).
+- `kappmaker config appstore-defaults --save <file>` — Save JSON as global defaults
+- `kappmaker config adapty-defaults --init` — Initialize Adapty defaults from the built-in template (subs + 3 credit packs + Credits Paywall + `credits_pack` placement). Backfills any of `products` / `paywalls` / `placements` that are empty/missing on re-run.
+- `kappmaker config adapty-defaults --save <file>` — Save Adapty JSON as global defaults
+
+**Valid config keys**: `templateRepo`, `bundleIdPrefix`, `androidSdkPath`, `organization`, `falApiKey`, `imgbbApiKey`, `openaiApiKey`, `ascAuthName`, `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath`, `appleId`, `googleServiceAccountPath`.
+
+For config setup, prefer using `kappmaker config set <key> <value>` for each key individually rather than `kappmaker config init` (which is fully interactive and harder to guide through).

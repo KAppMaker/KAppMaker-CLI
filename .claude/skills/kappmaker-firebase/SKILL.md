@@ -1,6 +1,6 @@
 ---
 name: kappmaker-firebase
-description: Set up Firebase for a KAppMaker app — project creation, Android and iOS apps, and the google-services config files. Use when the user asks to set up Firebase, add google-services.json or GoogleService-Info.plist, or enable Firebase auth or analytics.
+description: Set up Firebase for a KAppMaker app — project, Android and iOS apps, and the google-services config files. Use when the user asks to set up Firebase, add google-services.json or GoogleService-Info.plist, or enable Firebase auth or analytics.
 ---
 
 # KAppMaker — Firebase
@@ -8,11 +8,8 @@ description: Set up Firebase for a KAppMaker app — project creation, Android a
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
-   missing the CLI says so; re-run `kappmaker config init` to add it.
-2. **Read the project's own docs first** — `AiGuidelines/` holds the PRD, user flow and UI spec for
-   this app. Never invent product decisions the docs already answer.
-3. **In-project work has its own playbook** — check `<project>/.claude/skills/README.md` before
-   hand-rolling anything.
+   missing the CLI says so; re-run `kappmaker config init`.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
 
 
 ### firebase — Firebase Setup Steps (steps 2–6 of `create`)

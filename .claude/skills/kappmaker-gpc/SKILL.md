@@ -1,17 +1,16 @@
 ---
 name: kappmaker-gpc
-description: Manage an app on Google Play Console (GPC) for Android — store listing, data safety, releases, subscriptions and in-app products. Use when the user mentions Google Play Console, GPC, the Play Store, an Android listing, data safety, or asks to configure or release the app on Google's side.
+description: Manage an app on Google Play Console (GPC) for Android — store listing, data safety, releases, subscriptions and in-app products. Use when the user mentions Google Play Console, GPC, the Play Store, an Android listing, data safety or releases.
 ---
 
-# KAppMaker — Google Play Console
+# KAppMaker — Gpc
 
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD and positioning already answer most listing questions.
-3. **Keywords are their own skill** — for what to put in the title, subtitle and keyword field, use
-   **kappmaker-aso**.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### gpc — Google Play Console Management
 

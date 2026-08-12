@@ -1,21 +1,16 @@
 ---
 name: kappmaker-adapty
-description: Configure Adapty for a KAppMaker app — the subscription provider dashboard, products, paywalls and SDK keys. Use when the user mentions Adapty specifically, or asks who handles subscription state, entitlements or paywall delivery. For creating the store products themselves, use kappmaker-monetization.
+description: Configure Adapty for a KAppMaker app — the subscription provider dashboard, products, paywalls and SDK keys. Use when the user mentions Adapty, or asks who handles entitlements, subscription state or paywall delivery. To create the store products themselves use kappmaker-monetization.
 ---
 
-# KAppMaker — Adapty (subscription provider)
-
-Adapty is the subscription **provider**: it owns entitlements, paywall delivery and subscription
-state. The store products it sells are created separately — see **kappmaker-monetization**.
-
-> Swapping provider later (RevenueCat, StoreKit direct) changes this skill only; the products on
-> App Store Connect and Google Play stay as they are.
+# KAppMaker — Adapty
 
 ## Before running any command
 
-1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). Missing credential?
-   Re-run `kappmaker config init`.
-2. **Read `AiGuidelines/`** for the app's pricing and paywall decisions before changing anything.
+1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
+   missing the CLI says so; re-run `kappmaker config init`.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### adapty setup — Subscription Management
 

@@ -1,17 +1,16 @@
 ---
 name: kappmaker-asc
-description: Set up and manage an app on App Store Connect (ASC) for iOS — creating the app record, bundle ID, and the App Store listing. Use when the user mentions App Store Connect, ASC, the iOS App Store, an iOS listing, or asks to create or configure the app on Apple's side.
+description: Set up an app on App Store Connect (ASC) for iOS — the app record, bundle ID and App Store listing. Use when the user mentions App Store Connect, ASC, the iOS App Store or an iOS listing.
 ---
 
-# KAppMaker — App Store Connect
+# KAppMaker — Asc
 
 ## Before running any command
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD and positioning already answer most listing questions.
-3. **Keywords are their own skill** — for what to put in the title, subtitle and keyword field, use
-   **kappmaker-aso**.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### create-appstore-app — App Store Connect Setup
 

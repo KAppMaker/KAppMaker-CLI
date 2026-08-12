@@ -1,6 +1,6 @@
 ---
 name: kappmaker-logo
-description: Generate the app's logo with AI for a KAppMaker app — the brand mark used for icons, splash and store art. Use when the user asks for a logo, a brand mark, or to redo the app's logo. For any other image (illustrations, empty states, onboarding art, backgrounds) use kappmaker-image.
+description: Generate the app's logo with AI — the brand mark used for icons, splash and store art. Use when the user asks for a logo or brand mark. For any other picture use kappmaker-image; for platform icon sets use kappmaker-app-icons.
 ---
 
 # KAppMaker — Logo
@@ -9,8 +9,8 @@ description: Generate the app's logo with AI for a KAppMaker app — the brand m
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### create-logo — AI Logo Generation
 
@@ -29,9 +29,3 @@ description: Generate the app's logo with AI for a KAppMaker app — the brand m
 **Interactive**: Always interactive for the grid selection (number prompt). The initial app-idea prompt can be skipped by passing `--prompt "..."` up front.
 
 ---
-
-## Only the logo lives here
-
-Need any *other* picture — an illustration, an empty-state graphic, onboarding art, a background?
-That is **kappmaker-image**. Turning a finished logo into platform icon sets is **kappmaker-app-icons**.
-

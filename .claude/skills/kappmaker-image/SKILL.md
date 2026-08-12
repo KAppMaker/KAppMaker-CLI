@@ -1,22 +1,16 @@
 ---
 name: kappmaker-image
-description: Generate any AI image for a KAppMaker app — illustrations, empty-state and error-state art, onboarding graphics, backgrounds, placeholders, or one-off artwork from a prompt. Use when the user asks for an image, an illustration, a picture, or artwork that is not the app logo (that is kappmaker-logo) and not store screenshots (kappmaker-screenshots).
+description: Generate any other AI image for a KAppMaker app — illustrations, empty-state and error art, onboarding graphics, backgrounds, one-off artwork from a prompt. Use when the user asks for an image, illustration or artwork that is not the logo (kappmaker-logo) and not store screenshots (kappmaker-screenshots).
 ---
 
-# KAppMaker — AI Images
-
-Any picture the app or its store presence needs, other than the two assets that have their own
-skills: the **logo** (kappmaker-logo) and **store screenshots** (kappmaker-screenshots).
-
-Typical asks: onboarding illustrations, empty-state and error-state art, feature graphics inside
-the app, backgrounds, placeholder imagery.
+# KAppMaker — Image
 
 ## Before running any command
 
-1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). Missing credential?
-   Re-run `kappmaker config init`.
-2. **Match the app's look** — `AiGuidelines/` holds the UI spec and design direction; read it so a
-   generated image does not fight the design system.
+1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
+   missing the CLI says so; re-run `kappmaker config init`.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
 
 ### generate-image — Generic AI Image Generator
 

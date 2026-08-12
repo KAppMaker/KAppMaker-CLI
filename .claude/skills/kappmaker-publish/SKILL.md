@@ -1,6 +1,6 @@
 ---
 name: kappmaker-publish
-description: Build, sign and ship a KAppMaker app to the stores — signed Android AAB, keystore generation, and uploading to Google Play and the App Store. Use when the user asks to build a release, create a keystore, ship, upload or publish the app.
+description: Build, sign and ship a KAppMaker app — Fastlane setup, signed Android AAB, keystore generation, and uploading to Google Play and the App Store. Use when the user asks to build a release, create a keystore, configure fastlane, ship, upload or publish the app.
 ---
 
 # KAppMaker — Publish
@@ -9,8 +9,18 @@ description: Build, sign and ship a KAppMaker app to the stores — signed Andro
 
 1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, user flow and UI spec already answer most product
-   questions. Do not invent decisions they cover.
+2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+
+
+### fastlane configure — Set Up Fastlane
+
+**Syntax**: `kappmaker fastlane configure`
+
+**Prerequisites**: Ruby and Bundler (`gem install bundler`). Run from the project root or inside `MobileApp/`.
+
+**What it does**: Creates `Gemfile` + `fastlane/Fastfile` in the mobile app directory, then runs `bundle install`. Skips files that already exist. This is a prerequisite for `kappmaker publish`.
+
+---
 
 ### publish — Build & Upload to Stores
 
