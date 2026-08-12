@@ -12,17 +12,25 @@ use that skill — do not hand-roll a command a skill already documents.
 | The user wants… | Use this skill |
 |---|---|
 | A new app, a new project, "I have an app idea" | **kappmaker-new-app** |
-| Firebase, google-services files, auth/analytics wiring | **kappmaker-firebase** |
-| Subscriptions, in-app purchases, credit packs, Adapty | **kappmaker-monetization** |
+| Firebase, google-services files, auth/analytics | **kappmaker-firebase** |
+| Subscriptions, IAPs, credit packs, pricing | **kappmaker-monetization** |
+| Adapty — provider dashboard, entitlements, paywall delivery | **kappmaker-adapty** |
 | App Store Connect, Play Console, store listings | **kappmaker-store-listing** |
 | App store keywords, ASO, what to call the app | **kappmaker-aso** |
-| A logo, app icons, AI images, WebP conversion | **kappmaker-branding** |
-| Store screenshots, feature graphic, translations | **kappmaker-marketing-assets** |
-| Signed builds, keystores, publishing, version bumps, package rename | **kappmaker-build-release** |
+| A logo or an AI image | **kappmaker-logo** |
+| App icons, launcher icons, WebP conversion | **kappmaker-app-icons** |
+| Store screenshots, or screenshots in other languages | **kappmaker-screenshots** |
+| The Play feature graphic | **kappmaker-feature-graphic** |
+| Build, sign, ship — keystore, AAB, upload to the stores | **kappmaker-publish** |
+| Bump the version | **kappmaker-version** |
+| Rename the package, bundle ID or app name | **kappmaker-refactor** |
 
-**Starting from a raw idea?** Scaffold first with **kappmaker-new-app**, then follow the project's
-own bundled `new-app` skill for the PRD interview — that one lives *inside* the project and does not
+**Starting from a raw idea?** Scaffold with **kappmaker-new-app**, then follow the project's own
+bundled `new-app` skill for the PRD interview — that one lives *inside* the project and does not
 exist until it has been cloned.
+
+**Chained work.** Shipping is keystore → signed AAB → upload; all three live in
+**kappmaker-publish** because they are one flow, not three separate asks.
 
 ## Prerequisites Check
 
