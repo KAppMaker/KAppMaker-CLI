@@ -54,7 +54,9 @@ improvise around it.
 - `--upload-metadata` — Upload metadata texts (default: false)
 - `--upload-screenshots` — Upload screenshots (default: false)
 - `--upload-images` — Upload images — icon, feature graphic, Android only (default: false)
-- `--submit-for-review` — Submit for review after upload (default: true)
+- `--submit-for-review <bool>` — Submit for review after upload (default: `true`; pass
+  `--submit-for-review false` to upload without submitting — the flag REQUIRES a value, a bare
+  `--submit-for-review` is a Commander error)
 
 **Prerequisites**:
 - Fastlane via Bundler (`Gemfile` + `fastlane/Fastfile` in mobileDir)
@@ -100,3 +102,10 @@ Run from the project root or inside `MobileApp/`.
 4. Logs path to the built AAB
 
 ---
+
+## Where this sits in the flow
+
+- **Before this:** **kappmaker-version** (stores reject an already-seen build number), and the
+  store records — **kappmaker-asc** / **kappmaker-gpc**.
+- **After this:** the release is in review. Iterate with **kappmaker-aso** / **kappmaker-screenshots**
+  while you wait.

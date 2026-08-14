@@ -3,7 +3,7 @@ name: kappmaker-asc
 description: Set up an app on App Store Connect (ASC) for iOS — the app record, bundle ID and App Store listing. Use when the user mentions App Store Connect, ASC, the iOS App Store or an iOS listing.
 ---
 
-# KAppMaker — Asc
+# KAppMaker — App Store Connect
 
 ## Before running any command
 
@@ -42,7 +42,7 @@ description: Set up an app on App Store Connect (ASC) for iOS — the app record
 
 **Auto-resize prompt (1.7.3+)**: when the file's dimensions don't match 1290 × 2796, KAppMaker prompts `Resize to 1290×2796 keeping aspect ratio? (Y/n)`. Y → sharp resize with `fit: 'inside'` (preserves aspect ratio, may produce 1290×726 from a 16:9 source) → temp file → upload. N → uploads as-is. Files already at 1290×2796 skip the prompt.
 
-**Standalone monetization push (`appstore-monetization-push`)**: when the user wants to re-sync subscriptions + IAPs (refresh PPP pricing, add a new product from the config) without running the full 13-step `create-appstore-app` flow, use `kappmaker appstore-monetization-push [--subscriptions-only | --iap-only] [--config <path>]`. Reads `Assets/appstore-config.json`, resolves the app by `app.id` or `app.bundle_id`, then calls the same `setupSubscriptions` / `setupInAppPurchases` functions — fully idempotent (existing products get pricing refreshed).
+**Standalone monetization push (`appstore-monetization-push`)**: when the user wants to re-sync subscriptions + IAPs (refresh PPP pricing, add a new product from the config) without running the full 13-step `create-appstore-app` flow, use `kappmaker appstore-monetization-push [--subscriptions-only | --iap-only] [-c|--config <path>]`. Reads `Assets/appstore-config.json`, resolves the app by `app.id` or `app.bundle_id`, then calls the same `setupSubscriptions` / `setupInAppPurchases` functions — fully idempotent (existing products get pricing refreshed).
 
 **Standalone REPLACE commands (1.7.3+ — `appstore-` prefix)** for swapping screenshots without re-running the full setup flow:
 - `kappmaker appstore-update-subscription-review-screenshot [--file <path>] [--config <path>] [--product-id <id>]`

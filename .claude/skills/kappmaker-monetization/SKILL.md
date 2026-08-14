@@ -11,6 +11,19 @@ description: Add and manage the subscription and in-app purchase PRODUCTS for a 
    missing the CLI says so; re-run `kappmaker config init`.
 2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
 
+## Re-syncing prices on existing products
+
+"Refresh my prices", "re-apply PPP", "add the new price point everywhere" — after upgrading the
+CLI or editing prices in the configs, push without re-running the full store setups:
+
+- **iOS**: `kappmaker appstore-monetization-push [--subscriptions-only | --iap-only]` — details in
+  **kappmaker-asc**.
+- **Android**: `kappmaker gpc monetization push [--subscriptions-only | --iap-only]` — details in
+  **kappmaker-gpc**.
+
+Both are idempotent: existing products get their PPP fan-out refreshed, listings and data safety
+stay untouched.
+
 ## The provider is a separate skill
 
 This skill covers the products. Wiring them to a provider's dashboard and SDK is that provider's
@@ -41,7 +54,7 @@ For iterating on a live app after the initial setup is done. Instead of editing 
 | `--product-version <n>` | `1` | Bumps every `v` marker in the IDs. For subs: `--product-version 2` → `myapp.premium.weekly.v2.999.v2` + `myapp.premium.weekly.v2` + `autorenew-weekly-999-v2`. For IAPs: v1 stays unsuffixed; v2+ appends `_v2` to the credit-pack ID. (Named `--product-version` rather than `--version` to avoid clashing with Commander's root `kappmaker --version`.) |
 | `--bundle-id <id>` | from configs | iOS bundle ID override — use when `Assets/appstore-config.json` doesn't exist yet. |
 | `--package-name <pkg>` | from configs | Android package name override — use when `Assets/googleplay-config.json` doesn't exist yet. |
-| `--name <text>` | derived | Localized display name. Subs default to `"<AppName> Premium <Period>"`, IAPs default to `"<credits> Credit Pack"`. |
+| `--name <text>` | derived | Localized display name. Subs default the ASC name to `"<Period> Premium"` (e.g. `Weekly Premium`) and the Play listing title to `"<AppName> <Period> Premium"`; IAPs default to `"<credits> Credit Pack"`. |
 | `--description <text>` | derived | Subs: period-derived (e.g. `weekly → "Full access for one week."`). IAPs: `"<credits> credits to use in the app."`. |
 | `--review-screenshot <path>` | top-level `review_screenshot` | Apple required — without one, products stay in `MISSING_METADATA`. |
 | `--app-name <name>` | from configs | Override if no config exists yet. |
@@ -63,8 +76,8 @@ For iterating on a live app after the initial setup is done. Instead of editing 
 | `--price <number>` | required | USD anchor; PPP fans the rest |
 
 **What it creates**:
-- Auto-aligned product IDs across stores following the alignment table in `CLAUDE.md` (`{appname}.premium.<period>.v<N>.<priceDigits>.v<N>` for ASC, `{appname}.premium.<period>.v<N>` for Play product + `autorenew-<period>-<priceDigits>-v<N>` for base plan).
-- Full PPP fan-out across ~155 ASC territories (via `asc subscriptions pricing prices import` CSV) and ~173 Play billable regions (via `convertRegionPrices` + native-currency entries).
+- Auto-aligned product IDs across stores: `{appname}.premium.<period>.v<N>.<priceDigits>.v<N>` for ASC, `{appname}.premium.<period>.v<N>` for the Play product + `autorenew-<period>-<priceDigits>-v<N>` for its base plan, `credit_pack_{credits}_{priceDigits}_{appname}` for credit packs everywhere. The full alignment table lives in **kappmaker-gpc**.
+- Full PPP fan-out on both stores — territory mechanics and counts are the platform skills' business: **kappmaker-asc** (CSV import) and **kappmaker-gpc** (`convertRegionPrices` + native currencies).
 - en-US listing/localization on both stores.
 - Review screenshot upload on ASC (resized to 1290 × 2796 if needed).
 - For new ASC subscription groups: auto-created with proper en-US localization so the App Store UI shows the right group name.
