@@ -8,7 +8,7 @@
     {
       "name": "kappmaker",
       "source": "./",
-      "description": "KAppMaker CLI for Claude Code \u2014 routed skills for creating a new app, Firebase, subscriptions and IAP, Adapty, App Store Connect, Google Play Console, ASO keywords, logos and illustrations, app icons, store screenshots, feature graphic, publishing, version bumps and package renaming."
+      "description": "KAppMaker CLI for Claude Code \u2014 routed skills for creating a new app, Firebase, subscriptions and IAP, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos and illustrations, app icons, store screenshots, feature graphic, publishing, version bumps and package renaming."
     }
   ]
 }
