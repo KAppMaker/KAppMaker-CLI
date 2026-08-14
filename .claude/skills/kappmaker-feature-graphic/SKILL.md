@@ -1,6 +1,6 @@
 ---
 name: kappmaker-feature-graphic
-description: Generate the Google Play feature graphic. Use when the user asks for a feature graphic, Play Store banner or store header image.
+description: Generate the Google Play feature graphic with AI — the 1024x500 banner at the top of a Play listing, built from the app name, brand color, logo and screenshots. Use when the user asks for a feature graphic, Play banner, store header image, or the wide image Google Play requires before publishing.
 ---
 
 # KAppMaker — Feature Graphic
@@ -26,6 +26,7 @@ description: Generate the Google Play feature graphic. Use when the user asks fo
 - `--output <path>` — Custom output file path
 - `--resolution <res>` — AI resolution: 1K, 2K, 4K (default: 2K)
 - `--locale <code>` — Play Store locale for the default output path (default: en-US)
+- `--poll-interval <seconds>` — fal.ai polling interval (default: 10)
 
 **Prerequisites**: `openaiApiKey`, `falApiKey` (prompted on first use). `imgbbApiKey` recommended when passing `--logo` or `--reference` (falls back to inline data URIs otherwise).
 

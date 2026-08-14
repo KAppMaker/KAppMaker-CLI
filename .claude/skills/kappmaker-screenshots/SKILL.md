@@ -1,6 +1,6 @@
 ---
 name: kappmaker-screenshots
-description: Generate and translate App Store and Play Store screenshots. Use when the user asks for store screenshots, marketing screenshots, or screenshots in other languages or locales.
+description: Design and translate App Store and Play Store MARKETING screenshots with AI — headlines, brand panels, device frames. Use when the user asks for store screenshots, marketing screenshots, or screenshots in other languages. Capturing the app's real screens is different — that is the project-bundled capture-app-screens skill, whose output feeds this one as references.
 ---
 
 # KAppMaker — Screenshots
@@ -22,6 +22,7 @@ description: Generate and translate App Store and Play Store screenshots. Use wh
 - `--style <id>` — Style preset 1-8 (default: 1)
 - `--output <dir>` — Output directory (default: `Assets/screenshots`)
 - `--resolution <res>` — AI resolution: 1K, 2K, 4K (default: 2K)
+- `--poll-interval <seconds>` — fal.ai polling interval (default: 10)
 
 **Prerequisites**: `openaiApiKey`, `falApiKey`, `imgbbApiKey` — all prompted on first use if not set.
 
@@ -29,7 +30,10 @@ description: Generate and translate App Store and Play Store screenshots. Use wh
 
 **Style presets** (1-8): Different visual styles for the screenshots. Ask the user what style they prefer if not specified.
 
-**Where the reference screenshots come from**: `--input` / `--reference` want plain captures of the app's real screens — no headlines, no device frames. In a KMPStarterKit-based project those are produced by the `capture-app-screens` skill (`MobileApp/./scripts/generate_store_screenshots.sh`), which renders `@Preview @StoreScreenshot` composables at storefront pixel sizes into `distribution/store_screenshots/<locale>/<device>/`. Point `--input` there rather than asking the user to screenshot a simulator by hand. That skill only produces the bare screen art; the design pass — marketing copy, brand panel, device frames — is this command's job, so the two are complementary, not alternatives.
+**Where the reference screenshots come from**: `--input` wants plain captures of the app's real
+screens — no headlines, no device frames (`--reference` is a different command's flag —
+`generate-image` / `generate-feature-image` — this one only takes `--input <dir>`). In a
+KAppMaker-boilerplate project those are produced by the `capture-app-screens` skill (`MobileApp/./scripts/generate_store_screenshots.sh`), which renders `@Preview @StoreScreenshot` composables at storefront pixel sizes into `distribution/store_screenshots/<locale>/<device>/`. Point `--input` there rather than asking the user to screenshot a simulator by hand. That skill only produces the bare screen art; the design pass — marketing copy, brand panel, device frames — is this command's job, so the two are complementary, not alternatives.
 
 ---
 
@@ -44,6 +48,7 @@ description: Generate and translate App Store and Play Store screenshots. Use wh
 - `--rows <n>` — Grid rows (default: 2)
 - `--cols <n>` — Grid columns (default: 4)
 - `--resolution <res>` — 1K, 2K, 4K (default: 2K)
+- `--poll-interval <seconds>` — fal.ai polling interval (default: 10)
 
 **Prerequisites**: `falApiKey`, `imgbbApiKey` (prompted on first use if not set).
 

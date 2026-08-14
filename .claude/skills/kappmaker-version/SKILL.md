@@ -31,5 +31,6 @@ If a platform's files are missing, that platform is skipped with a warning.
 
 ## Where this sits in the flow
 
-- **Before this:** —
+- **Before this:** a finished change worth releasing. Every release after the first starts here —
+  the stores reject an upload whose versionCode/build number they have already seen.
 - **After this:** **kappmaker-publish** — bump, then ship.

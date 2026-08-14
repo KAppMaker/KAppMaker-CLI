@@ -47,7 +47,7 @@ Order: `kappmaker clone <AppName>` → `cd` in and read its `CLAUDE.md` + `.clau
 **Interactive prompts**: This command has multiple y/n prompts during execution. The user will need to respond in the terminal. Before running, ask the user:
 - What app name they want (validate PascalCase)
 - Whether they want a custom template repo
-- Whether they plan to use the optional steps (logo, ASC, Google Play Console, Adapty) so they know what to expect. The build + refactor happens BEFORE store setup (steps 8-11), then the CLI pauses and reminds the user to create their app in App Store Connect and/or Google Play Console before continuing. Google Play Console setup (step 13) auto-uploads the AAB to the internal track first.
+- Whether they plan to use the optional steps (logo, ASC, Google Play Console, Adapty) so they know what to expect. The build + refactor happens BEFORE store setup (steps 8-11), then the CLI pauses and reminds the user to create their app in App Store Connect and/or Google Play Console before continuing. Google Play Console setup (step 12) auto-uploads the AAB to the internal track first.
 
 Run the command and let the user interact with it directly.
 
@@ -91,6 +91,11 @@ kappmaker refactor --app-id com.example.myapp --app-name MyApp
 **What it does**: Runs `git remote rename origin upstream` so the template repo is preserved as the upstream remote, leaving the user free to add their own `origin` later. Exits non-zero if the path isn't a git repo.
 
 **When to suggest this**: After the user has manually cloned the template (or used `kappmaker clone`) and is about to push to their own repo. The full `create` calls this automatically as step 10.
+
+**Pulling template updates later**: the `upstream` remote this preserves is also how an app takes
+newer boilerplate improvements — `git fetch upstream` then merge or cherry-pick, reviewing rather
+than blind-merging (the project has been rebranded, so paths and package names differ). There is
+no dedicated command for this; it is a normal git operation against `upstream`.
 
 ---
 
