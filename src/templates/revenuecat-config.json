@@ -1,0 +1,80 @@
+{
+  "project_id": "",
+  "app": {
+    "title": "",
+    "bundle_id": "",
+    "package_id": ""
+  },
+  "entitlements": [
+    {
+      "lookup_key": "premium",
+      "display_name": "Premium"
+    },
+    {
+      "lookup_key": "credit_pack_access",
+      "display_name": "Credit Pack Access"
+    }
+  ],
+  "products": [
+    {
+      "title": "Weekly Premium",
+      "period": "weekly",
+      "price": "6.99",
+      "entitlement_lookup_key": "premium",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Yearly Premium",
+      "period": "yearly",
+      "price": "29.99",
+      "entitlement_lookup_key": "premium",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Basic Credit Pack",
+      "period": "consumable",
+      "price": "4.99",
+      "credits": 10,
+      "entitlement_lookup_key": "credit_pack_access",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Pro Credit Pack",
+      "period": "consumable",
+      "price": "9.99",
+      "credits": 30,
+      "entitlement_lookup_key": "credit_pack_access",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    },
+    {
+      "title": "Ultimate Credit Pack",
+      "period": "consumable",
+      "price": "19.99",
+      "credits": 80,
+      "entitlement_lookup_key": "credit_pack_access",
+      "ios_product_id": "",
+      "android_product_id": "",
+      "android_base_plan_id": ""
+    }
+  ],
+  "offerings": [
+    {
+      "identifier": "default",
+      "display_name": "Default Offering",
+      "product_titles": ["Weekly Premium", "Yearly Premium"]
+    },
+    {
+      "identifier": "credits_pack",
+      "display_name": "Credit Packs",
+      "product_titles": ["Basic Credit Pack", "Pro Credit Pack", "Ultimate Credit Pack"]
+    }
+  ]
+}

@@ -30,6 +30,7 @@ import { generateFeatureImage } from './commands/generate-feature-image.js';
 import { generateIosIcons } from './commands/generate-ios-icons.js';
 import { generateAndroidIcons } from './commands/generate-android-icons.js';
 import { adaptySetup } from './commands/adapty-setup.js';
+import { revenuecatSetup } from './commands/revenuecat-setup.js';
 import { subscriptionAdd } from './commands/subscription-add.js';
 import { iapAdd } from './commands/iap-add.js';
 import { updateVersion } from './commands/update-version.js';
@@ -55,7 +56,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.15.0');
+    .version('1.16.0');
 
   program
     .command('create')
@@ -489,6 +490,17 @@ export function createCli(): Command {
       await adaptySetup(options);
     });
 
+  const revenuecat = program
+    .command('revenuecat')
+    .description('RevenueCat subscription provider management');
+  revenuecat
+    .command('setup')
+    .description('Set up RevenueCat: apps, entitlements, products, offerings and packages')
+    .option('-c, --config <path>', 'Path to revenuecat-config.json')
+    .action(async (options) => {
+      await revenuecatSetup(options);
+    });
+
   // ── Cross-platform Subscription / IAP add ─────────────────────────
 
   const subscriptionCmd = program
@@ -502,6 +514,7 @@ export function createCli(): Command {
     .requiredOption('--price <number>', 'USD price like 9.99')
     .option('--platform <target>', 'all | ios | android (default: all = Play + ASC). ios = ASC only, android = Play only.', 'all')
     .option('--product-version <n>', 'Product-family version (default: 1). Bumps every "v" marker in the IDs together, e.g. v1 → v2 produces myapp.premium.weekly.v2.999.v2 instead of v1.999.v1. Use to create a new product line alongside an existing v1.', '1')
+    .option('--provider <name>', 'Subscription provider to also push to: auto (default — providers whose Assets config exists), adapty, revenuecat, both, none', 'auto')
     .option('--name <text>', 'ASC localization name (default: "<Period> Premium", e.g. "Weekly Premium"). Play listing title is automatically derived as "<AppName> <ASC name>" (e.g. "Mangit Weekly Premium") — ASC names are short (group context), Play titles include the app name (standalone).')
     .option('--description <text>', 'Localized description applied to BOTH ASC and Play (default: period-derived, e.g. "Full access for one week.")')
     .option('--review-screenshot <path>', 'App Review screenshot path applied to this subscription (default: top-level review_screenshot from appstore-config.json)')
@@ -525,6 +538,7 @@ export function createCli(): Command {
     .requiredOption('--price <number>', 'USD price like 14.99')
     .option('--platform <target>', 'all | ios | android (default: all). ios/android push only that store; "all" also pushes to Adapty.', 'all')
     .option('--product-version <n>', 'Product-family version (default: 1). v1 keeps the existing credit_pack_{credits}_{priceDigits}_{appname} format unchanged; v2+ appends "_v{n}" to create a fresh product line.', '1')
+    .option('--provider <name>', 'Subscription provider to also push to: auto (default — providers whose Assets config exists), adapty, revenuecat, both, none', 'auto')
     .option('--name <text>', 'Localized display name (default: "<Credits> Credit Pack")')
     .option('--description <text>', 'Localized description (default: "<Credits> credits to use in the app.")')
     .option('--review-screenshot <path>', 'App Review screenshot path applied to this IAP (default: top-level review_screenshot from appstore-config.json)')

@@ -22,7 +22,7 @@ pre-configuring is optional; a missing key is never a fatal error.
 
 **Valid keys**: `templateRepo`, `bundleIdPrefix`, `androidSdkPath`, `organization`, `falApiKey`,
 `imgbbApiKey`, `openaiApiKey`, `ascAuthName`, `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath`,
-`appleId`, `googleServiceAccountPath`.
+`appleId`, `googleServiceAccountPath`, `revenuecatApiKey`, `revenuecatProjectId`.
 
 ### Where each key comes from
 
@@ -34,6 +34,8 @@ pre-configuring is optional; a missing key is never a fatal error.
 | `ascKeyId` + `ascIssuerId` + `ascPrivateKeyPath` | App Store Connect → Users and Access → Integrations → App Store Connect API |
 | `appleId` | The user's Apple ID email |
 | `googleServiceAccountPath` | Google Cloud Console → IAM → Service Accounts → Keys → JSON, then grant access in Play Console → Users and permissions. Used by `kappmaker publish --platform android` and the entire `gpc` group. |
+| `revenuecatApiKey` | RevenueCat dashboard → Project settings → API keys → V2 (secret `sk_…` key — a v1 key will not work). Used by the whole `revenuecat` group and the quick-add provider push. |
+| `revenuecatProjectId` | Optional — only needed when the API key can see several projects. `kappmaker revenuecat setup` lists them. |
 
 ### Store and provider defaults
 
