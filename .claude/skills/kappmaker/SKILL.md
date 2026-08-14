@@ -1,6 +1,6 @@
 ---
 name: kappmaker
-description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, App Store Connect, Google Play Console, ASO keywords, logos, illustrations, app icons, store screenshots, the feature graphic, building and publishing, version bumps, renaming the package, or configuring the CLI's API keys.
+description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos, illustrations, app icons, store screenshots, the feature graphic, building and publishing, version bumps, renaming the package, or configuring the CLI's API keys.
 argument-hint: "[command or description]"
 ---
 
@@ -16,6 +16,7 @@ use that skill — do not hand-roll a command a skill already documents.
 | Firebase, google-services, auth/analytics | **kappmaker-firebase** |
 | Subscription / IAP products, credit packs, price changes | **kappmaker-monetization** |
 | Adapty — provider dashboard, entitlements, paywalls | **kappmaker-adapty** |
+| RevenueCat — entitlements, offerings, packages | **kappmaker-revenuecat** |
 | App Store Connect, iOS listing | **kappmaker-asc** |
 | Google Play Console, Android listing, data safety, releases | **kappmaker-gpc** |
 | Which keywords to target, ASO research | **kappmaker-aso** |
@@ -42,7 +43,7 @@ Two asks that are easy to misroute:
 ## The usual journey
 
 Idea → **new-app** → *(interview via the project's own `new-app` skill)* → **firebase** →
-**monetization** + **adapty** → **logo** → **app-icons** → build features →
+**monetization** + a provider (**adapty** / **revenuecat**) → **logo** → **app-icons** → build features →
 **asc** / **gpc** → **aso** → **aso-metadata** → **screenshots** + **feature-graphic** →
 **version** → **publish**.
 

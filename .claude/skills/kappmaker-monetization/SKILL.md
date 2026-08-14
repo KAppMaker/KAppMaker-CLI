@@ -27,7 +27,10 @@ stay untouched.
 ## The provider is a separate skill
 
 This skill covers the products. Wiring them to a provider's dashboard and SDK is that provider's
-skill — today **kappmaker-adapty** (RevenueCat will slot in the same way).
+skill — **kappmaker-adapty** or **kappmaker-revenuecat**. A project normally uses ONE of them; the
+quick-add commands detect which by its config file (`Assets/adapty-config.json` /
+`Assets/revenuecat-config.json`). **When neither exists and the user is setting up monetization,
+ask which provider they want** — don't pick silently — then run that provider's setup skill.
 
 
 ### Quick-add Subscription / IAP — One new product, no config edit
@@ -42,9 +45,19 @@ For iterating on a live app after the initial setup is done. Instead of editing 
 
 **Two commands**:
 
-`kappmaker subscription add --period <slug> --price <usd>` — Play + ASC. Adapty is intentionally NOT included (Adapty pulls live store prices at runtime via integrations, so adding an entry adds noise without unlocking anything).
+`kappmaker subscription add --period <slug> --price <usd>` — Play + ASC, then mirrors into the
+project's subscription provider so the paywall can serve it (RevenueCat: product + `premium`
+entitlement + package in the `default` offering; Adapty: product on the Premium access level).
 
-`kappmaker iap add --credits <n> --price <usd>` — Play + ASC + Adapty. Adapty IS included for credit packs because they use the `credit_pack_access` access level to gate consumable entitlements (no store-side equivalent).
+`kappmaker iap add --credits <n> --price <usd>` — Play + ASC, then the provider (RevenueCat:
+`credit_pack_access` entitlement + `credit_pack_<credits>` package in the `credits_pack` offering;
+Adapty: product on the `credit_pack_access` access level).
+
+**Which provider gets the push** — the `--provider` flag on both commands:
+`auto` (default: whichever of `Assets/adapty-config.json` / `Assets/revenuecat-config.json` exists;
+both files → both providers), `adapty`, `revenuecat`, `both`, `none`. With `auto` and no config
+file, the provider push is skipped with a pointer to the setup commands — **relay that choice to
+the user** ("push this to Adapty or RevenueCat as well?") rather than letting it silently skip.
 
 **Common flags** (both commands):
 

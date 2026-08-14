@@ -5,6 +5,7 @@ import type { KAppMakerConfig } from '../types/index.js';
 import appStoreTemplate from '../templates/appstore-config.json' with { type: 'json' };
 import adaptyTemplate from '../templates/adapty-config.json' with { type: 'json' };
 import googlePlayTemplate from '../templates/googleplay-config.json' with { type: 'json' };
+import revenueCatTemplate from '../templates/revenuecat-config.json' with { type: 'json' };
 
 const CONFIG_DIR = path.join(os.homedir(), '.config', 'kappmaker');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -26,6 +27,8 @@ const DEFAULT_CONFIG: KAppMakerConfig = {
   ascPrivateKeyPath: '',
   appleId: '',
   googleServiceAccountPath: path.join(os.homedir(), 'credentials', 'google-service-app-publisher.json'),
+  revenuecatApiKey: '',
+  revenuecatProjectId: '',
 };
 
 export function getConfigDir(): string {
@@ -115,6 +118,10 @@ export function getAdaptyDefaultsPath(): string {
 
 export function getAdaptyTemplate(): Record<string, unknown> {
   return JSON.parse(JSON.stringify(adaptyTemplate));
+}
+
+export function getRevenueCatTemplate(): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(revenueCatTemplate));
 }
 
 export async function loadAdaptyDefaults(): Promise<Record<string, unknown> | null> {

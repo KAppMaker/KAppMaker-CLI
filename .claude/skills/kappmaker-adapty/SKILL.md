@@ -1,6 +1,6 @@
 ---
 name: kappmaker-adapty
-description: Configure Adapty for a KAppMaker app — the subscription provider dashboard, products, paywalls and SDK keys. Use when the user mentions Adapty, RevenueCat or any subscription provider, or asks who handles entitlements, subscription state or paywall delivery. Adapty is the only provider today (RevenueCat is planned, not available — say so rather than improvising). To create the store products themselves use kappmaker-monetization.
+description: Configure Adapty for a KAppMaker app — the subscription provider dashboard, products, paywalls and SDK keys. Use when the user mentions Adapty, or asks who handles entitlements, subscription state or paywall delivery and their project uses Adapty. For RevenueCat use kappmaker-revenuecat; to create the store products themselves use kappmaker-monetization.
 ---
 
 # KAppMaker — Adapty

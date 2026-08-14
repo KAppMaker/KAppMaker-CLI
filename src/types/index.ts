@@ -36,6 +36,8 @@ export interface KAppMakerConfig {
   ascPrivateKeyPath: string;
   appleId: string;
   googleServiceAccountPath: string;
+  revenuecatApiKey: string;
+  revenuecatProjectId: string;
 }
 
 export interface CreateLogoOptions {

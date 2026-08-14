@@ -22,11 +22,35 @@ import type {
   GooglePlayConfig,
   GooglePlaySubscription,
 } from '../types/googleplay.js';
+import * as adapty from '../services/adapty.service.js';
+import * as rcPush from '../services/revenuecat-push.service.js';
+import type { AdaptyProduct } from '../types/adapty.js';
 
 const GPC_CONFIG = 'Assets/googleplay-config.json';
 const ASC_CONFIG = 'Assets/appstore-config.json';
 
 export type AddPlatform = 'all' | 'ios' | 'android';
+
+export type ProviderChoice = 'auto' | 'adapty' | 'revenuecat' | 'both' | 'none';
+
+/**
+ * Which subscription providers to mirror a new product into.
+ * `auto` means: whichever provider this project is actually set up for, detected
+ * by its config file — Assets/adapty-config.json / Assets/revenuecat-config.json.
+ * Explicit choices override detection so a first push can bootstrap a provider.
+ */
+export async function resolveProviders(
+  choice: ProviderChoice,
+): Promise<Array<'adapty' | 'revenuecat'>> {
+  if (choice === 'none') return [];
+  if (choice === 'adapty') return ['adapty'];
+  if (choice === 'revenuecat') return ['revenuecat'];
+  if (choice === 'both') return ['adapty', 'revenuecat'];
+  const providers: Array<'adapty' | 'revenuecat'> = [];
+  if (await fs.pathExists(path.resolve('Assets/adapty-config.json'))) providers.push('adapty');
+  if (await fs.pathExists(path.resolve('Assets/revenuecat-config.json'))) providers.push('revenuecat');
+  return providers;
+}
 
 export interface SubscriptionAddOptions {
   period?: string;
@@ -41,6 +65,7 @@ export interface SubscriptionAddOptions {
   bundleId?: string;
   packageName?: string;
   productVersion?: string;
+  provider?: ProviderChoice;
 }
 
 interface AppContext {
@@ -178,6 +203,34 @@ export async function subscriptionAdd(options: SubscriptionAddOptions): Promise<
     if (await pushToAsc(ctx, ids, price, ascDisplayName, description, reviewScreenshot, groupName)) pushed++;
   }
 
+  // Mirror into the subscription provider(s) this project uses, so the paywall
+  // can actually serve the new product without a manual dashboard step.
+  const providers = await resolveProviders(options.provider ?? 'auto');
+  for (const provider of providers) {
+    if (provider === 'revenuecat') {
+      logger.step(1, 1, 'Pushing to RevenueCat');
+      const rcCtx = await rcPush.resolveContext(ctx.bundleId, ctx.packageName);
+      if (rcCtx) {
+        await rcPush.pushSubscription(rcCtx, {
+          period,
+          displayName: ascDisplayName,
+          ascProductId: ids.ascProductId,
+          playProductId: ids.playProductId,
+          playBasePlanId: ids.playBasePlanId,
+        });
+        pushed++;
+      }
+    } else {
+      // Adapty pulls live store prices via its integrations, but the product
+      // record still has to exist for paywalls to reference it.
+      if (await pushSubscriptionToAdapty(ctx, ids, price, ascDisplayName)) pushed++;
+    }
+  }
+  if (providers.length === 0 && (options.provider ?? 'auto') === 'auto') {
+    logger.info('No provider config found (Assets/adapty-config.json / Assets/revenuecat-config.json) — provider push skipped.');
+    logger.info('Run `kappmaker adapty setup` or `kappmaker revenuecat setup`, or pass --provider.');
+  }
+
   console.log('');
   if (pushed === 0) {
     logger.fatal('No subscriptions were pushed (all platforms skipped).');
@@ -312,6 +365,52 @@ async function pushToAsc(
   await ascMoney.setupSubscriptions(appId, group, availability, {
     defaultReviewScreenshot: reviewScreenshot,
   });
+  return true;
+}
+
+async function pushSubscriptionToAdapty(
+  ctx: AppContext,
+  ids: SubscriptionIds,
+  price: string,
+  displayName: string,
+): Promise<boolean> {
+  if (!ctx.bundleId) {
+    logger.warn('Skipping Adapty — no bundle ID.');
+    return false;
+  }
+  await adapty.validateAdaptyInstalled();
+  await adapty.validateAdaptyAuth();
+
+  logger.step(1, 1, 'Pushing to Adapty');
+  const existing = await adapty.findAppByBundleId(ctx.bundleId);
+  if (!existing) {
+    logger.warn(`Skipping Adapty — could not find app for bundle ID ${ctx.bundleId}.`);
+    logger.info('Run `kappmaker adapty setup` first.');
+    return false;
+  }
+
+  const levels = await adapty.listAccessLevels(existing.id);
+  const accessLevelId = levels.find((l) => l.sdk_id.toLowerCase() === 'premium')?.id ?? levels[0]?.id;
+  if (!accessLevelId) {
+    logger.warn('Skipping Adapty — no access level found. Run `kappmaker adapty setup` first.');
+    return false;
+  }
+
+  const existingProducts = await adapty.listProducts(existing.id);
+  if (existingProducts.some((p) => p.title === displayName)) {
+    logger.info(`Adapty product "${displayName}" already exists, skipping.`);
+    return true;
+  }
+
+  const product: AdaptyProduct = {
+    title: displayName,
+    period: ids.adaptyPeriod,
+    price,
+    ios_product_id: ids.ascProductId,
+    android_product_id: ids.playProductId,
+    android_base_plan_id: ids.playBasePlanId,
+  };
+  await adapty.createProduct(existing.id, product, accessLevelId);
   return true;
 }
 
