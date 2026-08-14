@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { promptInput, confirm } from '../utils/prompt.js';
-import { loadConfig, getRevenueCatTemplate } from '../utils/config.js';
+import { loadConfig, getRevenueCatTemplate, saveRevenueCatKey } from '../utils/config.js';
 import * as rc from '../services/revenuecat.service.js';
 import { creditPackProductId } from '../services/credit-pack.defaults.js';
 import type {
@@ -46,23 +46,29 @@ export function packageLookupKey(product: RevenueCatProduct): string {
 }
 
 export async function revenuecatSetup(options: CreateRevenueCatOptions): Promise<void> {
-  // Step 1: Validate the API key by listing projects (also resolves the project).
-  logger.step(1, TOTAL_STEPS, 'Validating RevenueCat API key');
-  await rc.requireApiKey();
-  const projects = await rc.listProjects();
-
-  // Step 2: Load config
-  logger.step(2, TOTAL_STEPS, 'Loading RevenueCat config');
+  // Step 1: Load config first — the bundle ID is what selects the per-app API key.
+  logger.step(1, TOTAL_STEPS, 'Loading RevenueCat config');
   const { config, configPath } = await loadRevenueCatConfig(options.config);
+
+  // Step 2: Resolve + validate the API key. v2 secret keys are PROJECT-scoped
+  // (minted inside one project, can only see it), so the key both authenticates
+  // and identifies the project.
+  logger.step(2, TOTAL_STEPS, 'Validating RevenueCat API key');
+  if (options.apiKey) rc.useApiKey(options.apiKey);
+  await rc.requireApiKey(config.app.bundle_id);
+  const projects = await rc.listProjects();
+  if (projects.length === 0) {
+    logger.fatal('This API key can see no RevenueCat project — it may be revoked or a v1 key.');
+    process.exit(1);
+  }
 
   let projectId = config.project_id;
   if (!projectId) {
+    // A project-scoped key sees exactly its own project; >1 only happens with
+    // rare account-wide keys, in which case ask.
     if (projects.length === 1) {
       projectId = projects[0].id;
       logger.info(`Using project: ${projects[0].name} (${projectId})`);
-    } else if (projects.length === 0) {
-      logger.fatal('This API key can see no RevenueCat projects. Create one in the dashboard first.');
-      process.exit(1);
     } else {
       console.log('');
       console.log(chalk.bold('  This API key can see several projects:'));
@@ -75,6 +81,17 @@ export async function revenuecatSetup(options: CreateRevenueCatOptions): Promise
       }
     }
     config.project_id = projectId;
+  } else if (!projects.some((p) => p.id === projectId)) {
+    logger.fatal(`This API key belongs to project ${projects[0].id}, not ${projectId} from the config.`);
+    logger.info('RevenueCat keys are per-project — pass the key created inside this app\'s project.');
+    process.exit(1);
+  }
+
+  // Remember an explicitly-passed key for this app, so every later command
+  // (subscription add, iap add) resolves it without flags.
+  if (options.apiKey && config.app.bundle_id) {
+    await saveRevenueCatKey(config.app.bundle_id, options.apiKey);
+    logger.info(`API key saved for ${config.app.bundle_id} (~/.config/kappmaker/revenuecat-keys.json).`);
   }
 
   logger.info(`App: ${config.app.title} (${config.app.bundle_id})`);

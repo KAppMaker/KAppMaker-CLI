@@ -124,6 +124,35 @@ export function getRevenueCatTemplate(): Record<string, unknown> {
   return JSON.parse(JSON.stringify(revenueCatTemplate));
 }
 
+/**
+ * RevenueCat v2 secret keys are PROJECT-scoped — each app (= its own RevenueCat
+ * project) has its own key, so a single global `revenuecatApiKey` only works
+ * for a one-app account. Multi-app users get a per-app key map, keyed by
+ * bundle ID, stored next to the main config with owner-only permissions.
+ */
+export function getRevenueCatKeysPath(): string {
+  return path.join(CONFIG_DIR, 'revenuecat-keys.json');
+}
+
+export async function loadRevenueCatKeys(): Promise<Record<string, string>> {
+  try {
+    const file = getRevenueCatKeysPath();
+    if (await fs.pathExists(file)) {
+      return (await fs.readJson(file)) as Record<string, string>;
+    }
+  } catch {
+    // Corrupt key file — treat as empty rather than crashing every command.
+  }
+  return {};
+}
+
+export async function saveRevenueCatKey(bundleId: string, apiKey: string): Promise<void> {
+  await fs.ensureDir(CONFIG_DIR);
+  const keys = await loadRevenueCatKeys();
+  keys[bundleId] = apiKey;
+  await fs.writeJson(getRevenueCatKeysPath(), keys, { spaces: 2, mode: 0o600 });
+}
+
 export async function loadAdaptyDefaults(): Promise<Record<string, unknown> | null> {
   try {
     if (await fs.pathExists(ADAPTY_DEFAULTS_FILE)) {

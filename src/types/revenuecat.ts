@@ -52,4 +52,6 @@ export interface RevenueCatOfferingConfig {
 
 export interface CreateRevenueCatOptions {
   config?: string;
+  /** Project-scoped v2 secret key; saved into the per-app key map on success. */
+  apiKey?: string;
 }

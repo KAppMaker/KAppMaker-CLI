@@ -11,16 +11,24 @@ description: Configure RevenueCat for a KAppMaker app — entitlements, connecte
    missing the CLI says so; re-run `kappmaker config init`.
 2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
 3. **API key** — a **secret API v2 key** (`sk_…`) from the RevenueCat dashboard (Project settings →
-   API keys → V2). Store it: `kappmaker config set revenuecatApiKey sk_...`. A v1 key will not work.
+   API keys → V2). A v1 key will not work — and **v2 keys are per-project**: the key is minted
+   inside one project and can only see that project, so each app needs its own. Pass it once with
+   `kappmaker revenuecat setup --api-key sk_...` and it is saved for that app (keyed by bundle ID in
+   `~/.config/kappmaker/revenuecat-keys.json`); every later command finds it automatically.
+   Resolution order: `--api-key` → `REVENUECAT_API_KEY` env → the per-app map → the global
+   `revenuecatApiKey` config value (a fine shortcut when the account has only one app).
 
 ### revenuecat setup — Provider Setup
 
 **Syntax**: `kappmaker revenuecat setup [--config <path>]`
 
-**Prerequisites**: `revenuecatApiKey` in config (no external CLI — talks straight to
-`api.revenuecat.com/v2`). The RevenueCat **project** must already exist in the dashboard; when the
-key can see exactly one project it is auto-selected, otherwise the command lists them and asks
-(persist the choice with `kappmaker config set revenuecatProjectId proj...`).
+**Syntax**: `kappmaker revenuecat setup [--config <path>] [--api-key <sk_...>]`
+
+**Prerequisites**: an API key resolvable per the order above (no external CLI — talks straight to
+`api.revenuecat.com/v2`). The RevenueCat **project** must already exist in the dashboard. Because
+the key is project-scoped, it identifies the project by itself — no project ID to configure. The
+command also cross-checks: a config carrying one project's ID with a key from another fails loudly
+instead of writing into the wrong project.
 
 **Config file**: `./Assets/revenuecat-config.json`. If missing, prompts for app name / bundle ID /
 package ID and writes one from the built-in template (2 subscriptions + 3 credit packs, same

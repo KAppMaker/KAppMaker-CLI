@@ -1,5 +1,5 @@
 import { logger } from '../utils/logger.js';
-import { loadConfig } from '../utils/config.js';
+import { loadConfig, loadRevenueCatKeys } from '../utils/config.js';
 
 /**
  * RevenueCat REST API v2 client. No external CLI — plain fetch, same pattern as
@@ -13,17 +13,53 @@ const BASE_URL = 'https://api.revenuecat.com/v2';
 
 let cachedApiKey: string | null = null;
 
-export async function requireApiKey(): Promise<string> {
+/**
+ * RevenueCat v2 secret keys are PROJECT-scoped: the key was minted inside one
+ * project and can only see that project. That has two consequences here:
+ * - listProjects() with a valid key returns exactly the key's own project, so
+ *   the project ID is derivable from the key and rarely needs configuring.
+ * - One global key cannot serve several apps. Resolution order:
+ *   1. `--api-key` / explicit key (useApiKey)
+ *   2. REVENUECAT_API_KEY environment variable
+ *   3. the per-app key map (~/.config/kappmaker/revenuecat-keys.json, by bundle ID)
+ *   4. the global `revenuecatApiKey` config value (fine for one-app accounts)
+ */
+export function useApiKey(key: string): void {
+  cachedApiKey = key;
+}
+
+export async function resolveApiKey(bundleId?: string): Promise<string | null> {
   if (cachedApiKey) return cachedApiKey;
+  const envKey = process.env.REVENUECAT_API_KEY;
+  if (envKey) {
+    cachedApiKey = envKey;
+    return envKey;
+  }
+  if (bundleId) {
+    const keys = await loadRevenueCatKeys();
+    if (keys[bundleId]) {
+      cachedApiKey = keys[bundleId];
+      return cachedApiKey;
+    }
+  }
   const config = await loadConfig();
-  const key = config.revenuecatApiKey;
+  if (config.revenuecatApiKey) {
+    cachedApiKey = config.revenuecatApiKey;
+    return cachedApiKey;
+  }
+  return null;
+}
+
+export async function requireApiKey(bundleId?: string): Promise<string> {
+  const key = await resolveApiKey(bundleId);
   if (!key) {
-    logger.fatal('RevenueCat API key not configured.');
-    logger.info('Create a secret API v2 key in the RevenueCat dashboard (Project settings → API keys → V2),');
-    logger.info('then run: kappmaker config set revenuecatApiKey sk_...');
+    logger.fatal('RevenueCat API key not configured for this app.');
+    logger.info('RevenueCat v2 keys are per-project: create one in the RevenueCat dashboard of THIS');
+    logger.info("app's project (Project settings → API keys → V2), then either:");
+    logger.info('  kappmaker revenuecat setup --api-key sk_...   (saved for this app automatically)');
+    logger.info('  kappmaker config set revenuecatApiKey sk_...  (global fallback, single-app accounts)');
     process.exit(1);
   }
-  cachedApiKey = key;
   return key;
 }
 
