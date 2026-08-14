@@ -56,7 +56,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.16.0');
+    .version('1.16.1');
 
   program
     .command('create')
@@ -497,6 +497,7 @@ export function createCli(): Command {
     .command('setup')
     .description('Set up RevenueCat: apps, entitlements, products, offerings and packages')
     .option('-c, --config <path>', 'Path to revenuecat-config.json')
+    .option('--api-key <key>', 'Project-scoped v2 secret key (sk_...). RevenueCat keys are minted per project; this one is saved for this app so later commands find it automatically.')
     .action(async (options) => {
       await revenuecatSetup(options);
     });

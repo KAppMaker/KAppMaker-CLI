@@ -33,12 +33,16 @@ export async function resolveContext(
   bundleId: string | undefined,
   packageName: string | undefined,
 ): Promise<RcPushContext | null> {
-  const userConfig = await loadConfig();
-  if (!userConfig.revenuecatApiKey) {
-    logger.warn('Skipping RevenueCat — revenuecatApiKey not set.');
-    logger.info('Set it with: kappmaker config set revenuecatApiKey sk_...');
+  // Keys are project-scoped, so resolve per app (env → per-app map by bundle
+  // ID → global fallback) rather than demanding one global key.
+  const apiKey = await rc.resolveApiKey(bundleId);
+  if (!apiKey) {
+    logger.warn('Skipping RevenueCat — no API key for this app.');
+    logger.info('Run `kappmaker revenuecat setup --api-key sk_...` once (per-project key, saved for this app),');
+    logger.info('or set a global fallback: kappmaker config set revenuecatApiKey sk_...');
     return null;
   }
+  const userConfig = await loadConfig();
 
   const saved = (await hasRevenueCatConfig())
     ? ((await fs.readJson(path.resolve(RC_CONFIG))) as RevenueCatConfig)
