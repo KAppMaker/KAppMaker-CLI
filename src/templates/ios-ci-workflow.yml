@@ -1,0 +1,112 @@
+# Managed by `kappmaker ios-ci init` — re-run that command to regenerate.
+#
+# Builds and ships the iOS app on a GitHub-hosted macOS runner, so nobody needs
+# a Mac locally. The runner IS the Mac: Xcode compiles there, fastlane `match`
+# signs there, and the .ipa goes straight to TestFlight or the App Store.
+#
+# Secrets this expects (set for you by `kappmaker ios-ci init`):
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY  — App Store Connect API key
+#   MATCH_PASSWORD                              — encrypts the signing certs
+#   MATCH_GIT_URL                               — private repo holding the certs
+#   MATCH_GIT_BASIC_AUTHORIZATION               — token to read that repo
+name: iOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Where to send the build
+        required: true
+        default: testflight
+        type: choice
+        options: [testflight, appstore]
+      submit_for_review:
+        description: Submit for App Store review (appstore track only)
+        required: false
+        default: false
+        type: boolean
+      upload_metadata:
+        description: Also upload App Store listing text (appstore track only)
+        required: false
+        default: false
+        type: boolean
+      upload_screenshots:
+        description: Also upload App Store screenshots (appstore track only)
+        required: false
+        default: false
+        type: boolean
+      bump_build:
+        description: Auto-advance the build number past the latest on TestFlight
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  # Two release builds racing would fight over the signing certs in match's repo.
+  group: ios-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # The iOS app embeds a Kotlin Multiplatform framework, so Gradle runs even
+      # on the iOS path — caching it is most of the difference between a 12- and
+      # a 25-minute build.
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('__MOBILE_DIR__/**/*.gradle*', '__MOBILE_DIR__/**/gradle-wrapper.properties', '__MOBILE_DIR__/**/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Set up Ruby and fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: __MOBILE_DIR__
+
+      - name: Build and upload
+        working-directory: __MOBILE_DIR__
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          # Xcode's automatic signing would fight match; fastlane needs the
+          # non-interactive keychain that setup_ci creates.
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+          FASTLANE_HIDE_CHANGELOG: '1'
+        run: |
+          bundle exec fastlane ios ci_appstore_release \
+            track:"${{ inputs.track }}" \
+            submit_for_review:"${{ inputs.submit_for_review }}" \
+            upload_metadata:"${{ inputs.upload_metadata }}" \
+            upload_screenshots:"${{ inputs.upload_screenshots }}" \
+            bump_build:"${{ inputs.bump_build }}"
+
+      # Keep the build reachable when something fails at the upload step — the
+      # .ipa is the expensive part and rebuilding it costs another 20 minutes.
+      - name: Upload .ipa artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: __MOBILE_DIR__/distribution/ios/*.ipa
+          if-no-files-found: ignore
+          retention-days: 14

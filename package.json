@@ -1,6 +1,6 @@
 {
   "name": "kappmaker",
-  "version": "1.16.1",
+  "version": "1.17.0",
   "description": "CLI tool for bootstrapping KAppMaker mobile apps",
   "type": "module",
   "bin": {
@@ -10,10 +10,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && cp src/templates/Fastfile.txt dist/templates/Fastfile.txt",
+    "build": "tsc && cp src/templates/Fastfile.txt src/templates/ios-ci-workflow.yml src/templates/ios-ci-lane.rb dist/templates/",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "test:ppp": "tsx src/services/ppp-pricing.service.test.ts"
+    "test:ppp": "tsx src/services/ppp-pricing.service.test.ts",
+    "test:ios-ci": "tsx src/commands/ios-ci.test.ts"
   },
   "dependencies": {
     "chalk": "^5.4.1",

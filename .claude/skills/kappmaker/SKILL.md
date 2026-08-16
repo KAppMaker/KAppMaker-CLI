@@ -1,6 +1,6 @@
 ---
 name: kappmaker
-description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos, illustrations, app icons, store screenshots, the feature graphic, building and publishing, version bumps, renaming the package, or configuring the CLI's API keys.
+description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos, illustrations, app icons, store screenshots, the feature graphic, building and publishing (including shipping iOS without a Mac), version bumps, renaming the package, or configuring the CLI's API keys.
 argument-hint: "[command or description]"
 ---
 
@@ -28,6 +28,7 @@ use that skill — do not hand-roll a command a skill already documents.
 | Store screenshots, or screenshots in other languages | **kappmaker-screenshots** |
 | The Play feature graphic | **kappmaker-feature-graphic** |
 | Build, sign, ship — fastlane, keystore, AAB, upload | **kappmaker-publish** |
+| Ship iOS without a Mac (GitHub Actions, TestFlight) | **kappmaker-ios-ci** |
 | Bump the version | **kappmaker-version** |
 | Rename the package, bundle ID or app name | **kappmaker-refactor** |
 
