@@ -33,6 +33,9 @@
       app_identifier: bundle_id,
       api_key: api_key,
       readonly: readonly_mode,
+      # match defaults to a "master" branch, which leaves the store on a second
+      # branch of a repo whose default is main. Pin it so there is one.
+      git_branch: "main",
       keychain_name: ENV["MATCH_KEYCHAIN_NAME"],
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
     )
