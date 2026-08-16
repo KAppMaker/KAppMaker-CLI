@@ -58,6 +58,10 @@ the `iosCertsRepo` config value. The first app creates the certificate; every
 later app finds it and adds only its own profile. Give each app its own store and
 you mint a certificate per app and are locked out on the third.
 
+The lane pins the store to the repo's **`main`** branch: match would otherwise
+write to `master` and split the store across two branches of a repo whose
+default is `main`. Moving an existing `master`-based store is a one-time merge.
+
 `MATCH_PASSWORD` is therefore keyed to the **store**, not the app — all apps
 sharing it need the same passphrase — and lives in
 `~/.config/kappmaker/match-passwords.json`.

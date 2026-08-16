@@ -135,6 +135,9 @@ kappmaker ios-ci init --certs-repo my-org/apple-certificates   # or let it defau
 
 The choice is remembered (`iosCertsRepo`), so later apps reuse it without the flag.
 
+Everything lives on the repo's `main` branch — fastlane would otherwise use `master` and leave the
+store split across two branches.
+
 **The repo is private**, so your certificates are never public regardless of whether your app repos
 are. Reading it from a build needs a personal access token with repo read access — GitHub's built-in
 token only reaches the repo it is running in:
