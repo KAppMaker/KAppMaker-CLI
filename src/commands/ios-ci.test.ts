@@ -121,7 +121,7 @@ test('parsing local.properties keeps real values and drops empty ones', () => {
 });
 
 test('parses ssh and https GitHub remotes', () => {
-  assert.equal(parseGitHubRepo('git@github.com:KAppMakerDeveloperApps/FinePrint.git'), 'KAppMakerDeveloperApps/FinePrint');
+  assert.equal(parseGitHubRepo('git@github.com:acme-apps/SampleApp.git'), 'acme-apps/SampleApp');
   assert.equal(parseGitHubRepo('https://github.com/owner/name.git'), 'owner/name');
   assert.equal(parseGitHubRepo('https://github.com/owner/name'), 'owner/name');
   assert.equal(parseGitHubRepo('git@gitlab.com:owner/name.git'), null);
