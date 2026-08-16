@@ -1,6 +1,6 @@
 name: Publish iOS App
 
-# kappmaker-workflow-version: 4
+# kappmaker-workflow-version: 5
 
 # Builds and ships the iOS app on a GitHub macOS runner, so no Mac is needed
 # locally. Signing certificates are created on the runner by fastlane `match`
@@ -31,6 +31,11 @@ name: Publish iOS App
 # If several apps share an organisation, the account-level secrets above are good
 # candidates for GitHub organisation secrets, so a new app only needs its own
 # build keys.
+#
+# Populating an EMPTY certificate store is the one time signing material has to
+# be created rather than reused: set the repository variable MATCH_READONLY=false
+# for that single run, then delete it. Builds are otherwise read-only so a
+# transient failure cannot silently consume one of the account's certificates.
 #
 # `kappmaker ios-ci init` creates the certs repo and sets all of this for you.
 
@@ -142,6 +147,11 @@ jobs:
           # this file for why it is not this repository.
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          # A repository VARIABLE, not a secret: it is not sensitive, and a secret
+          # whose value is "false" would mask that word throughout the build log.
+          # Set it to false for the one bootstrap run that populates an empty
+          # certificate store, then delete it — see the note at the top.
+          MATCH_READONLY: ${{ vars.MATCH_READONLY }}
           FASTLANE_SKIP_UPDATE_CHECK: '1'
           FASTLANE_HIDE_CHANGELOG: '1'
         run: |
