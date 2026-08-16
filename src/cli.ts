@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { createRequire } from 'node:module';
 import { createApp } from './commands/create.js';
 import { createLogo } from './commands/create-logo.js';
 import { split } from './commands/split.js';
@@ -51,13 +52,18 @@ import {
   firebaseConfigsCommand,
 } from './commands/firebase.js';
 
+// Read from package.json rather than repeating the number here: the literal
+// that used to live in .version() went stale on the first release that forgot
+// it, so `kappmaker --version` reported an older build than was installed.
+const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
+
 export function createCli(): Command {
   const program = new Command();
 
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.24.0');
+    .version(version);
 
   program
     .command('create')
