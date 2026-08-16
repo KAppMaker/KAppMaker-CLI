@@ -35,7 +35,7 @@ This reads your bundle ID and repo, then:
 2. pushes your App Store Connect key and that password into your repo's GitHub **secrets**,
    along with any build-time keys already filled in locally
 3. checks the release workflow — your project already ships it, so an up-to-date app is left
-   alone; only an older project gets it updated
+   alone; only a project predating the current pipeline gets it updated
 
 It is safe to re-run.
 
@@ -119,7 +119,7 @@ Two different things are involved, and they have different lifetimes:
 
 | | Scope | |
 |---|---|---|
-| **Distribution certificate** | your Apple Developer **account** | Apple allows only **3**. One signs all your apps. |
+| **Distribution certificate** | your Apple Developer **account** | Apple allows only **2**. One signs all your apps. |
 | **Provisioning profile** | one **app** | Binds that app's bundle ID to the certificate. |
 
 Because the certificate is account-wide, all your apps share **one private repo** for signing
@@ -127,7 +127,7 @@ material — by default `<your-owner>/apple-certificates`, created automatically
 creates the certificate; every app after that finds it and adds only its own profile.
 
 Give each app its own store instead and you would mint a fresh certificate per app — and your
-fourth app would fail permanently, because Apple would not issue another.
+third app would fail permanently, because Apple would not issue another.
 
 ```bash
 kappmaker ios-ci init --certs-repo my-org/apple-certificates   # or let it default
@@ -161,4 +161,4 @@ limit — revoke one you no longer use in the Apple Developer portal.
 
 **Keep your `MATCH_PASSWORD`.** It encrypts the store, and every app sharing that store uses the same
 one. Lose it and the stored certificates can never be decrypted — you would have to reset the repo
-and burn another of your three certificates.
+and burn your other certificate slot.

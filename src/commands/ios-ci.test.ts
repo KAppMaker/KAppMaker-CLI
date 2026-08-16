@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { parseGitHubRepo } from '../services/github-actions.service.js';
 import {
   defaultCertsRepo, relativeMobileDir, generateMatchPassword, appendCiLane,
-  discoverBuildProperties, buildLocalPropertiesStep, parseLocalProperties, workflowVersion,
+  discoverBuildProperties, buildLocalPropertiesStep, parseLocalProperties, workflowIsCurrent,
 } from './ios-ci.js';
 
 let failures = 0;
@@ -139,13 +139,20 @@ test('parses ssh and https GitHub remotes', () => {
   assert.equal(parseGitHubRepo('  git@github.com:o/n.git\n'), 'o/n');
 });
 
-test('workflow freshness is a version compare, not a lane-name search', () => {
-  assert.equal(workflowVersion('name: X\n# kappmaker-workflow-version: 2\n'), 2);
-  // An older stamped workflow, and an unstamped one that still mentions the lane,
-  // must both read as OUT OF DATE — that is the case that shipped a workflow
-  // missing an input the CLI dispatches.
-  assert.equal(workflowVersion('# kappmaker-workflow-version: 1\nci_appstore_release'), 1);
-  assert.equal(workflowVersion('jobs:\n  run: fastlane ios ci_appstore_release'), 0);
+test('workflow freshness is a capability check, not a lane-name search', () => {
+  const current = [
+    'run: fastlane ios ci_appstore_release',
+    'MATCH_GIT_URL: x',
+    'MATCH_READONLY: y',
+    'ALL_SECRETS: z',
+  ].join('\n');
+  assert.equal(workflowIsCurrent(current), true);
+  // A workflow that cannot bootstrap an empty certificate store is NOT current,
+  // however recent it looks — that gap cost six failed builds.
+  assert.equal(workflowIsCurrent(current.replace('MATCH_READONLY: y', '')), false);
+  // Mentioning the lane is not enough: the pre-match workflow did that too.
+  assert.equal(workflowIsCurrent('run: fastlane ios ci_appstore_release'), false);
+  assert.equal(workflowIsCurrent(''), false);
 });
 
 console.log(failures === 0 ? 'ios-ci: all green' : 'ios-ci: FAILURES');
