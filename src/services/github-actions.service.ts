@@ -71,13 +71,17 @@ export async function createPrivateRepo(repo: string, description: string): Prom
 /**
  * Set a repo secret. The value goes in on stdin rather than argv so it never
  * lands in the process list or a shell history.
+ *
+ * `gh secret set` reads stdin when `--body` is omitted — there is NO --body-file
+ * flag (it exists on `gh release`/`gh pr`, not here), and passing one makes gh
+ * exit with "unknown flag" before writing anything.
  */
 export async function setSecret(repo: string, name: string, value: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const child = execFile(
       'gh',
-      ['secret', 'set', name, '--repo', repo, '--body-file', '-'],
-      (error) => (error ? reject(error) : resolve()),
+      ['secret', 'set', name, '--repo', repo],
+      (error, _stdout, stderr) => (error ? reject(new Error(`${error.message}${stderr ? `\n${stderr}` : ''}`)) : resolve()),
     );
     child.stdin?.end(value);
   });
