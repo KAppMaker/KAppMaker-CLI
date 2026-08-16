@@ -70,8 +70,10 @@ match mints a new one whenever it is not satisfied with what it finds, so a
 couple of unlucky builds can consume both slots and lock the account out of iOS
 releases. Builds therefore only ever *use* the store.
 
-Populating an empty store is the one exception — run that single build with
-`MATCH_READONLY=false` set as a repo secret or variable, then remove it. If a
+Populating an empty store is the one exception — set the repository **variable**
+`MATCH_READONLY=false` (`gh variable set`), run one build, then delete it. A
+variable rather than a secret: it is not sensitive, and a secret whose value is
+`false` masks that word throughout the build log. If a
 build fails with "Could not create another Distribution certificate", the
 account is already at the cap: revoke an unused certificate in the Apple
 Developer portal rather than trying to force another. When several apps share a GitHub organisation, the account-level

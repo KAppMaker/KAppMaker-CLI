@@ -147,7 +147,14 @@ kappmaker config set iosCertsRepoToken <token>    # set once, reused by every ap
 
 Builds normally only *read* the certificate store, because Apple issues just **two** distribution
 certificates per account and an automatic re-issue can quietly consume both. To populate an empty
-store the first time, run one build with `MATCH_READONLY=false` set as a repo secret, then remove it.
+store the first time, set the repository **variable** `MATCH_READONLY` to `false`, run one build, then
+delete it.
+
+```bash
+gh variable set MATCH_READONLY --body false     # bootstrap
+kappmaker ios-ci build
+gh variable delete MATCH_READONLY              # back to read-only
+```
 
 If you ever see *"Could not create another Distribution certificate"*, your account is already at the
 limit — revoke one you no longer use in the Apple Developer portal.
