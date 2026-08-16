@@ -127,6 +127,12 @@ export function parseLocalProperties(raw: string): Record<string, string> {
   return out;
 }
 
+/** 0 when unstamped — i.e. hand-written or predating the marker. */
+export function workflowVersion(source: string): number {
+  const m = /#\s*kappmaker-workflow-version:\s*(\d+)/.exec(source);
+  return m ? Number(m[1]) : 0;
+}
+
 function readBundleIdFromPbxproj(mobileDir: string): string | null {
   const pbx = path.join(mobileDir, 'iosApp', 'iosApp.xcodeproj', 'project.pbxproj');
   try {
@@ -213,12 +219,14 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   logger.step(2, INIT_STEPS, 'Checking the release workflow');
   const workflowPath = path.join(root, WORKFLOW_PATH);
   const existing = (await fs.readFile(workflowPath, 'utf8').catch(() => '')) as string;
-  const workflowIsCurrent = existing.includes('ci_appstore_release');
+  // Compare a stamped version, not "does a lane name appear". The coarse check
+  // treated any workflow mentioning the lane as current, so a workflow missing a
+  // newly-added input was left in place and every dispatch failed with HTTP 422.
+  const workflowIsCurrent = workflowVersion(existing) >= workflowVersion(getIosCiWorkflowTemplate());
   if (workflowIsCurrent) {
     logger.info(`${WORKFLOW_PATH} already ships the CI lane — leaving it alone.`);
   } else if (existing) {
-    logger.warn(`${WORKFLOW_PATH} predates the match-based pipeline (it wants a hand-exported .p12).`);
-    logger.info('Replacing it — the old one cannot run without a Mac to export the certificate.');
+    logger.warn(`${WORKFLOW_PATH} is out of date (v${workflowVersion(existing)} vs v${workflowVersion(getIosCiWorkflowTemplate())}) — updating it.`);
   }
 
   // ---- match password

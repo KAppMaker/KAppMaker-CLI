@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { parseGitHubRepo } from '../services/github-actions.service.js';
 import {
   defaultCertsRepo, relativeMobileDir, generateMatchPassword, appendCiLane,
-  discoverBuildProperties, buildLocalPropertiesStep, parseLocalProperties,
+  discoverBuildProperties, buildLocalPropertiesStep, parseLocalProperties, workflowVersion,
 } from './ios-ci.js';
 
 let failures = 0;
@@ -126,6 +126,15 @@ test('parses ssh and https GitHub remotes', () => {
   assert.equal(parseGitHubRepo('https://github.com/owner/name'), 'owner/name');
   assert.equal(parseGitHubRepo('git@gitlab.com:owner/name.git'), null);
   assert.equal(parseGitHubRepo('  git@github.com:o/n.git\n'), 'o/n');
+});
+
+test('workflow freshness is a version compare, not a lane-name search', () => {
+  assert.equal(workflowVersion('name: X\n# kappmaker-workflow-version: 2\n'), 2);
+  // An older stamped workflow, and an unstamped one that still mentions the lane,
+  // must both read as OUT OF DATE — that is the case that shipped a workflow
+  // missing an input the CLI dispatches.
+  assert.equal(workflowVersion('# kappmaker-workflow-version: 1\nci_appstore_release'), 1);
+  assert.equal(workflowVersion('jobs:\n  run: fastlane ios ci_appstore_release'), 0);
 });
 
 console.log(failures === 0 ? 'ios-ci: all green' : 'ios-ci: FAILURES');
