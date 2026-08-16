@@ -74,6 +74,8 @@ npx tsx src/index.ts gpc monetization push --subscriptions-only  # Subs only
 npx tsx src/index.ts gpc monetization push --iap-only            # IAPs only
 npx tsx src/index.ts gpc data-safety push          # Push data safety declaration from config
 npx tsx src/index.ts adapty setup                  # Adapty products/paywall/placements setup
+npx tsx src/index.ts revenuecat setup              # RevenueCat entitlements/products/offerings/packages (REST API v2, no external CLI)
+npx tsx src/index.ts revenuecat setup --api-key sk_...  # Pass the project-scoped v2 key; saved per app by bundle ID
 npx tsx src/index.ts subscription add --period weekly --price 9.99                          # Create one new subscription on Play + ASC (auto-generates aligned IDs)
 npx tsx src/index.ts subscription add --period weekly --price 9.99 --product-version 2              # Same period/price but a fresh v2 product line (alongside existing v1)
 npx tsx src/index.ts subscription add --period monthly --price 19.99 --platform android     # Play only
@@ -84,6 +86,12 @@ npx tsx src/index.ts fastlane configure                                    # Set
 npx tsx src/index.ts publish --platform android                            # Publish Android to Play Store
 npx tsx src/index.ts publish --platform ios                                # Publish iOS to App Store
 npx tsx src/index.ts publish                                               # Publish to both stores
+npx tsx src/index.ts publish --platform ios --remote                       # Build iOS on a GitHub macOS runner — no Mac needed
+npx tsx src/index.ts ios-ci init                                           # One-time: certs repo, GitHub secrets, workflow, fastlane CI lane
+npx tsx src/index.ts ios-ci init --dry-run --repo owner/name               # Preview the generated files without touching GitHub
+npx tsx src/index.ts ios-ci build                                          # Release build on a macOS runner -> TestFlight
+npx tsx src/index.ts ios-ci build --track appstore --upload-metadata --upload-screenshots  # Full App Store release
+npx tsx src/index.ts ios-ci status                                         # Recent iOS build runs + failing step
 npx tsx src/index.ts generate-keystore --organization "MyCompany"          # Generate Android signing keystore
 npx tsx src/index.ts android-release-build                                # Build signed Android AAB
 npx tsx src/index.ts refactor --app-id com.example.myapp --app-name MyApp  # Full package refactor
@@ -119,6 +127,11 @@ Two independent version schemes — bump ALL locations of the relevant one, they
 - **Claude Code plugin version** — `.claude-plugin/plugin.json` → `"version"`. Bump on **any** change to `.claude/skills/kappmaker/SKILL.md` (or other plugin-shipped files): Claude Code caches installed plugins by version (`~/.claude/plugins/cache/KAppMaker-CLI/kappmaker/<version>/`), so without a bump `claude plugin update` keeps serving the stale cache and skill changes never reach users.
 
 Rule of thumb: code change → bump CLI version (all three spots); skill change → bump plugin version; PR touching both → bump both.
+
+Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
+maintained by hand and drift silently.
+
+Test scripts: `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers).
 
 ## Custom Template Support
 
@@ -490,6 +503,54 @@ kappmaker iap add --credits 100 --price 24.99 --platform ios
 - **No `--free-trial`** — intro offers / free trials aren't wired through these commands yet; for those, fall back to editing the config file and running `gpc subscriptions push` / `create-appstore-app`.
 
 Source: [src/commands/subscription-add.ts](src/commands/subscription-add.ts), [src/commands/iap-add.ts](src/commands/iap-add.ts), [src/services/product-id.builder.ts](src/services/product-id.builder.ts).
+
+### RevenueCat (`kappmaker revenuecat`)
+
+Talks straight to REST API v2 (`api.revenuecat.com/v2`, Bearer key) — no external CLI, unlike Adapty.
+
+- **Keys are PROJECT-scoped.** A v2 secret key (`sk_...`) is minted inside one RevenueCat project and
+  can only see that project, so one global key cannot serve an account with several apps. Resolution
+  order: `--api-key` -> `REVENUECAT_API_KEY` -> per-app map keyed by bundle ID
+  (`~/.config/kappmaker/revenuecat-keys.json`, mode 0600) -> the global `revenuecatApiKey` config
+  value (fine for one-app accounts). `revenuecat setup` loads the project config BEFORE validating
+  the key, because the bundle ID is what selects the key.
+- **Cross-check**: if the config already carries a `project_id` and the key belongs to a different
+  project, setup fails loudly rather than writing products into the wrong app.
+- **Play subscriptions connect as `productId:basePlanId`** — RevenueCat rejects the bare
+  subscription ID as ambiguous. iOS products and Play one-time products use their plain IDs.
+- Offerings: `default` (subscriptions) and `credits_pack` (credit packs). The credits identifier
+  deliberately matches Adapty's placement `developer_id`, so app code keeps one constant either way.
+- Package keys use RevenueCat's conventions (`$rc_weekly`, `$rc_monthly`, `$rc_annual`, ...);
+  credit packs get `credit_pack_<credits>`.
+- The docs prose and the published OpenAPI spec disagree — the spec is authoritative. Offerings take
+  `lookup_key` (not `identifier`); entitlement attach takes a flat `product_ids` array while package
+  attach takes `products: [{product_id, eligibility_criteria}]`.
+
+### iOS from CI (`kappmaker ios-ci`) — shipping without a Mac
+
+Xcode is the only genuinely Mac-locked step; app records, products, pricing, metadata and ASO all go
+over the API from Linux. `ios-ci` rents a GitHub-hosted macOS runner for the compile.
+
+- `ios-ci init` is idempotent: private certs repo (refuses if public), `match` password stored in
+  `~/.config/kappmaker/match-passwords.json` (0600), secrets pushed via `gh secret set` with the
+  value on **stdin** (never argv), `.github/workflows/ios-release.yml` written, and a
+  `ci_appstore_release` lane inserted INSIDE `platform :ios do` — it must be inside that block
+  because it uses the `bundle_id` / `output_dir` / metadata paths defined at the top of it.
+  Marker-guarded (`<kappmaker-ci-lane>`) so re-running does not duplicate it.
+- **`match`, not Xcode automatic signing.** Automatic signing mints a NEW distribution certificate
+  per run and Apple caps those at 3 per account — the naive version goes green three times, then
+  fails permanently.
+- **Build numbers auto-advance** past the latest on TestFlight (`bump_build`, default on). CI builds
+  from a clean checkout so the number in git never moves, and Apple rejects a repeat — without this,
+  every second build fails.
+- The CI lane takes the same options as the local `appstore_release` (metadata, screenshots,
+  submit-for-review, track) writing to the same metadata paths: a remote release is not a downgrade.
+  Metadata/screenshots apply to the `appstore` track only; TestFlight takes a build, not a listing.
+- `MATCH_GIT_BASIC_AUTHORIZATION` needs a PAT that can read the certs repo — the built-in
+  `GITHUB_TOKEN` only reaches the repo it runs in. Missing it fails at the `match` step with a clone
+  error that reads misleadingly like a signing problem.
+- Trigger is `workflow_dispatch` only, on purpose: macOS minutes bill at ~10x Linux against the
+  account allowance (~10 twenty-minute builds/month on a free plan), so build-on-push would drain it.
 
 ### Adapty Access Levels (`access_levels[]`)
 
