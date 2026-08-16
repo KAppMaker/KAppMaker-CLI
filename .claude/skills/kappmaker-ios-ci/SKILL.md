@@ -62,7 +62,19 @@ sharing it need the same passphrase — and lives in
 
 Reaching a second private repo needs a **PAT** (`iosCertsRepoToken`): the runner's
 built-in `GITHUB_TOKEN` only reaches the repo it runs in. Set it once and every
-app reuses it. When several apps share a GitHub organisation, the account-level
+app reuses it.
+
+**match runs read-only by design.** Apple issues at most **two** Apple
+Distribution certificates per account, shared by every app. With write access
+match mints a new one whenever it is not satisfied with what it finds, so a
+couple of unlucky builds can consume both slots and lock the account out of iOS
+releases. Builds therefore only ever *use* the store.
+
+Populating an empty store is the one exception — run that single build with
+`MATCH_READONLY=false` set as a repo secret or variable, then remove it. If a
+build fails with "Could not create another Distribution certificate", the
+account is already at the cap: revoke an unused certificate in the Apple
+Developer portal rather than trying to force another. When several apps share a GitHub organisation, the account-level
 secrets are good candidates for **organisation secrets**, leaving a new app to set
 only its own build keys.
 

@@ -561,6 +561,11 @@ over the API from Linux. `ios-ci` rents a GitHub-hosted macOS runner for the com
 - `MATCH_GIT_BASIC_AUTHORIZATION` needs a PAT that can read the certs repo — the built-in
   `GITHUB_TOKEN` only reaches the repo it runs in. Missing it fails at the `match` step with a clone
   error that reads misleadingly like a signing problem.
+- **match runs READONLY by default** (`MATCH_READONLY=false` for the one bootstrap run). Apple issues
+  only TWO Apple Distribution certificates per account, shared by every app; with write access match
+  re-issues whenever it is unsatisfied, so a couple of builds can consume both slots and lock the
+  account out of iOS releases. "Could not create another Distribution certificate" means the cap is
+  reached — revoke one in the portal, do not try to force another.
 - **Signing rules that cost six real builds to establish**: settings go on the app
   target via `update_code_signing_settings(targets: [...])`, never through `xcargs`
   (which hits every target, and SPM deps reject provisioning profiles); signing must
