@@ -34,10 +34,30 @@
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
     )
 
-    # match publishes the profile it installed through these env vars.
+    # match publishes what it installed through these env vars.
     profile_name = ENV["sigh_#{bundle_id}_appstore_profile-name"]
     team_id      = ENV["sigh_#{bundle_id}_appstore_team-id"]
     UI.user_error!("match did not install a profile for #{bundle_id}") if profile_name.to_s.empty?
+
+    # Signing must be set on the APP TARGET, and nowhere else.
+    #
+    # Through xcargs the settings hit EVERY target, and the Swift Package
+    # dependencies (Firebase, GoogleUtilities, nanopb, promises...) reject a
+    # provisioning profile outright — "does not support provisioning profiles".
+    # This action edits the pbxproj for the named target only.
+    #
+    # It also has to be manual: left on automatic, Xcode hunts for an iOS App
+    # DEVELOPMENT profile and fails, because match installed an App Store one.
+    # The project ships no DEVELOPMENT_TEAM either, so team_id comes from match.
+    update_code_signing_settings(
+      path: "iosApp/iosApp.xcodeproj",
+      use_automatic_signing: false,
+      team_id: team_id,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile_name,
+      targets: ["iosApp"],
+      build_configurations: ["Release"]
+    )
 
     build_app(
       scheme: "iosApp",
@@ -47,14 +67,8 @@
       silent: false,
       output_name: "iosApp",
       output_directory: output_dir,
-      # Manual signing with exactly the profile match installed. NOT
-      # -allowProvisioningUpdates: that flag takes no value (passing one makes
-      # xcodebuild read it as a build action) and letting Xcode manage profiles
-      # is what causes the certificate churn described above.
-      xcargs: "CODE_SIGN_STYLE=Manual " \
-              "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}' " \
-              "DEVELOPMENT_TEAM='#{team_id}'",
       export_options: {
+        signingStyle: "manual",
         provisioningProfiles: { bundle_id => profile_name }
       }
     )
