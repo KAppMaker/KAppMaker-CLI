@@ -72,6 +72,12 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('__MOBILE_DIR__/**/*.gradle*', '__MOBILE_DIR__/**/gradle-wrapper.properties', '__MOBILE_DIR__/**/libs.versions.toml') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      # local.properties is gitignored, so a CI checkout has none — and every
+      # getRequiredProperty() in the Gradle build carries a defaultValue, which
+      # means a missing key does NOT fail the build. It ships a green binary with
+      # placeholder credentials instead. Recreating the file is what keeps the
+      # uploaded app actually working.
+__LOCAL_PROPERTIES_STEP__
       - name: Set up Ruby and fastlane
         uses: ruby/setup-ruby@v1
         with:

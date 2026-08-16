@@ -45,6 +45,63 @@ export function generateMatchPassword(): string {
   return randomBytes(24).toString('base64url');
 }
 
+/**
+ * Every `getRequiredProperty(key = "X")` in the Gradle build is a value the app
+ * needs baked in at build time. They all declare a defaultValue, so a missing
+ * one produces a GREEN build carrying "testValue" or "" — a broken app that
+ * looks fine until a user hits sign-in or the paywall. CI therefore has to
+ * recreate local.properties, and to do that it first has to know the key list.
+ */
+export function discoverBuildProperties(gradleSources: string[]): string[] {
+  const keys = new Set<string>();
+  for (const source of gradleSources) {
+    for (const m of source.matchAll(/getRequiredProperty\s*\(\s*key\s*=\s*"([A-Z0-9_]+)"/g)) {
+      keys.add(m[1]);
+    }
+  }
+  return [...keys].sort();
+}
+
+function readGradleSources(mobileDir: string): string[] {
+  const out: string[] = [];
+  for (const module of ['shared', 'androidApp', 'composeApp']) {
+    const file = path.join(mobileDir, module, 'build.gradle.kts');
+    try {
+      out.push(fs.readFileSync(file, 'utf8'));
+    } catch {
+      // Module not present in this project shape — fine.
+    }
+  }
+  return out;
+}
+
+/** The workflow step that rebuilds local.properties from repo secrets. */
+export function buildLocalPropertiesStep(keys: string[], mobileDir: string): string {
+  if (keys.length === 0) return '';
+  const lines = keys
+    .map((key) => `            echo "${key}=\${{ secrets.${key} }}"`)
+    .join('\n');
+  return [
+    '      - name: Write build secrets to local.properties',
+    `        working-directory: ${mobileDir}`,
+    '        run: |',
+    '          {',
+    lines,
+    '          } >> local.properties',
+    '',
+  ].join('\n');
+}
+
+/** Values already present in the developer's local.properties, to seed secrets. */
+export function parseLocalProperties(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of raw.split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z0-9_.]+)\s*=\s*(.*)$/.exec(line);
+    if (m && m[2].trim() !== '') out[m[1]] = m[2].trim();
+  }
+  return out;
+}
+
 function readBundleIdFromPbxproj(mobileDir: string): string | null {
   const pbx = path.join(mobileDir, 'iosApp', 'iosApp.xcodeproj', 'project.pbxproj');
   try {
@@ -181,6 +238,17 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
     delete values.MATCH_GIT_BASIC_AUTHORIZATION;
   }
 
+  // The app's own build-time keys (Firebase, OpenAI, subscription provider, ...)
+  // usually already sit in the developer's local.properties. Copy them across so
+  // the runner produces a working binary instead of one with placeholders.
+  const buildKeyNames = discoverBuildProperties(readGradleSources(mobileDir));
+  const localProps = parseLocalProperties(
+    (await fs.readFile(path.join(mobileDir, 'local.properties'), 'utf8').catch(() => '')) as string,
+  );
+  const seeded = buildKeyNames.filter((key) => localProps[key]);
+  const unseeded = buildKeyNames.filter((key) => !localProps[key]);
+  for (const key of seeded) values[key] = localProps[key];
+
   if (options.dryRun) {
     logger.info(`(dry run) would set: ${Object.keys(values).join(', ')}`);
   } else {
@@ -189,10 +257,16 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
       logger.success(`secret ${name}`);
     }
   }
+  if (buildKeyNames.length > 0) {
+    logger.info(`Build-time keys detected: ${buildKeyNames.length} (${seeded.length} copied from local.properties)`);
+  }
 
   // ---- workflow + lane
   logger.step(5, INIT_STEPS, 'Writing the workflow and fastlane lane');
-  const workflow = getIosCiWorkflowTemplate().replace(/__MOBILE_DIR__/g, relMobile);
+  const buildKeys = discoverBuildProperties(readGradleSources(mobileDir));
+  const workflow = getIosCiWorkflowTemplate()
+    .replace(/__MOBILE_DIR__/g, relMobile)
+    .replace('__LOCAL_PROPERTIES_STEP__', buildLocalPropertiesStep(buildKeys, relMobile));
   const workflowPath = path.join(root, WORKFLOW_PATH);
   await fs.ensureDir(path.dirname(workflowPath));
   await fs.writeFile(workflowPath, workflow);
@@ -235,6 +309,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
     needsToken: !values.MATCH_GIT_BASIC_AUTHORIZATION,
     workflowPath: WORKFLOW_PATH,
     dryRun: options.dryRun === true,
+    unseededKeys: unseeded,
   });
   logger.done();
 }
@@ -265,6 +340,7 @@ function printInitChecklist(info: {
   needsToken: boolean;
   workflowPath: string;
   dryRun: boolean;
+  unseededKeys: string[];
 }): void {
   console.log('');
   if (info.dryRun) {
@@ -291,6 +367,14 @@ function printInitChecklist(info: {
     console.log(chalk.gray('        The built-in GITHUB_TOKEN cannot be used — it only reaches this repo, not the certs repo.'));
   }
   console.log(`    ${chalk.gray('☐')} The App Store Connect app record must exist — ${chalk.cyan('kappmaker create-appstore-app')}`);
+  if (info.unseededKeys.length > 0) {
+    console.log('');
+    console.log(`    ${chalk.yellow('!')} ${chalk.bold('These build keys have no value yet')} — the build will still go GREEN,`);
+    console.log(chalk.gray('      but ship with empty/placeholder values (broken sign-in, paywall, analytics):'));
+    for (const key of info.unseededKeys) {
+      console.log(chalk.gray(`        gh secret set ${key} --repo ${info.repo}`));
+    }
+  }
   console.log('');
   console.log(chalk.bold('  Then ship:'));
   console.log(`    ${chalk.cyan('kappmaker ios-ci build')}                 ${chalk.gray('# → TestFlight')}`);
