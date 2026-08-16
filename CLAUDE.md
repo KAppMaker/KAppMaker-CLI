@@ -558,6 +558,13 @@ over the API from Linux. `ios-ci` rents a GitHub-hosted macOS runner for the com
 - `MATCH_GIT_BASIC_AUTHORIZATION` needs a PAT that can read the certs repo — the built-in
   `GITHUB_TOKEN` only reaches the repo it runs in. Missing it fails at the `match` step with a clone
   error that reads misleadingly like a signing problem.
+- **Signing rules that cost six real builds to establish**: settings go on the app
+  target via `update_code_signing_settings(targets: [...])`, never through `xcargs`
+  (which hits every target, and SPM deps reject provisioning profiles); signing must
+  be MANUAL (automatic hunts for a Development profile while match installs an App
+  Store one); `DEVELOPMENT_TEAM` must be passed because the template sets none;
+  and `-allowProvisioningUpdates` takes no value — passing one makes xcodebuild
+  parse it as a build action.
 - Trigger is `workflow_dispatch` only, on purpose: macOS minutes bill at ~10x Linux against the
   account allowance (~10 twenty-minute builds/month on a free plan), so build-on-push would drain it.
 
