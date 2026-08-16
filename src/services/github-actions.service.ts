@@ -39,8 +39,31 @@ export async function validateGhAuth(): Promise<void> {
   }
 }
 
-/** "owner/repo" for the repo in `cwd`, or null when there is no GitHub remote. */
+/** "owner/name" out of an SSH or HTTPS GitHub remote URL. */
+export function parseGitHubRepo(url: string): string | null {
+  const m =
+    /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/.exec(url.trim()) ??
+    /^https?:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/.exec(url.trim());
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+
+/**
+ * "owner/repo" for the app in `cwd`.
+ *
+ * Resolved from the `origin` remote specifically, NOT `gh repo view`: every
+ * KAppMaker project keeps the boilerplate as `upstream` (step 10 of `create`),
+ * and gh resolves upstream in preference to origin. Trusting gh here targets the
+ * shared template repo instead of the user's app — which, for a command whose
+ * job is pushing secrets, is the worst possible place to point.
+ */
 export async function currentRepo(cwd?: string): Promise<string | null> {
+  try {
+    const { stdout } = await run('git', ['remote', 'get-url', 'origin'], { cwd });
+    const parsed = parseGitHubRepo(stdout);
+    if (parsed) return parsed;
+  } catch {
+    // No origin remote — fall through.
+  }
   try {
     return await gh(['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'], cwd);
   } catch {
