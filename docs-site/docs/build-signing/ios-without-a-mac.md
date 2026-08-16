@@ -31,13 +31,13 @@ kappmaker ios-ci init
 
 This reads your bundle ID and repo, then:
 
-1. creates a **private** repo (`<your-repo>-certs`) to hold your signing certificates
-2. generates a password that encrypts them, and stores it on your machine
-3. pushes your App Store Connect key into your repo's GitHub **secrets**
-4. writes `.github/workflows/ios-release.yml`
-5. adds a `ci_appstore_release` lane to your `fastlane/Fastfile`
+1. generates a password that encrypts your signing certificates, and stores it on your machine
+2. pushes your App Store Connect key and that password into your repo's GitHub **secrets**,
+   along with any build-time keys already filled in locally
+3. checks the release workflow — your project already ships it, so an up-to-date app is left
+   alone; only an older project gets it updated
 
-It is safe to re-run — it reuses the certs repo, the password and the existing lane.
+It is safe to re-run.
 
 To see exactly what it would write without touching GitHub:
 
@@ -45,27 +45,10 @@ To see exactly what it would write without touching GitHub:
 kappmaker ios-ci init --dry-run --repo owner/name
 ```
 
-### Two things you must do yourself
+### One thing you must do yourself
 
-**Commit and push the workflow.** GitHub only runs workflows that exist on your default branch.
-
-**Give it a token that can read the certs repo.** The signing certificates live in a second private
-repo, and GitHub's built-in token only reaches the repo it runs in. Create a personal access token
-with `repo` read access, then either set it before running init:
-
-```bash
-GITHUB_TOKEN=ghp_xxx kappmaker ios-ci init
-```
-
-…or add it afterwards:
-
-```bash
-gh secret set MATCH_GIT_BASIC_AUTHORIZATION --repo owner/name
-# value: base64 of "x-access-token:ghp_xxx"
-```
-
-Skip this and the build fails at the signing step with a repository error that looks confusingly
-like a certificate problem.
+**Commit and push the workflow**, if your project didn't already have it. GitHub only runs workflows
+that exist on your default branch.
 
 ## Shipping
 
@@ -126,15 +109,19 @@ plan** — plenty for a normal release cadence.
 The workflow only runs when you ask it to (there is no build-on-every-push trigger) precisely so a
 busy week of commits cannot quietly drain your allowance.
 
-## Why certificates live in their own repo
+## Why certificates live on a branch
 
 iOS signing needs a distribution certificate. Apple allows only three per account, and letting Xcode
 create one automatically means a **new** certificate on every CI run — three green builds, then
 every build fails forever.
 
-Instead, one certificate is created once, encrypted with your password, and stored in your private
-certs repo (this is fastlane's `match`). Every build reuses it. The repo is yours, the password is
-yours, and kappmaker keeps a copy of the password on your machine only.
+Instead, one certificate is created once, encrypted with your password, and committed to a
+`match-certificates` branch of your own repository (this is fastlane's `match`). Every build reuses
+it, and because the branch is in the same repo, GitHub's built-in token can read it — no second
+repository and no personal access token to create.
+
+If your repository is public, note that the encrypted certificates are public too. They are useless
+without your password, but a private repo is safer.
 
 Keep that password. Losing it means the stored certificates can never be decrypted and the certs
 repo has to be reset.

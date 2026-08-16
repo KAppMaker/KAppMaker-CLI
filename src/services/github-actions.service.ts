@@ -10,7 +10,9 @@ const run = promisify(execFile);
  * holds a GitHub token of its own.
  */
 
-export const WORKFLOW_FILE = 'ios-release.yml';
+// The boilerplate ships this workflow, so the CLI targets the same file rather
+// than adding a second, competing iOS pipeline to the repo.
+export const WORKFLOW_FILE = 'publish_ios_appstore.yml';
 
 async function gh(args: string[], cwd?: string): Promise<string> {
   const { stdout } = await run('gh', args, { cwd, maxBuffer: 10 * 1024 * 1024 });
