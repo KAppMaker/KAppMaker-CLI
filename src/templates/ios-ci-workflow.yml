@@ -1,6 +1,6 @@
 name: Publish iOS App
 
-# kappmaker-workflow-version: 2
+# kappmaker-workflow-version: 3
 
 # Builds and ships the iOS app on a GitHub macOS runner, so no Mac is needed
 # locally. Signing certificates are created on the runner by fastlane `match`
@@ -48,11 +48,6 @@ on:
         description: Also upload App Store screenshots (appstore track only)
         required: false
         default: false
-        type: boolean
-      bump_build:
-        description: Auto-advance the build number past the latest on TestFlight
-        required: false
-        default: true
         type: boolean
   push:
     tags:
@@ -151,8 +146,7 @@ jobs:
             track:"${{ inputs.track || 'testflight' }}" \
             submit_for_review:"${{ inputs.submit_for_review || 'false' }}" \
             upload_metadata:"${{ inputs.upload_metadata || 'false' }}" \
-            upload_screenshots:"${{ inputs.upload_screenshots || 'false' }}" \
-            bump_build:"${{ inputs.bump_build || 'true' }}"
+            upload_screenshots:"${{ inputs.upload_screenshots || 'false' }}"
 
       # The .ipa is the expensive artefact — keep it reachable when a later step
       # fails, rather than paying another 20 minutes to rebuild it.

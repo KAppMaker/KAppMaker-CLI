@@ -62,7 +62,7 @@ nothing to do.
 ### ios-ci build — ship it
 
 **Syntax**: `kappmaker ios-ci build [--track testflight|appstore] [--submit-for-review]
-[--upload-metadata] [--upload-screenshots] [--no-bump-build] [--no-wait] [--ref <branch>]`
+[--upload-metadata] [--upload-screenshots] [--no-wait] [--ref <branch>]`
 
 Defaults to TestFlight. Verifies every required secret exists before spending 20
 minutes of runner time, triggers the workflow, then follows it and reports the
@@ -74,10 +74,11 @@ same fastlane action the local `appstore_release` lane uses. They apply to the
 **appstore track only**; TestFlight takes a build, not a listing, and the lane
 says so rather than silently ignoring them.
 
-**Build numbers auto-advance** past the latest on TestFlight, because CI builds
-from a clean checkout and Apple rejects a number it has already seen — locally
-you would run `kappmaker update-version` first. `--no-bump-build` ships exactly
-what is committed.
+**Build numbers come from the commit.** Apple rejects a build number it has
+already accepted, and CI builds exactly what is in git — so run
+**kappmaker-version** (`kappmaker update-version`) before re-releasing, the same
+as for a local publish. There is deliberately no auto-bump in the pipeline: one
+way to move the number, and it stays auditable in git.
 
 ### ios-ci status
 

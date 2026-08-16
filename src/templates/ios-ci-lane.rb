@@ -11,7 +11,6 @@
     submit_for_review  = options[:submit_for_review].to_s == "true"
     upload_metadata    = options[:upload_metadata].to_s == "true"
     upload_screenshots = options[:upload_screenshots].to_s == "true"
-    bump_build         = options[:bump_build].to_s != "false"
 
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("ASC_KEY_ID"),
@@ -23,22 +22,6 @@
 
     setup_ci if ENV["CI"]
 
-    # Apple rejects an already-seen build number, and CI builds from a clean
-    # checkout — so the number in git never advances on its own. Take whatever
-    # TestFlight has already seen and go one past it. This is the CI equivalent
-    # of running `kappmaker update-version` before publishing locally.
-    if bump_build
-      latest = latest_testflight_build_number(
-        api_key: api_key,
-        app_identifier: bundle_id,
-        initial_build_number: 0
-      ) rescue 0
-      increment_build_number(
-        build_number: latest.to_i + 1,
-        xcodeproj: "iosApp/iosApp.xcodeproj"
-      )
-      UI.message("Build number set to #{latest.to_i + 1}")
-    end
 
     # readonly:false so the FIRST run can create and store the certificate. Later
     # runs find it already there and reuse it.
@@ -51,6 +34,11 @@
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
     )
 
+    # match publishes the profile it installed through these env vars.
+    profile_name = ENV["sigh_#{bundle_id}_appstore_profile-name"]
+    team_id      = ENV["sigh_#{bundle_id}_appstore_team-id"]
+    UI.user_error!("match did not install a profile for #{bundle_id}") if profile_name.to_s.empty?
+
     build_app(
       scheme: "iosApp",
       project: "iosApp/iosApp.xcodeproj",
@@ -59,9 +47,16 @@
       silent: false,
       output_name: "iosApp",
       output_directory: output_dir,
-      # Explicitly manual: match already installed the profile, and letting Xcode
-      # "help" here is what causes the certificate churn described above.
-      xcargs: "-allowProvisioningUpdates NO"
+      # Manual signing with exactly the profile match installed. NOT
+      # -allowProvisioningUpdates: that flag takes no value (passing one makes
+      # xcodebuild read it as a build action) and letting Xcode manage profiles
+      # is what causes the certificate churn described above.
+      xcargs: "CODE_SIGN_STYLE=Manual " \
+              "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}' " \
+              "DEVELOPMENT_TEAM='#{team_id}'",
+      export_options: {
+        provisioningProfiles: { bundle_id => profile_name }
+      }
     )
 
     ipa_path = File.join(output_dir, "iosApp.ipa")

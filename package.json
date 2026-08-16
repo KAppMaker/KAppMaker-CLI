@@ -1,6 +1,6 @@
 {
   "name": "kappmaker",
-  "version": "1.19.4",
+  "version": "1.20.0",
   "description": "CLI tool for bootstrapping KAppMaker mobile apps",
   "type": "module",
   "bin": {

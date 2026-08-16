@@ -22,8 +22,6 @@ export interface IosCiBuildOptions {
   submitForReview?: boolean;
   uploadMetadata?: boolean;
   uploadScreenshots?: boolean;
-  /** Default true; --no-bump-build to ship exactly the number in git. */
-  bumpBuild?: boolean;
   /** Fire the build and return instead of polling to completion. */
   noWait?: boolean;
   ref?: string;
