@@ -57,7 +57,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.21.0');
+    .version('1.22.0');
 
   program
     .command('create')
@@ -498,6 +498,7 @@ export function createCli(): Command {
     .command('init')
     .description('Set up the macOS build pipeline: certs repo, GitHub secrets, workflow and fastlane lane')
     .option('--repo <owner/name>', 'App repository (default: the GitHub remote of this project)')
+    .option('--certs-repo <owner/name>', 'Private repo holding signing certificates, shared by every app on one Apple Developer account (default: <owner>/apple-certificates, remembered as iosCertsRepo)')
     .option('--match-password <value>', 'Reuse an existing certificate password instead of generating one')
     .option('--mobile-dir <path>', 'Directory containing iosApp/ and fastlane/ (default: auto-detect)')
     .option('--dry-run', 'Write the workflow locally without creating repos or setting secrets', false)
