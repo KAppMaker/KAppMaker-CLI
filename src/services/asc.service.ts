@@ -112,7 +112,7 @@ export async function validateAscAuth(): Promise<void> {
 const BUNDLE_ID_CAPABILITIES = ['IN_APP_PURCHASE', 'PUSH_NOTIFICATIONS', 'APPLE_ID_AUTH'];
 
 export async function createBundleId(bundleId: string, _name: string, platform: string): Promise<void> {
-  // Name follows Apple convention: "XC com measify archgee" for "com.measify.archgee"
+  // Name follows Apple convention: "XC com example myapp" for "com.example.myapp"
   const derivedName = `XC ${bundleId.replace(/\./g, ' ')}`;
 
   const result = await run(
