@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { parseGitHubRepo } from '../services/github-actions.service.js';
 import {
   defaultCertsRepo, relativeMobileDir, generateMatchPassword, appendCiLane,
   discoverBuildProperties, buildLocalPropertiesStep, parseLocalProperties,
@@ -117,6 +118,14 @@ test('parsing local.properties keeps real values and drops empty ones', () => {
   // that silently ships a placeholder.
   assert.equal(parsed['FIREBASE_API_KEY'], undefined);
   assert.equal(parsed['sdk.dir'], '/opt/android');
+});
+
+test('parses ssh and https GitHub remotes', () => {
+  assert.equal(parseGitHubRepo('git@github.com:KAppMakerDeveloperApps/FinePrint.git'), 'KAppMakerDeveloperApps/FinePrint');
+  assert.equal(parseGitHubRepo('https://github.com/owner/name.git'), 'owner/name');
+  assert.equal(parseGitHubRepo('https://github.com/owner/name'), 'owner/name');
+  assert.equal(parseGitHubRepo('git@gitlab.com:owner/name.git'), null);
+  assert.equal(parseGitHubRepo('  git@github.com:o/n.git\n'), 'o/n');
 });
 
 console.log(failures === 0 ? 'ios-ci: all green' : 'ios-ci: FAILURES');
