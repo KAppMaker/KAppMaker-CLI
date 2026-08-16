@@ -143,6 +143,15 @@ token only reaches the repo it is running in:
 kappmaker config set iosCertsRepoToken <token>    # set once, reused by every app
 ```
 
+### The first build on a brand-new store
+
+Builds normally only *read* the certificate store, because Apple issues just **two** distribution
+certificates per account and an automatic re-issue can quietly consume both. To populate an empty
+store the first time, run one build with `MATCH_READONLY=false` set as a repo secret, then remove it.
+
+If you ever see *"Could not create another Distribution certificate"*, your account is already at the
+limit — revoke one you no longer use in the Apple Developer portal.
+
 **Keep your `MATCH_PASSWORD`.** It encrypts the store, and every app sharing that store uses the same
 one. Lose it and the stored certificates can never be decrypted — you would have to reset the repo
 and burn another of your three certificates.
