@@ -47,6 +47,11 @@ on:
         required: false
         default: false
         type: boolean
+      bump_build:
+        description: Auto-advance the build number past the latest on TestFlight
+        required: false
+        default: true
+        type: boolean
   push:
     tags:
       - '*-ios'
@@ -144,7 +149,8 @@ jobs:
             track:"${{ inputs.track || 'testflight' }}" \
             submit_for_review:"${{ inputs.submit_for_review || 'false' }}" \
             upload_metadata:"${{ inputs.upload_metadata || 'false' }}" \
-            upload_screenshots:"${{ inputs.upload_screenshots || 'false' }}"
+            upload_screenshots:"${{ inputs.upload_screenshots || 'false' }}" \
+            bump_build:"${{ inputs.bump_build || 'true' }}"
 
       # The .ipa is the expensive artefact — keep it reachable when a later step
       # fails, rather than paying another 20 minutes to rebuild it.

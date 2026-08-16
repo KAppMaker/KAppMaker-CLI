@@ -57,7 +57,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.19.2');
+    .version('1.19.3');
 
   program
     .command('create')
