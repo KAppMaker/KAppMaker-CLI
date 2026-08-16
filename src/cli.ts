@@ -57,7 +57,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.19.4');
+    .version('1.20.0');
 
   program
     .command('create')
@@ -511,7 +511,6 @@ export function createCli(): Command {
     .option('--submit-for-review', 'Submit for App Store review (appstore track only)', false)
     .option('--upload-metadata', 'Also upload App Store listing text (appstore track only)', false)
     .option('--upload-screenshots', 'Also upload App Store screenshots (appstore track only)', false)
-    .option('--no-bump-build', 'Ship the build number as committed instead of auto-advancing past TestFlight')
     .option('--no-wait', 'Queue the build and return immediately instead of following it')
     .option('--ref <branch>', 'Branch or tag to build (default: the workflow default branch)')
     .action(async (options) => {

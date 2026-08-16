@@ -86,19 +86,23 @@ kappmaker publish --platform ios --remote
 | `--upload-metadata` | Also upload App Store listing text. App Store track only. |
 | `--upload-screenshots` | Also upload App Store screenshots. App Store track only. |
 | `--submit-for-review` | Submit for review after uploading. |
-| `--no-bump-build` | Use the build number as committed instead of auto-advancing. |
 | `--no-wait` | Queue the build and return immediately. |
 | `--ref <branch>` | Build a specific branch or tag. |
 
 TestFlight takes a build, not a store listing, so metadata and screenshots only apply to the
 `appstore` track.
 
-## Build numbers are handled for you
+## Bump the version before you re-release
 
-Apple rejects a build number it has already seen. CI builds from a clean checkout, so the number in
-your repository never advances on its own — every second build would fail. Each run therefore looks
-up the latest build on TestFlight and goes one past it. Use `--no-bump-build` if you manage build
-numbers yourself.
+Apple rejects a build number it has already accepted, and the build uses exactly what is committed.
+So before shipping a new build of the same app, run:
+
+```bash
+kappmaker update-version
+```
+
+then commit and push. Same step you would take for a local release — the pipeline deliberately does
+not invent numbers for you, so what ships always matches what is in git.
 
 ## What it costs
 

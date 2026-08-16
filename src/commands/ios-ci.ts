@@ -433,6 +433,11 @@ export async function iosCiBuild(options: IosCiBuildOptions): Promise<void> {
     }
   }
 
+  // Apple rejects a build number it has already accepted, and CI builds exactly
+  // what is committed — so the bump belongs in `kappmaker update-version` before
+  // this, not as magic inside the pipeline.
+  logger.info('Build number comes from the commit — run `kappmaker update-version` first if this is a re-release.');
+
   logger.step(1, 2, `Starting the build on GitHub (${track})`);
   const before = await gha.latestRuns(config.repo, 1);
   const beforeId = before[0]?.databaseId;
@@ -451,7 +456,6 @@ export async function iosCiBuild(options: IosCiBuildOptions): Promise<void> {
       submit_for_review: String(submit),
       upload_metadata: String(uploadMetadata),
       upload_screenshots: String(uploadScreenshots),
-      bump_build: String(options.bumpBuild !== false),
     },
     options.ref,
   );
