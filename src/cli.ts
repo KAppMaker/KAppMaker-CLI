@@ -31,6 +31,7 @@ import { generateIosIcons } from './commands/generate-ios-icons.js';
 import { generateAndroidIcons } from './commands/generate-android-icons.js';
 import { adaptySetup } from './commands/adapty-setup.js';
 import { revenuecatSetup } from './commands/revenuecat-setup.js';
+import { iosCiInit, iosCiBuild, iosCiStatus } from './commands/ios-ci.js';
 import { subscriptionAdd } from './commands/subscription-add.js';
 import { iapAdd } from './commands/iap-add.js';
 import { updateVersion } from './commands/update-version.js';
@@ -56,7 +57,7 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version('1.16.1');
+    .version('1.17.0');
 
   program
     .command('create')
@@ -490,6 +491,40 @@ export function createCli(): Command {
       await adaptySetup(options);
     });
 
+  const iosCi = program
+    .command('ios-ci')
+    .description('Build and ship iOS from GitHub Actions — no Mac required locally');
+  iosCi
+    .command('init')
+    .description('Set up the macOS build pipeline: certs repo, GitHub secrets, workflow and fastlane lane')
+    .option('--repo <owner/name>', 'App repository (default: the GitHub remote of this project)')
+    .option('--certs-repo <owner/name>', 'Private repo for signing certificates (default: <repo>-certs)')
+    .option('--match-password <value>', 'Reuse an existing certificate password instead of generating one')
+    .option('--mobile-dir <path>', 'Directory containing iosApp/ and fastlane/ (default: auto-detect)')
+    .option('--dry-run', 'Write the workflow locally without creating repos or setting secrets', false)
+    .action(async (options) => {
+      await iosCiInit(options);
+    });
+  iosCi
+    .command('build')
+    .description('Run a release build on a GitHub macOS runner and upload it')
+    .option('--track <name>', 'testflight | appstore', 'testflight')
+    .option('--submit-for-review', 'Submit for App Store review (appstore track only)', false)
+    .option('--upload-metadata', 'Also upload App Store listing text (appstore track only)', false)
+    .option('--upload-screenshots', 'Also upload App Store screenshots (appstore track only)', false)
+    .option('--no-bump-build', 'Ship the build number as committed instead of auto-advancing past TestFlight')
+    .option('--no-wait', 'Queue the build and return immediately instead of following it')
+    .option('--ref <branch>', 'Branch or tag to build (default: the workflow default branch)')
+    .action(async (options) => {
+      await iosCiBuild(options);
+    });
+  iosCi
+    .command('status')
+    .description('Show recent iOS build runs')
+    .action(async () => {
+      await iosCiStatus();
+    });
+
   const revenuecat = program
     .command('revenuecat')
     .description('RevenueCat subscription provider management');
@@ -599,6 +634,7 @@ export function createCli(): Command {
     .option('--upload-metadata', 'Upload metadata (title, description)', false)
     .option('--upload-screenshots', 'Upload screenshots', false)
     .option('--upload-images', 'Upload images — icon, feature graphic (Android only)', false)
+    .option('--remote', 'Build iOS on a GitHub macOS runner instead of locally — no Mac required (setup: kappmaker ios-ci init)', false)
     .option('--submit-for-review <bool>', 'Submit for review after upload (default: true)', 'true')
     .action(async (options) => {
       await publishCommand(options);

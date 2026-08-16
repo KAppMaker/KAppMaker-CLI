@@ -1,6 +1,6 @@
 ---
 name: kappmaker-publish
-description: Build, sign and ship a KAppMaker app — Fastlane setup, signed Android AAB, keystore generation, and uploading to Google Play and the App Store. Use when the user asks to build a release, create a keystore, configure fastlane, ship, upload or publish the app.
+description: Build, sign and ship a KAppMaker app — Fastlane setup, signed Android AAB, keystore generation, and uploading to Google Play and the App Store. Use when the user asks to build a release, create a keystore, configure fastlane, ship, upload or publish the app. Building iOS without a Mac is kappmaker-ios-ci.
 ---
 
 # KAppMaker — Publish
@@ -23,6 +23,11 @@ Skip the keystore, it already exists. Bump the version first (**kappmaker-versio
 **iOS**
 The App Store Connect record must exist first → **kappmaker-asc**. Signing is handled by Fastlane
 (`fastlane configure` below), not by a keystore.
+
+**No Mac?** Xcode is the only genuinely Mac-locked step, and it can run on a GitHub macOS runner
+instead: `kappmaker publish --platform ios --remote`, or `kappmaker ios-ci build` directly. One-time
+setup is `kappmaker ios-ci init` — see **kappmaker-ios-ci**. On a non-Mac, plain
+`publish --platform ios` now fails with a pointer there rather than an opaque Xcode error.
 
 If a step fails because something upstream is missing, go to that skill and come back — do not
 improvise around it.

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import fs from 'fs-extra';
 import type { KAppMakerConfig } from '../types/index.js';
 import appStoreTemplate from '../templates/appstore-config.json' with { type: 'json' };
@@ -122,6 +123,51 @@ export function getAdaptyTemplate(): Record<string, unknown> {
 
 export function getRevenueCatTemplate(): Record<string, unknown> {
   return JSON.parse(JSON.stringify(revenueCatTemplate));
+}
+
+/**
+ * The iOS-CI templates are YAML and Ruby, so they ship as files next to the
+ * compiled output (see the build script's copy step) rather than JSON imports.
+ */
+function templateFile(name: string): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  return fs.readFileSync(path.join(here, '..', 'templates', name), 'utf8');
+}
+
+export function getIosCiWorkflowTemplate(): string {
+  return templateFile('ios-ci-workflow.yml');
+}
+
+export function getIosCiLaneTemplate(): string {
+  return templateFile('ios-ci-lane.rb');
+}
+
+/**
+ * fastlane match's decryption password, per app repo. It lives beside the
+ * RevenueCat keys — owner-only, never in the project tree, because committing it
+ * next to the certs repo URL would defeat the encryption entirely.
+ */
+export function getMatchPasswordsPath(): string {
+  return path.join(CONFIG_DIR, 'match-passwords.json');
+}
+
+export async function loadMatchPasswords(): Promise<Record<string, string>> {
+  try {
+    const file = getMatchPasswordsPath();
+    if (await fs.pathExists(file)) {
+      return (await fs.readJson(file)) as Record<string, string>;
+    }
+  } catch {
+    // Unreadable store — treat as empty; init will mint a new password.
+  }
+  return {};
+}
+
+export async function saveMatchPassword(repo: string, password: string): Promise<void> {
+  await fs.ensureDir(CONFIG_DIR);
+  const all = await loadMatchPasswords();
+  all[repo] = password;
+  await fs.writeJson(getMatchPasswordsPath(), all, { spaces: 2, mode: 0o600 });
 }
 
 /**
