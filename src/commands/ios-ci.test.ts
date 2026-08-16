@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { defaultCertsRepo, relativeMobileDir, generateMatchPassword, appendCiLane } from './ios-ci.js';
+import {
+  defaultCertsRepo, relativeMobileDir, generateMatchPassword, appendCiLane,
+  discoverBuildProperties, buildLocalPropertiesStep, parseLocalProperties,
+} from './ios-ci.js';
 
 let failures = 0;
 function test(name: string, fn: () => void): void {
@@ -69,6 +72,51 @@ test('appending twice is caught by the caller marker, not by duplication here', 
 test('a Fastfile with no ios block still gets the lane', () => {
   const out = appendCiLane('platform :android do\nend\n', '  # ci lane');
   assert.ok(out.includes('# ci lane'));
+});
+
+test('discovers every getRequiredProperty key across modules', () => {
+  const shared = `
+    buildConfigField("GOOGLE_WEB_CLIENT_ID", getRequiredProperty(key = "GOOGLE_WEB_CLIENT_ID", defaultValue = "testValue"))
+    buildConfigField("FIREBASE_API_KEY", getRequiredProperty(key = "FIREBASE_API_KEY", defaultValue = ""))
+    getRequiredProperty(
+        key = "SUBSCRIPTION_PROVIDER_ANDROID_API_KEY",
+        defaultValue = "testValue",
+    )`;
+  const android = 'getRequiredProperty(key = "ADMOB_APP_ID_ANDROID", defaultValue = "")';
+  const keys = discoverBuildProperties([shared, android]);
+  assert.deepEqual(keys, [
+    'ADMOB_APP_ID_ANDROID', 'FIREBASE_API_KEY', 'GOOGLE_WEB_CLIENT_ID',
+    'SUBSCRIPTION_PROVIDER_ANDROID_API_KEY',
+  ]);
+});
+
+test('no build keys means no local.properties step at all', () => {
+  assert.equal(buildLocalPropertiesStep([], 'MobileApp'), '');
+});
+
+test('local.properties step writes each key from a same-named secret', () => {
+  const step = buildLocalPropertiesStep(['FIREBASE_API_KEY', 'OPENAI_API_KEY'], 'MobileApp');
+  assert.match(step, /working-directory: MobileApp/);
+  assert.match(step, /FIREBASE_API_KEY=\$\{\{ secrets\.FIREBASE_API_KEY \}\}/);
+  // appended, not overwritten: the runner's local.properties may already carry
+  // sdk.dir written by the Android setup step.
+  assert.match(step, />> local\.properties/);
+});
+
+test('parsing local.properties keeps real values and drops empty ones', () => {
+  const parsed = parseLocalProperties([
+    '# comment',
+    'sdk.dir=/opt/android',
+    'GOOGLE_WEB_CLIENT_ID=123.apps.googleusercontent.com',
+    'FIREBASE_API_KEY=',
+    '  OPENAI_API_KEY = sk-abc  ',
+  ].join('\n'));
+  assert.equal(parsed['GOOGLE_WEB_CLIENT_ID'], '123.apps.googleusercontent.com');
+  assert.equal(parsed['OPENAI_API_KEY'], 'sk-abc');
+  // An empty value must NOT be treated as configured — that is exactly the case
+  // that silently ships a placeholder.
+  assert.equal(parsed['FIREBASE_API_KEY'], undefined);
+  assert.equal(parsed['sdk.dir'], '/opt/android');
 });
 
 console.log(failures === 0 ? 'ios-ci: all green' : 'ios-ci: FAILURES');

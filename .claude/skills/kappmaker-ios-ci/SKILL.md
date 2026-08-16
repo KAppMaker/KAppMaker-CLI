@@ -58,6 +58,21 @@ Idempotent: re-running reuses the certs repo, the password and the existing lane
   `x-access-token:<pat>`. Without it the build fails at the `match` step with a
   clone error, which reads confusingly as a signing problem.
 
+### Build-time secrets — the silent-breakage trap
+
+A KAppMaker app reads a dozen-plus values through `getRequiredProperty()` in
+`build.gradle.kts` — Firebase, OpenAI, the subscription provider, AdMob, Google
+sign-in. They live in `local.properties`, which is **gitignored**, so a CI
+checkout has none of them. Every one declares a `defaultValue`, so a missing key
+does **not** fail the build: it produces a green binary carrying `""` or
+`"testValue"` and ships a broken app to TestFlight.
+
+`init` therefore scans the Gradle files, generates a workflow step that rebuilds
+`local.properties` from same-named repo secrets, and copies across whatever the
+developer's own `local.properties` already has. Keys with no value are listed in
+the checklist with the exact `gh secret set` line — **relay that list to the
+user**, because nothing downstream will complain about them.
+
 ### ios-ci build — ship it
 
 **Syntax**: `kappmaker ios-ci build [--track testflight|appstore] [--submit-for-review]
