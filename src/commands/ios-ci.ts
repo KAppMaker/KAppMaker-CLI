@@ -138,10 +138,19 @@ export function parseLocalProperties(raw: string): Record<string, string> {
   return out;
 }
 
-/** 0 when unstamped — i.e. hand-written or predating the marker. */
-export function workflowVersion(source: string): number {
-  const m = /#\s*kappmaker-workflow-version:\s*(\d+)/.exec(source);
-  return m ? Number(m[1]) : 0;
+/**
+ * Whether an existing workflow already does everything the shipped one does.
+ *
+ * Checked by capability rather than by a version stamp: the workflow belongs to
+ * the boilerplate, which has no reason to carry a marker for this CLI. Each
+ * marker below is a feature whose absence made real builds fail — a lane that
+ * predates match, a certs repo that is not wired up, a bootstrap that cannot
+ * turn readonly off, or per-secret lines instead of the key list.
+ */
+const WORKFLOW_MARKERS = ['ci_appstore_release', 'MATCH_GIT_URL', 'MATCH_READONLY', 'ALL_SECRETS'];
+
+export function workflowIsCurrent(source: string): boolean {
+  return WORKFLOW_MARKERS.every((marker) => source.includes(marker));
 }
 
 function readBundleIdFromPbxproj(mobileDir: string): string | null {
@@ -257,14 +266,11 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   logger.step(3, INIT_STEPS, 'Checking the release workflow');
   const workflowPath = path.join(root, WORKFLOW_PATH);
   const existing = (await fs.readFile(workflowPath, 'utf8').catch(() => '')) as string;
-  // Compare a stamped version, not "does a lane name appear". The coarse check
-  // treated any workflow mentioning the lane as current, so a workflow missing a
-  // newly-added input was left in place and every dispatch failed with HTTP 422.
-  const workflowIsCurrent = workflowVersion(existing) >= workflowVersion(getIosCiWorkflowTemplate());
-  if (workflowIsCurrent) {
+  const isCurrent = workflowIsCurrent(existing);
+  if (isCurrent) {
     logger.info(`${WORKFLOW_PATH} is up to date — leaving it alone.`);
   } else if (existing) {
-    logger.warn(`${WORKFLOW_PATH} is out of date (v${workflowVersion(existing)} vs v${workflowVersion(getIosCiWorkflowTemplate())}) — updating it.`);
+    logger.warn(`${WORKFLOW_PATH} is out of date — updating it.`);
   }
 
   // ---- match password
@@ -339,7 +345,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
 
   // ---- workflow + lane, only if this project predates them
   logger.step(6, INIT_STEPS, 'Ensuring the workflow and fastlane lane exist');
-  if (workflowIsCurrent) {
+  if (isCurrent) {
     logger.info('Workflow already current — not rewriting.');
   } else {
     const appName = path.basename(root).replace(/-All$/, '');

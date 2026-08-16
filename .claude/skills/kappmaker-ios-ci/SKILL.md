@@ -32,10 +32,12 @@ certificate, never owns Apple hardware.
 Run it from the project root. It:
 
 1. reads the bundle ID from the Xcode project and the repo from the git remote,
-2. checks `.github/workflows/publish_ios_appstore.yml` — **the boilerplate already
-   ships this workflow**, so an up-to-date project is left alone. Only a project
-   predating the match-based pipeline gets it rewritten, and the fastlane lane is
-   added only when absent. There is always exactly one iOS workflow.
+2. checks `.github/workflows/publish_ios_appstore.yml` by capability, not by a
+   version marker — **the boilerplate already ships this workflow**, so an
+   up-to-date project is left alone. Only a project missing part of the pipeline
+   (the match lane, the certs repo, the bootstrap switch, the key list) gets it
+   rewritten, and the fastlane lane is added only when absent. There is always
+   exactly one iOS workflow.
 3. mints a `match` password (or reuses the stored one) and keeps it in
    `~/.config/kappmaker/match-passwords.json`,
 4. pushes `APPSTORE_KEY_ID` / `APPSTORE_ISSUER_ID` / `APPSTORE_PRIVATE_KEY`,
@@ -47,14 +49,14 @@ Run it from the project root. It:
 ### The certificate store is shared, and that is the whole point
 
 An iOS **distribution certificate belongs to the Apple Developer account, not to
-an app**, and Apple allows only **three**. A **provisioning profile** is the
+an app**, and Apple allows only **two**. A **provisioning profile** is the
 per-app piece: it binds one bundle ID to that shared certificate.
 
 So signing material lives in ONE private repo per account — default
 `<owner>/apple-certificates`, overridable with `--certs-repo` and remembered as
 the `iosCertsRepo` config value. The first app creates the certificate; every
 later app finds it and adds only its own profile. Give each app its own store and
-you mint a certificate per app and are locked out on the fourth.
+you mint a certificate per app and are locked out on the third.
 
 `MATCH_PASSWORD` is therefore keyed to the **store**, not the app — all apps
 sharing it need the same passphrase — and lives in
@@ -71,7 +73,9 @@ couple of unlucky builds can consume both slots and lock the account out of iOS
 releases. Builds therefore only ever *use* the store.
 
 Populating an empty store is the one exception — set the repository **variable**
-`MATCH_READONLY=false` (`gh variable set`), run one build, then delete it. A
+`MATCH_READONLY=false` (`gh variable set`), run one build, then delete it. The
+lane reads that value *before* `setup_ci`, because that action sets
+`MATCH_READONLY=true` itself; anything read after it is already overwritten. A
 variable rather than a secret: it is not sensitive, and a secret whose value is
 `false` masks that word throughout the build log. If a
 build fails with "Could not create another Distribution certificate", the
