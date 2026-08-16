@@ -1,5 +1,3 @@
-  # <kappmaker-ci-lane> managed by `kappmaker ios-ci init` — regenerate, don't hand-edit
-  #
   # Ships iOS from a CI macOS runner, so no Mac is needed locally. Differs from
   # `appstore_release` in three ways that only matter on CI:
   #   - credentials come from env vars, not ~/credentials/*.json
@@ -95,4 +93,3 @@
       UI.success("Uploaded to TestFlight.")
     end
   end
-  # </kappmaker-ci-lane>

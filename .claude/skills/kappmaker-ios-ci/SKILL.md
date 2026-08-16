@@ -32,46 +32,32 @@ certificate, never owns Apple hardware.
 Run it from the project root. It:
 
 1. reads the bundle ID from the Xcode project and the repo from the git remote,
-2. creates a **private** certificates repo (`<repo>-certs`) if missing — and
-   refuses to continue if that repo is public, because it holds signing identities,
+2. checks `.github/workflows/publish_ios_appstore.yml` — **the boilerplate already
+   ships this workflow**, so an up-to-date project is left alone. Only a project
+   predating the match-based pipeline gets it rewritten, and the fastlane lane is
+   added only when absent. There is always exactly one iOS workflow.
 3. mints a `match` password (or reuses the stored one) and keeps it in
    `~/.config/kappmaker/match-passwords.json`,
-4. pushes the ASC key, match password and certs-repo URL into the app repo's
+4. pushes `APPSTORE_KEY_ID` / `APPSTORE_ISSUER_ID` / `APPSTORE_PRIVATE_KEY`,
+   `MATCH_PASSWORD` and a generated `GRADLE_CACHE_ENCRYPTION_KEY` into the repo's
    **GitHub secrets** (via `gh secret set`, value on stdin so it never hits a
-   process list),
-5. writes `.github/workflows/ios-release.yml` and inserts a `ci_appstore_release`
-   lane into `fastlane/Fastfile`,
-6. prints what a human still has to do.
+   process list), plus any build key already filled in locally,
+5. prints what a human still has to do.
 
-Idempotent: re-running reuses the certs repo, the password and the existing lane.
+Certificates live on a `match-certificates` branch of the same repo, so the
+built-in `GITHUB_TOKEN` reaches them: no second repository and no personal access
+token. The git URL and auth are derived inside the workflow from the Actions
+context rather than stored as secrets.
+
+Idempotent: re-running reuses the stored password and leaves an up-to-date
+workflow and lane untouched.
 `--dry-run` writes the files locally and touches nothing on GitHub — it needs
 `--repo` because it deliberately makes no API calls.
 
-**Two things init cannot do for the user**, and both block the first build:
-
-- **Commit and push the workflow.** GitHub only runs workflows present on the
-  default branch.
-- **A token that can read the certs repo.** `match` clones it from the runner, and
-  the built-in `GITHUB_TOKEN` only reaches the repo it runs in. Set `GITHUB_TOKEN`
-  (a PAT with `repo` read) in the environment before `init`, or add
-  `MATCH_GIT_BASIC_AUTHORIZATION` by hand afterwards — base64 of
-  `x-access-token:<pat>`. Without it the build fails at the `match` step with a
-  clone error, which reads confusingly as a signing problem.
-
-### Build-time secrets — the silent-breakage trap
-
-A KAppMaker app reads a dozen-plus values through `getRequiredProperty()` in
-`build.gradle.kts` — Firebase, OpenAI, the subscription provider, AdMob, Google
-sign-in. They live in `local.properties`, which is **gitignored**, so a CI
-checkout has none of them. Every one declares a `defaultValue`, so a missing key
-does **not** fail the build: it produces a green binary carrying `""` or
-`"testValue"` and ships a broken app to TestFlight.
-
-`init` therefore scans the Gradle files, generates a workflow step that rebuilds
-`local.properties` from same-named repo secrets, and copies across whatever the
-developer's own `local.properties` already has. Keys with no value are listed in
-the checklist with the exact `gh secret set` line — **relay that list to the
-user**, because nothing downstream will complain about them.
+**One thing `init` cannot do for the user**, and it blocks the first build:
+**commit and push the workflow** — GitHub only runs workflows present on the
+default branch. On an up-to-date project it is already committed, so there is
+nothing to do.
 
 ### ios-ci build — ship it
 

@@ -531,7 +531,16 @@ Talks straight to REST API v2 (`api.revenuecat.com/v2`, Bearer key) — no exter
 Xcode is the only genuinely Mac-locked step; app records, products, pricing, metadata and ASO all go
 over the API from Linux. `ios-ci` rents a GitHub-hosted macOS runner for the compile.
 
-- `ios-ci init` is idempotent: private certs repo (refuses if public), `match` password stored in
+- The BOILERPLATE ships `.github/workflows/publish_ios_appstore.yml`; the CLI targets that same file
+  rather than adding a second pipeline. `ios-ci init` leaves an up-to-date workflow alone and only
+  rewrites one that predates the match-based version — there is always exactly one iOS workflow.
+- Certificates live on a `match-certificates` branch of the SAME repo, so the built-in GITHUB_TOKEN
+  reaches them; the git URL and auth are derived from the Actions context, not stored as secrets.
+  No certs repo and no PAT.
+- The workflow's build-key list comes from `MobileApp/local.properties.example` at run time (sed +
+  `toJSON(secrets)`), and `ios-ci init` reads the same file — one source of truth, so adding a key
+  means editing that file and setting a same-named secret, never the workflow.
+- `ios-ci init` is idempotent: `match` password stored in
   `~/.config/kappmaker/match-passwords.json` (0600), secrets pushed via `gh secret set` with the
   value on **stdin** (never argv), `.github/workflows/ios-release.yml` written, and a
   `ci_appstore_release` lane inserted INSIDE `platform :ios do` — it must be inside that block

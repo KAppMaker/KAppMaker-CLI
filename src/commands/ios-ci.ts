@@ -16,12 +16,10 @@ const INIT_STEPS = 6;
 
 /** Secrets the workflow reads. Init is not finished until all of these exist. */
 export const REQUIRED_SECRETS = [
-  'ASC_KEY_ID',
-  'ASC_ISSUER_ID',
-  'ASC_PRIVATE_KEY',
+  'APPSTORE_KEY_ID',
+  'APPSTORE_ISSUER_ID',
+  'APPSTORE_PRIVATE_KEY',
   'MATCH_PASSWORD',
-  'MATCH_GIT_URL',
-  'MATCH_GIT_BASIC_AUTHORIZATION',
 ] as const;
 
 /** `<owner>/<app>-certs` from the app repo — certs live beside the app, privately. */
@@ -60,6 +58,33 @@ export function discoverBuildProperties(gradleSources: string[]): string[] {
     }
   }
   return [...keys].sort();
+}
+
+/**
+ * Same rule the workflow applies with sed: an uppercase KEY= line. Lowercase
+ * entries like `sdk.dir` are machine paths, not secrets, and the runner writes
+ * its own.
+ */
+export function parseExampleKeys(raw: string): string[] {
+  const keys: string[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const m = /^([A-Z][A-Z0-9_]*)=/.exec(line);
+    if (m) keys.push(m[1]);
+  }
+  return keys;
+}
+
+/**
+ * local.properties.example is the single source of truth — the workflow reads
+ * the same file at run time, so the CLI and CI can never disagree about which
+ * keys matter. Older projects without that file fall back to scanning Gradle.
+ */
+export function discoverBuildPropertyKeys(mobileDir: string): string[] {
+  try {
+    return parseExampleKeys(fs.readFileSync(path.join(mobileDir, 'local.properties.example'), 'utf8'));
+  } catch {
+    return discoverBuildProperties(readGradleSources(mobileDir));
+  }
 }
 
 function readGradleSources(mobileDir: string): string[] {
@@ -184,21 +209,16 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
     logger.warn(`${repo} is PUBLIC. Secrets stay private, but anyone can read your source and build logs.`);
   }
 
-  // ---- certificates repo
-  logger.step(2, INIT_STEPS, 'Setting up the signing-certificate repo');
-  const certsRepo = options.certsRepo ?? defaultCertsRepo(repo);
-  if (options.dryRun) {
-    logger.info(`(dry run) would ensure ${certsRepo} exists and is private`);
-  } else if (await gha.repoExists(certsRepo)) {
-    logger.info(`Using existing ${certsRepo}`);
-    if (!(await gha.repoIsPrivate(certsRepo))) {
-      logger.fatal(`${certsRepo} is PUBLIC. It holds your signing certificates — refusing to continue.`);
-      logger.info('Make it private in GitHub settings, then re-run.');
-      process.exit(1);
-    }
-  } else {
-    await gha.createPrivateRepo(certsRepo, `Signing certificates for ${repo} (managed by fastlane match)`);
-    logger.success(`Created private repo ${certsRepo}`);
+  // ---- the workflow ships with the boilerplate; only write it when missing
+  logger.step(2, INIT_STEPS, 'Checking the release workflow');
+  const workflowPath = path.join(root, WORKFLOW_PATH);
+  const existing = (await fs.readFile(workflowPath, 'utf8').catch(() => '')) as string;
+  const workflowIsCurrent = existing.includes('ci_appstore_release');
+  if (workflowIsCurrent) {
+    logger.info(`${WORKFLOW_PATH} already ships the CI lane — leaving it alone.`);
+  } else if (existing) {
+    logger.warn(`${WORKFLOW_PATH} predates the match-based pipeline (it wants a hand-exported .p12).`);
+    logger.info('Replacing it — the old one cannot run without a Mac to export the certificate.');
   }
 
   // ---- match password
@@ -218,35 +238,30 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   // ---- secrets
   logger.step(4, INIT_STEPS, 'Pushing secrets to GitHub');
   const privateKey = await fs.readFile(keyPath);
-  const ghToken = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? '';
   const values: Record<string, string> = {
-    ASC_KEY_ID: userConfig.ascKeyId,
-    ASC_ISSUER_ID: userConfig.ascIssuerId,
+    APPSTORE_KEY_ID: userConfig.ascKeyId,
+    APPSTORE_ISSUER_ID: userConfig.ascIssuerId,
     // base64 so the multi-line .p8 survives being an env var
-    ASC_PRIVATE_KEY: privateKey.toString('base64'),
+    APPSTORE_PRIVATE_KEY: privateKey.toString('base64'),
     MATCH_PASSWORD: matchPassword,
-    MATCH_GIT_URL: `https://github.com/${certsRepo}.git`,
-    MATCH_GIT_BASIC_AUTHORIZATION: '',
   };
 
-  // match clones the certs repo over HTTPS on the runner, so it needs a token
-  // that can read it. GITHUB_TOKEN is scoped to the app repo only, so a PAT is
-  // required — ask rather than silently producing a workflow that 404s.
-  if (ghToken) {
-    values.MATCH_GIT_BASIC_AUTHORIZATION = Buffer.from(`x-access-token:${ghToken}`).toString('base64');
-  } else {
-    delete values.MATCH_GIT_BASIC_AUTHORIZATION;
+  // The workflow's Gradle setup wants this; generate one rather than leaving a
+  // build to fail on a missing cache key.
+  const presentSecrets = options.dryRun ? [] : await gha.listSecretNames(repo);
+  if (!presentSecrets.includes('GRADLE_CACHE_ENCRYPTION_KEY')) {
+    values.GRADLE_CACHE_ENCRYPTION_KEY = randomBytes(16).toString('hex');
   }
 
-  // The app's own build-time keys (Firebase, OpenAI, subscription provider, ...)
-  // usually already sit in the developer's local.properties. Copy them across so
-  // the runner produces a working binary instead of one with placeholders.
-  const buildKeyNames = discoverBuildProperties(readGradleSources(mobileDir));
+  // The app's own build-time keys come from local.properties.example (the same
+  // list the workflow reads at run time) and are seeded from the developer's
+  // local.properties where a value already exists.
+  const buildKeyNames = discoverBuildPropertyKeys(mobileDir);
   const localProps = parseLocalProperties(
     (await fs.readFile(path.join(mobileDir, 'local.properties'), 'utf8').catch(() => '')) as string,
   );
-  const seeded = buildKeyNames.filter((key) => localProps[key]);
-  const unseeded = buildKeyNames.filter((key) => !localProps[key]);
+  const seeded = buildKeyNames.filter((key: string) => localProps[key]);
+  const unseeded = buildKeyNames.filter((key: string) => !localProps[key]);
   for (const key of seeded) values[key] = localProps[key];
 
   if (options.dryRun) {
@@ -258,40 +273,40 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
     }
   }
   if (buildKeyNames.length > 0) {
-    logger.info(`Build-time keys detected: ${buildKeyNames.length} (${seeded.length} copied from local.properties)`);
+    logger.info(`Build-time keys in local.properties.example: ${buildKeyNames.length} (${seeded.length} seeded from local.properties)`);
   }
 
-  // ---- workflow + lane
-  logger.step(5, INIT_STEPS, 'Writing the workflow and fastlane lane');
-  const buildKeys = discoverBuildProperties(readGradleSources(mobileDir));
-  const workflow = getIosCiWorkflowTemplate()
-    .replace(/__MOBILE_DIR__/g, relMobile)
-    .replace('__LOCAL_PROPERTIES_STEP__', buildLocalPropertiesStep(buildKeys, relMobile));
-  const workflowPath = path.join(root, WORKFLOW_PATH);
-  await fs.ensureDir(path.dirname(workflowPath));
-  await fs.writeFile(workflowPath, workflow);
-  logger.success(WORKFLOW_PATH);
+  // ---- workflow + lane, only if this project predates them
+  logger.step(5, INIT_STEPS, 'Ensuring the workflow and fastlane lane exist');
+  if (workflowIsCurrent) {
+    logger.info('Workflow already current — not rewriting.');
+  } else {
+    const appName = path.basename(root).replace(/-All$/, '');
+    const workflow = getIosCiWorkflowTemplate()
+      .replace(/__MOBILE_DIR__/g, relMobile)
+      .replace(/__APP_NAME__/g, appName);
+    await fs.ensureDir(path.dirname(workflowPath));
+    await fs.writeFile(workflowPath, workflow);
+    logger.success(WORKFLOW_PATH);
+  }
 
   const fastfilePath = path.join(mobileDir, 'fastlane', 'Fastfile');
-  if (!(await fs.pathExists(fastfilePath))) {
-    logger.warn('No fastlane/Fastfile yet — run `kappmaker fastlane configure` first, then re-run this.');
+  const fastfile = (await fs.readFile(fastfilePath, 'utf8').catch(() => '')) as string;
+  if (!fastfile) {
+    logger.warn('No fastlane/Fastfile yet — run `kappmaker fastlane configure`, then re-run this.');
+  } else if (fastfile.includes('ci_appstore_release')) {
+    logger.info('CI lane already in the Fastfile.');
   } else {
-    const fastfile = await fs.readFile(fastfilePath, 'utf8');
-    if (fastfile.includes(LANE_MARKER)) {
-      logger.info('CI lane already present in the Fastfile.');
-    } else {
-      await fs.writeFile(fastfilePath, appendCiLane(fastfile, getIosCiLaneTemplate()));
-      logger.success('Added the ci_appstore_release lane to fastlane/Fastfile');
-    }
+    await fs.writeFile(fastfilePath, appendCiLane(fastfile, getIosCiLaneTemplate()));
+    logger.success('Added the ci_appstore_release lane to fastlane/Fastfile');
   }
 
   const config: IosCiConfig = {
     provider: 'github',
     repo,
-    certs_repo: certsRepo,
     mobile_dir: relMobile,
     bundle_id: bundleId,
-    secrets_configured: !options.dryRun && !!values.MATCH_GIT_BASIC_AUTHORIZATION,
+    secrets_configured: !options.dryRun,
   };
   const configPath = path.resolve(CONFIG_FILENAME);
   await fs.ensureDir(path.dirname(configPath));
@@ -302,11 +317,9 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   logger.step(6, INIT_STEPS, 'Remaining manual steps');
   printInitChecklist({
     repo,
-    certsRepo,
     // Don't hand out a password on a dry run: nothing was stored, and a fresh
     // one is minted on the real run — saving this one would mislead.
     matchPassword: generated && !options.dryRun ? matchPassword : null,
-    needsToken: !values.MATCH_GIT_BASIC_AUTHORIZATION,
     workflowPath: WORKFLOW_PATH,
     dryRun: options.dryRun === true,
     unseededKeys: unseeded,
@@ -335,9 +348,7 @@ export function appendCiLane(fastfile: string, lane: string): string {
 
 function printInitChecklist(info: {
   repo: string;
-  certsRepo: string;
   matchPassword: string | null;
-  needsToken: boolean;
   workflowPath: string;
   dryRun: boolean;
   unseededKeys: string[];
@@ -358,14 +369,6 @@ function printInitChecklist(info: {
   console.log(chalk.bold('  Before the first build:'));
   console.log('');
   console.log(`    ${chalk.gray('☐')} Commit and push ${chalk.cyan(info.workflowPath)} — GitHub only runs workflows that are on the default branch.`);
-  if (info.needsToken) {
-    console.log(`    ${chalk.gray('☐')} ${chalk.bold('Add a token that can read')} ${chalk.cyan(info.certsRepo)}:`);
-    console.log(chalk.gray('        GitHub → Settings → Developer settings → Personal access tokens'));
-    console.log(chalk.gray('        Scope: repo (read). Then re-run with GITHUB_TOKEN set, or add it by hand:'));
-    console.log(chalk.gray(`        gh secret set MATCH_GIT_BASIC_AUTHORIZATION --repo ${info.repo}`));
-    console.log(chalk.gray('        (value: base64 of "x-access-token:<your-token>")'));
-    console.log(chalk.gray('        The built-in GITHUB_TOKEN cannot be used — it only reaches this repo, not the certs repo.'));
-  }
   console.log(`    ${chalk.gray('☐')} The App Store Connect app record must exist — ${chalk.cyan('kappmaker create-appstore-app')}`);
   if (info.unseededKeys.length > 0) {
     console.log('');

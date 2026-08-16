@@ -2,8 +2,6 @@ export interface IosCiConfig {
   provider: 'github';
   /** "owner/repo" holding the app. */
   repo: string;
-  /** "owner/repo" holding the encrypted signing certificates (private). */
-  certs_repo: string;
   /** Directory containing the Xcode project + fastlane, relative to the repo root. */
   mobile_dir: string;
   bundle_id: string;
@@ -13,7 +11,6 @@ export interface IosCiConfig {
 
 export interface IosCiInitOptions {
   repo?: string;
-  certsRepo?: string;
   matchPassword?: string;
   mobileDir?: string;
   /** Write files but don't touch GitHub (no repo creation, no secrets). */
