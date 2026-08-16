@@ -18,8 +18,19 @@ function test(name: string, fn: () => void): void {
 
 console.log('ios-ci:');
 
-test('certs repo sits beside the app repo, same owner', () => {
-  assert.equal(defaultCertsRepo('KAppMaker/MyApp-All'), 'KAppMaker/MyApp-All-certs');
+test('certs store is ONE repo per owner, not one per app', () => {
+  // Apple caps distribution certificates at 3 per account, and match mints a new
+  // one whenever a store has none. A per-app store therefore dies on the fourth
+  // app — so every app under an owner must default to the SAME store.
+  assert.equal(defaultCertsRepo('acme-apps/FirstApp-All'), 'acme-apps/apple-certificates');
+  assert.equal(defaultCertsRepo('acme-apps/SecondApp-All'), 'acme-apps/apple-certificates');
+  assert.equal(
+    defaultCertsRepo('acme-apps/FirstApp-All'),
+    defaultCertsRepo('acme-apps/SecondApp-All'),
+    'two apps under one owner must share one certificate store',
+  );
+  // A different owner is a different Apple account, so a different store.
+  assert.notEqual(defaultCertsRepo('other-org/App-All'), defaultCertsRepo('acme-apps/App-All'));
 });
 
 test('mobile dir is repo-relative with forward slashes', () => {

@@ -113,19 +113,36 @@ plan** — plenty for a normal release cadence.
 The workflow only runs when you ask it to (there is no build-on-every-push trigger) precisely so a
 busy week of commits cannot quietly drain your allowance.
 
-## Why certificates live on a branch
+## Where your signing certificates live
 
-iOS signing needs a distribution certificate. Apple allows only three per account, and letting Xcode
-create one automatically means a **new** certificate on every CI run — three green builds, then
-every build fails forever.
+Two different things are involved, and they have different lifetimes:
 
-Instead, one certificate is created once, encrypted with your password, and committed to a
-`match-certificates` branch of your own repository (this is fastlane's `match`). Every build reuses
-it, and because the branch is in the same repo, GitHub's built-in token can read it — no second
-repository and no personal access token to create.
+| | Scope | |
+|---|---|---|
+| **Distribution certificate** | your Apple Developer **account** | Apple allows only **3**. One signs all your apps. |
+| **Provisioning profile** | one **app** | Binds that app's bundle ID to the certificate. |
 
-If your repository is public, note that the encrypted certificates are public too. They are useless
-without your password, but a private repo is safer.
+Because the certificate is account-wide, all your apps share **one private repo** for signing
+material — by default `<your-owner>/apple-certificates`, created automatically. Your first app
+creates the certificate; every app after that finds it and adds only its own profile.
 
-Keep that password. Losing it means the stored certificates can never be decrypted and the certs
-repo has to be reset.
+Give each app its own store instead and you would mint a fresh certificate per app — and your
+fourth app would fail permanently, because Apple would not issue another.
+
+```bash
+kappmaker ios-ci init --certs-repo my-org/apple-certificates   # or let it default
+```
+
+The choice is remembered (`iosCertsRepo`), so later apps reuse it without the flag.
+
+**The repo is private**, so your certificates are never public regardless of whether your app repos
+are. Reading it from a build needs a personal access token with repo read access — GitHub's built-in
+token only reaches the repo it is running in:
+
+```bash
+kappmaker config set iosCertsRepoToken <token>    # set once, reused by every app
+```
+
+**Keep your `MATCH_PASSWORD`.** It encrypts the store, and every app sharing that store uses the same
+one. Lose it and the stored certificates can never be decrypted — you would have to reset the repo
+and burn another of your three certificates.

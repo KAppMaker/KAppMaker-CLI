@@ -44,10 +44,27 @@ Run it from the project root. It:
    process list), plus any build key already filled in locally,
 5. prints what a human still has to do.
 
-Certificates live on a `match-certificates` branch of the same repo, so the
-built-in `GITHUB_TOKEN` reaches them: no second repository and no personal access
-token. The git URL and auth are derived inside the workflow from the Actions
-context rather than stored as secrets.
+### The certificate store is shared, and that is the whole point
+
+An iOS **distribution certificate belongs to the Apple Developer account, not to
+an app**, and Apple allows only **three**. A **provisioning profile** is the
+per-app piece: it binds one bundle ID to that shared certificate.
+
+So signing material lives in ONE private repo per account — default
+`<owner>/apple-certificates`, overridable with `--certs-repo` and remembered as
+the `iosCertsRepo` config value. The first app creates the certificate; every
+later app finds it and adds only its own profile. Give each app its own store and
+you mint a certificate per app and are locked out on the fourth.
+
+`MATCH_PASSWORD` is therefore keyed to the **store**, not the app — all apps
+sharing it need the same passphrase — and lives in
+`~/.config/kappmaker/match-passwords.json`.
+
+Reaching a second private repo needs a **PAT** (`iosCertsRepoToken`): the runner's
+built-in `GITHUB_TOKEN` only reaches the repo it runs in. Set it once and every
+app reuses it. When several apps share a GitHub organisation, the account-level
+secrets are good candidates for **organisation secrets**, leaving a new app to set
+only its own build keys.
 
 Idempotent: re-running reuses the stored password and leaves an up-to-date
 workflow and lane untouched.

@@ -38,6 +38,11 @@ export interface KAppMakerConfig {
   googleServiceAccountPath: string;
   revenuecatApiKey: string;
   revenuecatProjectId: string;
+  /** "owner/name" of the PRIVATE repo holding signing certificates, shared by
+   *  every app on one Apple Developer account. */
+  iosCertsRepo: string;
+  /** PAT with read access to that repo. GITHUB_TOKEN cannot reach another repo. */
+  iosCertsRepoToken: string;
 }
 
 export interface CreateLogoOptions {

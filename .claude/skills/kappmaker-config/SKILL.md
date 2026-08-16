@@ -22,7 +22,8 @@ pre-configuring is optional; a missing key is never a fatal error.
 
 **Valid keys**: `templateRepo`, `bundleIdPrefix`, `androidSdkPath`, `organization`, `falApiKey`,
 `imgbbApiKey`, `openaiApiKey`, `ascAuthName`, `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath`,
-`appleId`, `googleServiceAccountPath`, `revenuecatApiKey`, `revenuecatProjectId`.
+`appleId`, `googleServiceAccountPath`, `revenuecatApiKey`, `revenuecatProjectId`,
+`iosCertsRepo`, `iosCertsRepoToken`.
 
 ### Where each key comes from
 
@@ -35,6 +36,8 @@ pre-configuring is optional; a missing key is never a fatal error.
 | `appleId` | The user's Apple ID email |
 | `googleServiceAccountPath` | Google Cloud Console → IAM → Service Accounts → Keys → JSON, then grant access in Play Console → Users and permissions. Used by `kappmaker publish --platform android` and the entire `gpc` group. |
 | `revenuecatApiKey` | RevenueCat dashboard → Project settings → API keys → V2 (secret `sk_…`; v1 keys don't work). **Per-project key** — this global value is a single-app shortcut. Multi-app accounts: `kappmaker revenuecat setup --api-key sk_...` saves each app's key into `~/.config/kappmaker/revenuecat-keys.json` by bundle ID. |
+| `iosCertsRepo` | Private repo holding Apple signing certificates, shared by every app on ONE Apple Developer account (default `<owner>/apple-certificates`). Set once by `kappmaker ios-ci init`. Certificates are account-scoped and Apple allows only 3, so a per-app store locks you out on the fourth app. |
+| `iosCertsRepoToken` | PAT with read access to that repo — the runner's built-in `GITHUB_TOKEN` cannot reach a second repository. Set once, reused by every app. |
 | `revenuecatProjectId` | Rarely needed — a project-scoped key already identifies its project. Only for unusual account-wide keys that see several. |
 
 ### Store and provider defaults

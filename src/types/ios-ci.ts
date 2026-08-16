@@ -11,6 +11,8 @@ export interface IosCiConfig {
 
 export interface IosCiInitOptions {
   repo?: string;
+  /** Private repo holding signing material, shared across one Apple account. */
+  certsRepo?: string;
   matchPassword?: string;
   mobileDir?: string;
   /** Write files but don't touch GitHub (no repo creation, no secrets). */

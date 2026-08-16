@@ -30,6 +30,8 @@ const DEFAULT_CONFIG: KAppMakerConfig = {
   googleServiceAccountPath: path.join(os.homedir(), 'credentials', 'google-service-app-publisher.json'),
   revenuecatApiKey: '',
   revenuecatProjectId: '',
+  iosCertsRepo: '',
+  iosCertsRepoToken: '',
 };
 
 export function getConfigDir(): string {
@@ -143,7 +145,8 @@ export function getIosCiLaneTemplate(): string {
 }
 
 /**
- * fastlane match's decryption password, per app repo. It lives beside the
+ * fastlane match's decryption password, keyed by the CERTS repo — every app
+ * sharing that store must use the same passphrase to decrypt it. It lives beside the
  * RevenueCat keys — owner-only, never in the project tree, because committing it
  * next to the certs repo URL would defeat the encryption entirely.
  */

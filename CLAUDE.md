@@ -534,9 +534,12 @@ over the API from Linux. `ios-ci` rents a GitHub-hosted macOS runner for the com
 - The BOILERPLATE ships `.github/workflows/publish_ios_appstore.yml`; the CLI targets that same file
   rather than adding a second pipeline. `ios-ci init` leaves an up-to-date workflow alone and only
   rewrites one that predates the match-based version — there is always exactly one iOS workflow.
-- Certificates live on a `match-certificates` branch of the SAME repo, so the built-in GITHUB_TOKEN
-  reaches them; the git URL and auth are derived from the Actions context, not stored as secrets.
-  No certs repo and no PAT.
+- **Signing material is shared per Apple ACCOUNT, not per app.** A distribution certificate belongs
+  to the developer account and Apple allows only 3; a provisioning profile is the per-app piece.
+  So one private repo (`iosCertsRepo`, default `<owner>/apple-certificates`) holds the certificate
+  plus every app's profile. A per-app store mints a certificate per app and dies on the fourth —
+  this was shipped briefly and corrected. MATCH_PASSWORD is keyed to the STORE, not the app.
+  Reaching that second repo needs a PAT (`iosCertsRepoToken`); GITHUB_TOKEN is scoped to its own repo.
 - The workflow's build-key list comes from `MobileApp/local.properties.example` at run time (sed +
   `toJSON(secrets)`), and `ios-ci init` reads the same file — one source of truth, so adding a key
   means editing that file and setting a same-named secret, never the workflow.

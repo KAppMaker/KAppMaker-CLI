@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { confirm } from '../utils/prompt.js';
-import { loadConfig, getIosCiWorkflowTemplate, getIosCiLaneTemplate } from '../utils/config.js';
+import { loadConfig, setConfigValue, getIosCiWorkflowTemplate, getIosCiLaneTemplate } from '../utils/config.js';
 import { resolveMobileDir } from '../services/version.service.js';
 import * as gha from '../services/github-actions.service.js';
 import type { IosCiConfig, IosCiInitOptions, IosCiBuildOptions } from '../types/ios-ci.js';
@@ -12,7 +12,7 @@ import type { IosCiConfig, IosCiInitOptions, IosCiBuildOptions } from '../types/
 const CONFIG_FILENAME = 'Assets/ios-ci-config.json';
 const WORKFLOW_PATH = `.github/workflows/${gha.WORKFLOW_FILE}`;
 const LANE_MARKER = '<kappmaker-ci-lane>';
-const INIT_STEPS = 6;
+const INIT_STEPS = 7;
 
 /** Secrets the workflow reads. Init is not finished until all of these exist. */
 export const REQUIRED_SECRETS = [
@@ -20,12 +20,23 @@ export const REQUIRED_SECRETS = [
   'APPSTORE_ISSUER_ID',
   'APPSTORE_PRIVATE_KEY',
   'MATCH_PASSWORD',
+  'MATCH_GIT_URL',
+  'MATCH_GIT_BASIC_AUTHORIZATION',
 ] as const;
 
-/** `<owner>/<app>-certs` from the app repo — certs live beside the app, privately. */
+/**
+ * Default store for signing material: ONE private repo per Apple Developer
+ * account, not one per app.
+ *
+ * An iOS distribution certificate belongs to the account and Apple allows only
+ * three. A per-app store would mint a fresh certificate for every app and fail
+ * on the fourth, so the default is a single `<owner>/apple-certificates` shared
+ * by everything that owner ships. Override with --certs-repo or the
+ * `iosCertsRepo` config value when your apps span several owners or accounts.
+ */
 export function defaultCertsRepo(repo: string): string {
-  const [owner, name] = repo.split('/');
-  return `${owner}/${name}-certs`;
+  const [owner] = repo.split('/');
+  return `${owner}/apple-certificates`;
 }
 
 /** Repo path relative to the git root, with forward slashes for the YAML. */
@@ -215,8 +226,35 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
     logger.warn(`${repo} is PUBLIC. Secrets stay private, but anyone can read your source and build logs.`);
   }
 
+  // ---- shared certificate store
+  logger.step(2, INIT_STEPS, 'Resolving the shared certificate store');
+  const certsRepo = options.certsRepo || userConfig.iosCertsRepo || defaultCertsRepo(repo);
+  logger.info(`Certs repo: ${certsRepo}${certsRepo === repo ? '' : ' (shared across your apps)'}`);
+  if (certsRepo === repo) {
+    logger.fatal('The certificate store must be a SEPARATE repo from the app.');
+    logger.info('Sharing one store across apps is what keeps you under Apple\'s 3-certificate limit.');
+    process.exit(1);
+  }
+  if (!options.dryRun) {
+    if (await gha.repoExists(certsRepo)) {
+      if (!(await gha.repoIsPrivate(certsRepo))) {
+        logger.fatal(`${certsRepo} is PUBLIC and would expose your signing certificates.`);
+        logger.info('Make it private in GitHub settings, then re-run.');
+        process.exit(1);
+      }
+      logger.info('Using the existing store — this app will add only its own provisioning profile.');
+    } else {
+      await gha.createPrivateRepo(certsRepo, 'Apple signing certificates and provisioning profiles (fastlane match)');
+      logger.success(`Created private repo ${certsRepo}`);
+    }
+    if (!userConfig.iosCertsRepo) {
+      await setConfigValue('iosCertsRepo', certsRepo);
+      logger.info('Saved as iosCertsRepo so your next app reuses this store.');
+    }
+  }
+
   // ---- the workflow ships with the boilerplate; only write it when missing
-  logger.step(2, INIT_STEPS, 'Checking the release workflow');
+  logger.step(3, INIT_STEPS, 'Checking the release workflow');
   const workflowPath = path.join(root, WORKFLOW_PATH);
   const existing = (await fs.readFile(workflowPath, 'utf8').catch(() => '')) as string;
   // Compare a stamped version, not "does a lane name appear". The coarse check
@@ -224,27 +262,29 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   // newly-added input was left in place and every dispatch failed with HTTP 422.
   const workflowIsCurrent = workflowVersion(existing) >= workflowVersion(getIosCiWorkflowTemplate());
   if (workflowIsCurrent) {
-    logger.info(`${WORKFLOW_PATH} already ships the CI lane — leaving it alone.`);
+    logger.info(`${WORKFLOW_PATH} is up to date — leaving it alone.`);
   } else if (existing) {
     logger.warn(`${WORKFLOW_PATH} is out of date (v${workflowVersion(existing)} vs v${workflowVersion(getIosCiWorkflowTemplate())}) — updating it.`);
   }
 
   // ---- match password
-  logger.step(3, INIT_STEPS, 'Resolving the certificate password');
+  logger.step(4, INIT_STEPS, 'Resolving the certificate password');
   const keyStore = await import('../utils/config.js');
   const stored = await keyStore.loadMatchPasswords();
-  let matchPassword = options.matchPassword ?? stored[repo];
+  // Keyed by the STORE, not the app: every app sharing it needs the same
+  // passphrase, and a per-app password would make the store unreadable.
+  let matchPassword = options.matchPassword ?? stored[certsRepo];
   let generated = false;
   if (!matchPassword) {
     matchPassword = generateMatchPassword();
     generated = true;
   }
   if (!options.dryRun) {
-    await keyStore.saveMatchPassword(repo, matchPassword);
+    await keyStore.saveMatchPassword(certsRepo, matchPassword);
   }
 
   // ---- secrets
-  logger.step(4, INIT_STEPS, 'Pushing secrets to GitHub');
+  logger.step(5, INIT_STEPS, 'Pushing secrets to GitHub');
   const privateKey = await fs.readFile(keyPath);
   const values: Record<string, string> = {
     APPSTORE_KEY_ID: userConfig.ascKeyId,
@@ -252,7 +292,20 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
     // base64 so the multi-line .p8 survives being an env var
     APPSTORE_PRIVATE_KEY: privateKey.toString('base64'),
     MATCH_PASSWORD: matchPassword,
+    MATCH_GIT_URL: `https://github.com/${certsRepo}.git`,
   };
+
+  // match clones the store over HTTPS from the runner. GITHUB_TOKEN is scoped to
+  // the app repo, so reaching a second repo needs a PAT.
+  const certsToken =
+    userConfig.iosCertsRepoToken || process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+  if (certsToken) {
+    values.MATCH_GIT_BASIC_AUTHORIZATION = Buffer.from(`x-access-token:${certsToken}`).toString('base64');
+    if (!userConfig.iosCertsRepoToken && !options.dryRun) {
+      await setConfigValue('iosCertsRepoToken', certsToken);
+      logger.info('Saved the token as iosCertsRepoToken for your next app.');
+    }
+  }
 
   // The workflow's Gradle setup wants this; generate one rather than leaving a
   // build to fail on a missing cache key.
@@ -285,7 +338,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   }
 
   // ---- workflow + lane, only if this project predates them
-  logger.step(5, INIT_STEPS, 'Ensuring the workflow and fastlane lane exist');
+  logger.step(6, INIT_STEPS, 'Ensuring the workflow and fastlane lane exist');
   if (workflowIsCurrent) {
     logger.info('Workflow already current — not rewriting.');
   } else {
@@ -322,7 +375,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   logger.success(CONFIG_FILENAME);
 
   // ---- what the human still has to do
-  logger.step(6, INIT_STEPS, 'Remaining manual steps');
+  logger.step(7, INIT_STEPS, 'Remaining manual steps');
   printInitChecklist({
     repo,
     // Don't hand out a password on a dry run: nothing was stored, and a fresh
@@ -331,6 +384,8 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
     workflowPath: WORKFLOW_PATH,
     dryRun: options.dryRun === true,
     unseededKeys: unseeded,
+    certsRepo,
+    needsToken: !values.MATCH_GIT_BASIC_AUTHORIZATION,
   });
   logger.done();
 }
@@ -360,6 +415,8 @@ function printInitChecklist(info: {
   workflowPath: string;
   dryRun: boolean;
   unseededKeys: string[];
+  certsRepo: string;
+  needsToken: boolean;
 }): void {
   console.log('');
   if (info.dryRun) {
@@ -378,6 +435,14 @@ function printInitChecklist(info: {
   console.log('');
   console.log(`    ${chalk.gray('☐')} Commit and push ${chalk.cyan(info.workflowPath)} — GitHub only runs workflows that are on the default branch.`);
   console.log(`    ${chalk.gray('☐')} The App Store Connect app record must exist — ${chalk.cyan('kappmaker create-appstore-app')}`);
+  if (info.needsToken) {
+    console.log('');
+    console.log(`    ${chalk.yellow('!')} ${chalk.bold('A token that can read')} ${chalk.cyan(info.certsRepo)} ${chalk.bold('is required.')}`);
+    console.log(chalk.gray('      The signing store is a separate private repo, and GitHub\'s built-in token'));
+    console.log(chalk.gray('      only reaches the repo it runs in. Create a PAT with repo read access, then:'));
+    console.log(chalk.gray(`        kappmaker config set iosCertsRepoToken <token>   # reused by every app`));
+    console.log(chalk.gray('      and re-run. Without it the build fails at the signing step with a clone error.'));
+  }
   if (info.unseededKeys.length > 0) {
     console.log('');
     console.log(`    ${chalk.yellow('!')} ${chalk.bold('These build keys have no value yet')} — the build will still go GREEN,`);
