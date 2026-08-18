@@ -43,6 +43,12 @@ const config: Config = {
   ],
 
   themeConfig: {
+    // Site-wide description. Docusaurus emits none of its own, so every page
+    // that does not set one in front matter shipped with no meta description.
+    metadata: [
+      {name: 'description', content: 'Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the KAppMaker AI agent drives on your behalf. See kappmaker.com.'},
+      {property: 'og:description', content: 'Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the KAppMaker AI agent drives on your behalf. See kappmaker.com.'},
+    ],
     navbar: {
       title: 'KAppMaker CLI',
       items: [
