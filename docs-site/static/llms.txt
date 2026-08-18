@@ -1,0 +1,59 @@
+# KAppMaker CLI
+
+> Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure
+> Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the
+> KAppMaker AI agent drives on your behalf. See https://kappmaker.com.
+
+The CLI is installed with `npm i -g kappmaker` and runs standalone, but it is also the toolchain
+behind [KAppMaker AI](https://kappmaker.com): a cloud machine that runs Claude Code non-stop and
+takes instructions over Telegram, so an app gets built while its owner sleeps. Every command below
+is one an agent can run unattended — no Xcode, no Android Studio, no Mac required for iOS.
+
+## Start here
+
+- [Introduction and install](https://cli.kappmaker.com/): what the CLI does and how to install it
+- [Configuration](https://cli.kappmaker.com/configuration): the config file, API keys and defaults
+- [Claude Code skill](https://cli.kappmaker.com/guides/claude-code-skill): the routed skills that let
+  Claude Code drive the CLI
+- [Per-app checklist](https://cli.kappmaker.com/guides/per-app-checklist): zero to published, in order
+
+## Project setup
+
+- [create](https://cli.kappmaker.com/project-setup/create): scaffold a new Kotlin Multiplatform app
+- [clone](https://cli.kappmaker.com/project-setup/clone): start from the KAppMaker boilerplate
+- [refactor](https://cli.kappmaker.com/project-setup/refactor): rename the package and app
+- [firebase](https://cli.kappmaker.com/project-setup/firebase): create the project and wire configs
+- [update-version](https://cli.kappmaker.com/project-setup/update-version): bump marketing and build numbers
+- [git setup](https://cli.kappmaker.com/project-setup/git-setup-upstream): origin and upstream remotes
+
+## Store publishing
+
+- [publish](https://cli.kappmaker.com/store-publishing/publish): ship to TestFlight, the App Store or Google Play
+- [create-appstore-app](https://cli.kappmaker.com/store-publishing/create-appstore-app): create the App Store Connect record
+- [Google Play Console](https://cli.kappmaker.com/store-publishing/google-play-console): set up and push to Play
+- [quick-add](https://cli.kappmaker.com/store-publishing/quick-add): add subscriptions and in-app purchases
+- [RevenueCat](https://cli.kappmaker.com/store-publishing/revenuecat-setup) / [Adapty](https://cli.kappmaker.com/store-publishing/adapty-setup): paywall backends
+
+## Build and signing
+
+- [Ship iOS without a Mac](https://cli.kappmaker.com/build-signing/ios-without-a-mac): build, sign and
+  upload from Linux or Windows on a GitHub macOS runner
+- [Android release build](https://cli.kappmaker.com/build-signing/android-release-build)
+- [generate-keystore](https://cli.kappmaker.com/build-signing/generate-keystore)
+- [fastlane configure](https://cli.kappmaker.com/build-signing/fastlane-configure)
+
+## ASO and store assets
+
+- [Keyword research](https://cli.kappmaker.com/aso/keyword-research)
+- [Metadata localization](https://cli.kappmaker.com/aso/metadata-localization)
+- [Translate screenshots](https://cli.kappmaker.com/aso/translate-screenshots)
+- [ASO guidelines](https://cli.kappmaker.com/aso/guidelines)
+- [Screenshots](https://cli.kappmaker.com/ai-image-tools/screenshots), [logos](https://cli.kappmaker.com/ai-image-tools/create-logo),
+  [app icons](https://cli.kappmaker.com/ai-image-tools/ios-icons), [feature graphic](https://cli.kappmaker.com/ai-image-tools/feature-image)
+
+## Optional
+
+- [Custom templates](https://cli.kappmaker.com/guides/custom-templates)
+- [External services](https://cli.kappmaker.com/guides/external-services)
+- [npm package](https://www.npmjs.com/package/kappmaker)
+- [Source](https://github.com/KAppMaker/KAppMaker-CLI)

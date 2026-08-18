@@ -2,11 +2,18 @@
 slug: /
 sidebar_position: 1
 title: Getting Started
+description: >-
+  Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the KAppMaker AI agent drives on your behalf. See kappmaker.com.
 ---
 
 # KAppMaker CLI
 
 CLI tool that automates the entire mobile app launch process — from project scaffolding to store-ready builds.
+
+It runs standalone on your own machine, and it is also the toolchain behind
+[KAppMaker AI](https://kappmaker.com): a cloud machine running Claude Code around the clock that
+takes its instructions over Telegram, so your app gets built while you sleep. Every command here is
+one an agent can run unattended.
 
 A single `kappmaker create` command can:
 

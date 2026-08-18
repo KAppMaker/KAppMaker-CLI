@@ -1,7 +1,27 @@
 {
   "name": "kappmaker",
   "version": "1.24.2",
-  "description": "CLI tool for bootstrapping KAppMaker mobile apps",
+  "description": "CLI the KAppMaker AI agent drives to create, configure, build and ship Kotlin Multiplatform apps for Android and iOS. Part of KAppMaker AI, the always on machine that builds your app while you sleep.",
+  "homepage": "https://kappmaker.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KAppMaker/KAppMaker-CLI.git"
+  },
+  "keywords": [
+    "kotlin-multiplatform",
+    "compose-multiplatform",
+    "kmp",
+    "android",
+    "ios",
+    "claude-code",
+    "ai-agent",
+    "app-builder",
+    "always-on",
+    "fastlane",
+    "app-store-connect",
+    "google-play",
+    "cli"
+  ],
   "type": "module",
   "bin": {
     "kappmaker": "./dist/index.js"
