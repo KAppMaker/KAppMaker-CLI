@@ -14,10 +14,16 @@ description: Generate any other AI image for a KAppMaker app — illustrations, 
 
 ### generate-image — Generic AI Image Generator
 
-**Syntax**: `kappmaker generate-image --prompt <text> [options]`
+**Syntax**: `kappmaker generate-image --prompt <text> [options]` or `kappmaker generate-image --spec <spec.json> [options]`
 
 **Options**:
-- `--prompt <text>` (required) — Text description of the image
+- `--prompt <text>` — Text description of the image (required unless `--spec` is given)
+- `--spec <path>` — Pre-authored JSON spec used verbatim as the structured prompt. Prefer this from
+  this skill for anything beyond a one-liner: author a JSON object yourself (subject, composition,
+  style, color palette, lighting, constraints — any keys that fit the request, informed by
+  `AiGuidelines/`), save it (e.g. `Assets/image-spec.json`), and pass it here. Structured JSON
+  prompts steer nano-banana-2 noticeably better than prose, and the user can hand you a predefined
+  spec JSON to use as-is.
 - `--output <path>` — Output file or directory (default: `Assets/generated.png`)
 - `--num-images <n>` — Number of images, 1–8 (default: 1)
 - `--aspect-ratio <ratio>` — `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9`, `9:21`, `auto` (default: `1:1`)

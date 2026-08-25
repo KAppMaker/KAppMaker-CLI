@@ -3,8 +3,9 @@ import fs from 'fs-extra';
 import sharp from 'sharp';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
-import { promptInput } from '../utils/prompt.js';
-import { loadConfig, saveConfig } from '../utils/config.js';
+import { loadConfig } from '../utils/config.js';
+import { ensureOpenaiKey, ensureFalKey } from '../utils/api-keys.js';
+import { loadSpec } from '../utils/spec-file.js';
 import * as fal from '../services/fal.service.js';
 import * as openai from '../services/openai.service.js';
 import * as screenshot from '../services/screenshot.service.js';
@@ -16,33 +17,6 @@ export async function generateScreenshots(
   options: GenerateScreenshotsOptions,
 ): Promise<void> {
   const config = await loadConfig();
-
-  if (!config.openaiApiKey) {
-    logger.warn('OpenAI API key is not configured.');
-    logger.info('Get one at: https://platform.openai.com/api-keys');
-    const key = await promptInput('  Enter your OpenAI API key: ');
-    if (!key.trim()) {
-      logger.fatal('OpenAI API key is required for screenshot generation.');
-      process.exit(1);
-    }
-    config.openaiApiKey = key.trim();
-    await saveConfig(config);
-    logger.success('openaiApiKey saved to config.');
-  }
-
-  if (!config.falApiKey) {
-    logger.warn('fal.ai API key is not configured.');
-    logger.info('Get one at: https://fal.ai/dashboard/keys');
-    const key = await promptInput('  Enter your fal.ai API key: ');
-    if (!key.trim()) {
-      logger.fatal('fal.ai API key is required for screenshot generation.');
-      process.exit(1);
-    }
-    config.falApiKey = key.trim();
-    await saveConfig(config);
-    logger.success('falApiKey saved to config.');
-  }
-
   const rows = 2;
   const cols = 4;
   const resolution = options.resolution ?? '2K';
@@ -73,15 +47,40 @@ export async function generateScreenshots(
     logger.info('No reference images found — generating screenshots from scratch');
   }
 
-  // Step 1: Generate prompt via OpenAI
-  logger.step(1, totalSteps, 'Generating screenshot prompt via OpenAI');
-  const masterPrompt = openai.buildScreenshotPrompt(
-    options.prompt, hasReferenceImages, styleId,
-  );
+  // --print-prompt: emit the master prompt (schema + style direction) and exit.
+  // Lets any AI model (e.g. a Claude Code skill) author the spec JSON itself,
+  // which is then passed back via --spec — no OpenAI key needed.
+  if (options.printPrompt) {
+    if (!options.prompt) {
+      logger.fatal('--print-prompt requires --prompt <app description>.');
+      process.exit(1);
+    }
+    console.log(openai.buildScreenshotPrompt(options.prompt, hasReferenceImages, styleId));
+    return;
+  }
 
-  const spinner = ora({ text: 'Calling OpenAI GPT-4.1...', indent: 4 }).start();
-  const generatedPrompt = await openai.generateTextPrompt(config.openaiApiKey, masterPrompt);
-  spinner.succeed(`Screenshot prompt generated (${generatedPrompt.length} chars)`);
+  // Step 1: Obtain the screenshot spec — from --spec file, or via OpenAI
+  let generatedPrompt: string;
+  if (options.spec) {
+    logger.step(1, totalSteps, 'Loading screenshot spec (skipping OpenAI)');
+    generatedPrompt = await loadSpec(options.spec, rows * cols);
+  } else {
+    if (!options.prompt) {
+      logger.fatal('Either --prompt or --spec is required.');
+      process.exit(1);
+    }
+    await ensureOpenaiKey(config);
+    logger.step(1, totalSteps, 'Generating screenshot prompt via OpenAI');
+    const masterPrompt = openai.buildScreenshotPrompt(
+      options.prompt, hasReferenceImages, styleId,
+    );
+
+    const spinner = ora({ text: 'Calling OpenAI GPT-4.1...', indent: 4 }).start();
+    generatedPrompt = await openai.generateTextPrompt(config.openaiApiKey, masterPrompt);
+    spinner.succeed(`Screenshot prompt generated (${generatedPrompt.length} chars)`);
+  }
+
+  await ensureFalKey(config);
 
   // Step 2: Upload reference images individually (if any)
   const imageUrls: string[] = [];

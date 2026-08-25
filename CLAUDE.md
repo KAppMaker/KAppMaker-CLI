@@ -45,13 +45,17 @@ npx tsx src/index.ts firebase auth-anonymous --project <id>                     
 npx tsx src/index.ts firebase configs --project <id> --app-name <Name> [--package-name <pkg>]  # Step 6 — download SDK configs
 npx tsx src/index.ts create-logo [--prompt "..."]  # Logo generation (--prompt skips interactive input)
 npx tsx src/index.ts generate-image --prompt "..." # Generic AI image generator (fal.ai nano-banana-2)
+npx tsx src/index.ts generate-image --spec spec.json  # Same, with a pre-authored JSON spec as the structured prompt
 npx tsx src/index.ts image-split <image> [opts]    # Split grid image (--keep 1,3 to filter)
 npx tsx src/index.ts image-remove-bg <image>       # Remove background
 npx tsx src/index.ts image-enhance <image>         # Enhance quality
 npx tsx src/index.ts translate-screenshots          # Translate screenshots (default: en-US source)
 npx tsx src/index.ts translate-screenshots <dir> --locales de-DE ja-JP  # Specific locales
-npx tsx src/index.ts generate-screenshots --prompt "A fitness app..."   # Generate marketing screenshots
+npx tsx src/index.ts generate-screenshots --prompt "A fitness app..."   # Generate marketing screenshots (OpenAI writes the spec)
+npx tsx src/index.ts generate-screenshots --spec spec.json              # Same, from a pre-authored spec JSON — no OpenAI call/key
+npx tsx src/index.ts generate-screenshots --print-prompt --prompt "..." --style 2  # Print spec-authoring instructions (schema + style) and exit
 npx tsx src/index.ts generate-feature-image --prompt "..." --app-name "FitTrack" --primary-color "#FF3B30"  # Generate Google Play feature graphic (1024×500)
+npx tsx src/index.ts generate-feature-image --spec spec.json            # Same, from a pre-authored spec JSON — no OpenAI call/key (also supports --print-prompt)
 npx tsx src/index.ts generate-ios-icons [--source <logo>]  # Generate all iOS AppIcon.appiconset PNGs + Contents.json (no AI)
 npx tsx src/index.ts generate-android-icons [--source <logo>] [--background "#RRGGBB"]  # Generate Android mipmap-* launcher icons + adaptive XML + colors.xml entry (no AI)
 npx tsx src/index.ts create-appstore-app           # App Store Connect setup
@@ -116,14 +120,28 @@ Currently in this category:
 
 When adding new skill-driven workflows: place the procedure as a new `###` section in `.claude/skills/kappmaker/SKILL.md`, add a row to the routing table at the top, and link it from the appropriate ASO / image / publishing docs page. No `src/commands/` file, no `src/cli.ts` entry.
 
+## Spec-File Image Generation (`--spec`, 1.25.0+)
+
+`generate-screenshots`, `generate-feature-image`, and `generate-image` accept `--spec <file.json>` —
+a pre-authored JSON spec used directly as the fal.ai prompt. This makes the OpenAI step optional:
+OpenAI's only role was turning a description into that JSON, so an agent (Claude Code skill) or the
+user can author it instead and no `openaiApiKey` is needed. `--print-prompt` on the two
+OpenAI-backed commands prints the exact spec-authoring instructions (JSON schema + style direction
+from `src/services/screenshot-styles.ts` / `buildFeatureImagePrompt`) and exits without calling any
+API — that keeps the schema's single source of truth in the CLI instead of duplicating it in skill
+docs. Spec loading/validation lives in `src/utils/spec-file.ts`; the interactive API-key prompts
+were deduped into `src/utils/api-keys.ts`. The kappmaker-screenshots / kappmaker-feature-graphic /
+kappmaker-image skills instruct the agent to ALWAYS use the `--spec` path (author the JSON itself,
+save it under `Assets/` so the user can tweak and re-run); the bare `--prompt` → OpenAI path remains
+for raw-CLI users only.
+
 ## Version Bumping (this repo's own releases)
 
 Two independent version schemes — bump ALL locations of the relevant one, they do not sync automatically:
 
-- **CLI (npm) version** — lives in THREE places; keep them identical:
-  1. `package.json` → `"version"`
-  2. `src/cli.ts` → the Commander `.version('…')` call (hardcoded string, ~line 58)
-  3. `package-lock.json` → root `version` + `packages[""].version` — regenerate with `npm install --package-lock-only`, don't hand-edit
+- **CLI (npm) version** — lives in TWO places; keep them identical:
+  1. `package.json` → `"version"` (`src/cli.ts` reads this at runtime — no hardcoded literal since 1.24.x)
+  2. `package-lock.json` → root `version` + `packages[""].version` — regenerate with `npm install --package-lock-only`, don't hand-edit
 - **Claude Code plugin version** — `.claude-plugin/plugin.json` → `"version"`. Bump on **any** change to `.claude/skills/kappmaker/SKILL.md` (or other plugin-shipped files): Claude Code caches installed plugins by version (`~/.claude/plugins/cache/KAppMaker-CLI/kappmaker/<version>/`), so without a bump `claude plugin update` keeps serving the stale cache and skill changes never reach users.
 
 Rule of thumb: code change → bump CLI version (all three spots); skill change → bump plugin version; PR touching both → bump both.
@@ -193,7 +211,7 @@ src/
     git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone command (also called by create.ts)
     firebase.ts             # `kappmaker firebase` subcommands: login, project, apps, auth-anonymous, configs (steps 2-6 of create as standalones; also called by create.ts)
     create-logo.ts          # Logo generation (fal.ai + sharp); accepts --prompt to skip interactive input
-    generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2; --prompt, --num-images, --aspect-ratio, --resolution, --reference)
+    generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2; --prompt or --spec, --num-images, --aspect-ratio, --resolution, --reference)
     generate-feature-image.ts # Google Play feature graphic generator (OpenAI + fal.ai, sharp resize to 1024×500)
     generate-ios-icons.ts   # iOS AppIcon.appiconset generator (sharp-only, 11 sizes + Contents.json, no AI)
     generate-android-icons.ts # Android mipmap-* launcher icon generator (sharp-only, 5 densities × 3 files + adaptive XML + colors.xml upsert, no AI)

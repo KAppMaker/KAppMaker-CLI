@@ -233,8 +233,10 @@ export function createCli(): Command {
 
   program
     .command('generate-screenshots')
-    .description('Generate App Store/Play Store marketing screenshots using AI (OpenAI + fal.ai)')
-    .requiredOption('--prompt <text>', 'App description or PRD for screenshot generation')
+    .description('Generate App Store/Play Store marketing screenshots using AI (fal.ai; OpenAI only when no --spec)')
+    .option('--prompt <text>', 'App description or PRD (required unless --spec is given)')
+    .option('--spec <path>', 'Pre-authored screenshot spec JSON — skips the OpenAI step entirely')
+    .option('--print-prompt', 'Print the spec-authoring instructions (schema + style direction) and exit')
     .option('--input <dir>', 'Directory with reference screenshots (default: auto-detect Assets/screenshots)')
     .option('--style <id>', 'Style preset ID', '1')
     .option('--output <dir>', 'Output base directory (default: Assets/screenshots)')
@@ -243,6 +245,8 @@ export function createCli(): Command {
     .action(async (options) => {
       await generateScreenshots({
         prompt: options.prompt,
+        spec: options.spec,
+        printPrompt: options.printPrompt,
         input: options.input,
         style: parseInt(options.style, 10),
         output: options.output,
@@ -253,10 +257,12 @@ export function createCli(): Command {
 
   program
     .command('generate-feature-image')
-    .description('Generate a Google Play feature graphic (1024×500) using AI (OpenAI + fal.ai)')
-    .requiredOption('--prompt <text>', 'App description / concept for the banner')
-    .requiredOption('--app-name <name>', 'App name to render on the banner (e.g., "FitTrack")')
-    .requiredOption('--primary-color <hex>', 'Primary brand color in hex (e.g., #FF3B30)')
+    .description('Generate a Google Play feature graphic (1024×500) using AI (fal.ai; OpenAI only when no --spec)')
+    .option('--prompt <text>', 'App description / concept for the banner (required unless --spec is given)')
+    .option('--spec <path>', 'Pre-authored banner spec JSON — skips the OpenAI step entirely')
+    .option('--print-prompt', 'Print the spec-authoring instructions (schema + constraints) and exit')
+    .option('--app-name <name>', 'App name to render on the banner (required unless --spec is given)')
+    .option('--primary-color <hex>', 'Primary brand color in hex (required unless --spec is given)')
     .option('--subtitle <text>', 'Subtitle / tagline shown under the app name')
     .option('--logo <path>', 'Path to the app logo PNG to render on the brand panel')
     .option('--reference <paths...>', 'App screenshot paths to place inside device frames (max 10)')
@@ -267,6 +273,8 @@ export function createCli(): Command {
     .action(async (options) => {
       await generateFeatureImage({
         prompt: options.prompt,
+        spec: options.spec,
+        printPrompt: options.printPrompt,
         appName: options.appName,
         primaryColor: options.primaryColor,
         subtitle: options.subtitle,
@@ -282,7 +290,8 @@ export function createCli(): Command {
   program
     .command('generate-image')
     .description('Generate an image using AI (fal.ai nano-banana-2)')
-    .requiredOption('--prompt <text>', 'Text prompt describing the image to generate')
+    .option('--prompt <text>', 'Text prompt describing the image to generate (required unless --spec is given)')
+    .option('--spec <path>', 'Pre-authored JSON spec used as the structured prompt directly')
     .option('--output <path>', 'Output file or directory (default: Assets/generated.png)')
     .option('--num-images <n>', 'Number of images to generate (1-8)', '1')
     .option('--aspect-ratio <ratio>', 'Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4, 3:2, 2:3, 21:9, 9:21, auto', '1:1')
@@ -292,6 +301,7 @@ export function createCli(): Command {
     .action(async (options) => {
       await generateImage({
         prompt: options.prompt,
+        spec: options.spec,
         output: options.output,
         numImages: parseInt(options.numImages, 10),
         aspectRatio: options.aspectRatio,

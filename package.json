@@ -1,6 +1,6 @@
 {
   "name": "kappmaker",
-  "version": "1.24.2",
+  "version": "1.25.0",
   "description": "CLI the KAppMaker AI agent drives to create, configure, build and ship Kotlin Multiplatform apps for Android and iOS. Part of KAppMaker AI, the always on machine that builds your app while you sleep.",
   "homepage": "https://kappmaker.com",
   "repository": {

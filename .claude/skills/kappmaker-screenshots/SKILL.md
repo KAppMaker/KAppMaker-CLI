@@ -14,19 +14,41 @@ description: Design and translate App Store and Play Store MARKETING screenshots
 
 ### generate-screenshots — AI Screenshot Generation
 
-**Syntax**: `kappmaker generate-screenshots --prompt "<app description>" [options]`
+**Syntax**: `kappmaker generate-screenshots --spec <spec.json> [options]` (agent flow) or
+`kappmaker generate-screenshots --prompt "<app description>" [options]` (OpenAI fallback)
+
+**You are the AI — author the spec yourself. NEVER use the bare `--prompt` path from this skill.**
+The `--prompt`-only path calls OpenAI (GPT-4.1) to write a JSON screenshot spec, which exists solely
+for users running the raw CLI without an agent. You can write that JSON better yourself, with full
+project context, and no `openaiApiKey` is needed. The flow:
+
+1. Ask the user which style preset (1–8) they want if not specified.
+2. Run `kappmaker generate-screenshots --print-prompt --prompt "<one-line app description>" --style <id>`
+   — it prints the exact spec-authoring instructions (JSON schema + style direction) for that style
+   and exits without calling any API. It also reports whether reference screenshots were detected.
+3. Follow those instructions yourself: write the JSON spec object (exactly 8 `screenshots` entries,
+   marketing copy drawn from `AiGuidelines/` — value props, brand color, tone). If the user supplied
+   their own spec JSON, use it as-is.
+4. Save it to `Assets/screenshots/spec.json` (project-visible, so the user can tweak and re-run).
+5. Run `kappmaker generate-screenshots --spec Assets/screenshots/spec.json [--input <dir>] [--style <id>]`.
 
 **Options**:
-- `--prompt <text>` (required) — App description or PRD
+- `--spec <path>` — Pre-authored spec JSON; skips OpenAI entirely (preferred from this skill)
+- `--print-prompt` — Print the spec-authoring instructions for `--style` and exit (no API calls)
+- `--prompt <text>` — App description or PRD (required unless `--spec`; with `--spec` only needed for `--print-prompt`)
 - `--input <dir>` — Reference screenshots directory (default: auto-detect `Assets/screenshots`)
 - `--style <id>` — Style preset 1-8 (default: 1)
 - `--output <dir>` — Output directory (default: `Assets/screenshots`)
 - `--resolution <res>` — AI resolution: 1K, 2K, 4K (default: 2K)
 - `--poll-interval <seconds>` — fal.ai polling interval (default: 10)
 
-**Prerequisites**: `openaiApiKey`, `falApiKey`, `imgbbApiKey` — all prompted on first use if not set.
+**Prerequisites**: `falApiKey`, `imgbbApiKey` (prompted on first use). `openaiApiKey` is only needed
+for the legacy `--prompt`-without-`--spec` path — never from this skill.
 
-**What it does**: Calls OpenAI to generate a detailed screenshot prompt, then fal.ai to generate 8 marketing screenshots in a fixed 2×4 grid, splits them into 8 individual 1284×2778 images, saves to appstore/playstore directories. Grid shape is fixed by design — number of reference images does not change the output count.
+**What it does**: Takes the screenshot spec (yours via `--spec`, or OpenAI-generated from `--prompt`),
+sends it to fal.ai to generate 8 marketing screenshots in a fixed 2×4 grid, splits them into 8
+individual 1284×2778 images, saves to appstore/playstore directories. Grid shape is fixed by design —
+number of reference images does not change the output count.
 
 **Style presets** (1-8): Different visual styles for the screenshots. Ask the user what style they prefer if not specified.
 

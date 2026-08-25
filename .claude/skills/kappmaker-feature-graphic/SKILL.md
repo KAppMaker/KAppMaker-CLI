@@ -14,12 +14,27 @@ description: Generate the Google Play feature graphic with AI — the 1024x500 b
 
 ### generate-feature-image — AI Feature Graphic Generation
 
-**Syntax**: `kappmaker generate-feature-image --prompt "<concept>" --app-name "<Name>" --primary-color "#RRGGBB" [options]`
+**Syntax**: `kappmaker generate-feature-image --spec <spec.json> [options]` (agent flow) or
+`kappmaker generate-feature-image --prompt "<concept>" --app-name "<Name>" --primary-color "#RRGGBB" [options]` (OpenAI fallback)
+
+**You are the AI — author the banner spec yourself. NEVER use the OpenAI path from this skill.**
+Without `--spec`, the CLI calls OpenAI (GPT-4.1) to turn the inputs into a JSON banner spec — that
+path exists solely for raw-CLI users without an agent. The flow:
+
+1. Run `kappmaker generate-feature-image --print-prompt --prompt "<concept>" --app-name "<Name>" --primary-color "#RRGGBB" [--subtitle ...] [--logo ...] [--reference ...]`
+   — it prints the exact spec-authoring instructions (JSON schema + constraints, aware of which
+   reference images you're passing) and exits without calling any API.
+2. Write the JSON spec yourself, filling app name, brand color and value props from `AiGuidelines/`.
+   If the user supplied their own spec JSON, use it as-is.
+3. Save to `Assets/playstore/feature-graphic-spec.json` and run with `--spec` **plus the same
+   `--logo`/`--reference` flags** (those control the uploaded images, independent of the spec).
 
 **Options**:
-- `--prompt <text>` (required) — App concept / description
-- `--app-name <name>` (required) — App name rendered on the banner (e.g. "FitTrack")
-- `--primary-color <hex>` (required) — Brand color in hex (e.g. `#FF3B30`)
+- `--spec <path>` — Pre-authored banner spec JSON; skips OpenAI entirely (preferred from this skill)
+- `--print-prompt` — Print the spec-authoring instructions and exit (no API calls)
+- `--prompt <text>` — App concept / description (required unless `--spec` is given)
+- `--app-name <name>` — App name rendered on the banner (required unless `--spec` is given)
+- `--primary-color <hex>` — Brand color in hex (required unless `--spec` is given)
 - `--subtitle <text>` — Tagline shown under the app name
 - `--logo <path>` — App logo PNG to render on the brand panel (rendered pixel-faithfully)
 - `--reference <paths...>` — App screenshot paths to place inside device frames (max 10)
@@ -28,10 +43,12 @@ description: Generate the Google Play feature graphic with AI — the 1024x500 b
 - `--locale <code>` — Play Store locale for the default output path (default: en-US)
 - `--poll-interval <seconds>` — fal.ai polling interval (default: 10)
 
-**Prerequisites**: `openaiApiKey`, `falApiKey` (prompted on first use). `imgbbApiKey` recommended when passing `--logo` or `--reference` (falls back to inline data URIs otherwise).
+**Prerequisites**: `falApiKey` (prompted on first use). `openaiApiKey` only for the legacy
+non-`--spec` path — never from this skill. `imgbbApiKey` recommended when passing `--logo` or
+`--reference` (falls back to inline data URIs otherwise).
 
 **What it does**:
-1. OpenAI (GPT-4.1) refines the inputs into a detailed banner specification.
+1. Takes the banner spec (yours via `--spec`, or OpenAI-generated otherwise).
 2. fal.ai (`nano-banana-2`, or `/edit` when references are provided) generates one wide image.
 3. `sharp` resizes/crops the result to EXACTLY 1024×500 px (Google Play feature graphic spec) via center cover.
 4. Saves to `MobileApp/distribution/android/playstore_metadata/<locale>/images/featureGraphic.png` so the existing Fastlane publish flow picks it up automatically — falls back to `Assets/playstore/featureGraphic.png` outside a KAppMaker project.
