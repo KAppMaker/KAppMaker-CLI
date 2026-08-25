@@ -138,6 +138,10 @@ fill rules; `loadSpec` strips all `_`-prefixed top-level keys before sending. Th
 `kappmaker spec-template <kind> [--output <path>]` command prints/writes a template (`--output`
 refuses to overwrite); registry in `src/commands/spec-template.ts` — adding a new image kind = drop
 a JSON into `src/templates/specs/` and register it there (tsc copies imported JSON into `dist/`).
+Templates are a proven BASELINE, not a rigid schema — `loadSpec` accepts any single JSON object, so
+an agent or user may restructure/enrich the spec freely. Only mechanical constraints are fixed
+(screenshots: 2×4 grid + 8 entries; logo: 4×4 grid of 16 icons — post-processing slices on those;
+feature graphic: wide banner + real text only).
 
 `--print-prompt` on the two OpenAI-backed commands prints the full spec-authoring instructions
 (schema + style direction from `src/services/screenshot-styles.ts` / `buildFeatureImagePrompt`) and

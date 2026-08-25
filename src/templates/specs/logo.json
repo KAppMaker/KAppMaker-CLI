@@ -1,7 +1,7 @@
 {
   "_instructions": [
     "Spec template for `kappmaker create-logo --spec <file>`. Fill every empty field; keys starting with `_` are stripped before the spec is sent to the image model.",
-    "The output MUST stay a single seamless 4×4 grid of 16 app icons — the CLI slices it into cells afterwards, so grid_layout and the slicing rules must not be changed.",
+    "This is a proven BASELINE, not a rigid schema: add fields, restructure, or write a richer spec if it produces better icons. ONE mechanical constraint is fixed: the output MUST stay a single seamless 4×4 grid of 16 app icons — the CLI slices it into cells afterwards, so grid_layout and the slicing rules must not be changed.",
     "Customize core_visual_language and style_themes to the app's brand; keep exactly 16 entries in style_themes (one per cell, left→right, top→bottom).",
     "Icons are logo marks: no text labels, no UI mockups, no photos."
   ],

@@ -1,6 +1,7 @@
 {
   "_instructions": [
     "Spec template for `kappmaker generate-feature-image --spec <file>`. Fill every empty field; keys starting with `_` are stripped before the spec is sent to the image model.",
+    "This is a proven BASELINE, not a rigid schema: add fields, restructure, or write a richer spec if it produces a better banner. Fixed constraints are only the mechanical ones below (wide banner composition, real text only).",
     "The output is the Google Play feature graphic: ONE wide 1024×500 banner (center-cover cropped), not a phone screenshot.",
     "Text on the banner must be ONLY the real app name (and optionally the real subtitle) — never invented marketing copy or lorem text. Repeat them verbatim in constraints.",
     "Still pass --logo / --reference on the command line — those control which images are uploaded; this spec describes how they are used (left_panel app_icon, right_panel screen_content).",

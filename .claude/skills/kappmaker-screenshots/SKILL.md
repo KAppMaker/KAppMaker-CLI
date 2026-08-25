@@ -31,7 +31,9 @@ project context, and no `openaiApiKey` is needed. The flow:
    and exits without calling any API. It also reports whether reference screenshots were detected.
 4. Fill the skeleton yourself: exactly 8 `screenshots` entries, marketing copy drawn from
    `AiGuidelines/` (value props, brand color, tone), style direction baked into the style/lighting
-   fields. If the user supplied their own spec JSON, use it as-is.
+   fields. The skeleton is a proven baseline, not a straitjacket — add fields or write a richer spec
+   when you can do better; only the 2×4 grid + 8 entries are mechanically fixed (the CLI slices the
+   output on that assumption). If the user supplied their own spec JSON, use it as-is.
 5. Run `kappmaker generate-screenshots --spec Assets/screenshots/spec.json [--input <dir>] [--style <id>]`.
 
 **Options**:

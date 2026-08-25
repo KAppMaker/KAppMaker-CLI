@@ -1,7 +1,7 @@
 {
   "_instructions": [
     "Spec template for `kappmaker generate-screenshots --spec <file>`. Fill every empty field; keys starting with `_` are stripped before the spec is sent to the image model.",
-    "Exactly 8 entries in `screenshots` — the output is a fixed 2×4 grid; do not add or remove entries.",
+    "This is a proven BASELINE, not a rigid schema: you may add fields, restructure, or write a richer spec if it produces better images. Only the mechanical constraints are fixed: keep grid_layout as a 2×4 grid and exactly 8 entries in `screenshots` — the CLI slices the output image into 8 files on that assumption.",
     "Keep each screen_visual_description to 2-3 sentences max — the image generator works best with focused descriptions.",
     "Run `kappmaker generate-screenshots --print-prompt --prompt \"<app description>\" --style <1-8>` to get the style-specific visual direction (device framing, layout zones, typography rules) and bake it into the fields below.",
     "When reference screenshots are passed via --input, the CLI prepends the instruction to use them as the app screens — describe marketing framing here, not the app UI pixels.",

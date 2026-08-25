@@ -22,8 +22,10 @@ description: Generate the app's logo with AI — the brand mark used for icons, 
 `kappmaker spec-template logo --output Assets/logo-spec.json` to get the canonical logo-grid spec
 JSON (the proven prompt structure — grid rules, visual language, 16 style-theme slots), fill it from
 `AiGuidelines/` (brand color, mood, audience; customize the 16 `style_themes`), then run
-`kappmaker create-logo --spec Assets/logo-spec.json`. The spec MUST keep the 4×4 grid — the CLI
-slices the result into 16 cells. Plain `--prompt` uses the built-in generic template instead.
+`kappmaker create-logo --spec Assets/logo-spec.json`. The skeleton is a proven baseline, not a
+straitjacket — restructure or enrich it when you can do better, and use a user-supplied spec as-is.
+ONE fixed rule: the spec MUST keep the 4×4 grid — the CLI slices the result into 16 cells. Plain
+`--prompt` uses the built-in generic template instead.
 
 **What it does**:
 1. Builds the prompt from `--spec` (pre-authored JSON), or from `--prompt` / interactive app idea

@@ -27,7 +27,9 @@ path exists solely for raw-CLI users without an agent. The flow:
 2. Optionally run `kappmaker generate-feature-image --print-prompt --prompt "<concept>" --app-name "<Name>" --primary-color "#RRGGBB" [--logo ...] [--reference ...]`
    for the full authoring guidance with your reference-image setup baked in.
 3. Fill the skeleton yourself: app name, brand color and value props from `AiGuidelines/`. Banner
-   text must be ONLY the real app name/subtitle. If the user supplied their own spec JSON, use it as-is.
+   text must be ONLY the real app name/subtitle. The skeleton is a proven baseline, not a
+   straitjacket — add fields or write a richer spec when you can do better; only the wide-banner
+   composition and real-text-only rules are fixed. If the user supplied their own spec JSON, use it as-is.
 4. Run with `--spec` **plus the same `--logo`/`--reference` flags** (those control the uploaded
    images, independent of the spec).
 
