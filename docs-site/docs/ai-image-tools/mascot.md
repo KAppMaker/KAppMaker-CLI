@@ -89,7 +89,7 @@ The command prints a cost estimate and asks for confirmation before generating (
 | `--gif` | Also emit a looping GIF (READMEs, chats, marketing) | — |
 | `--yes` | Skip the cost confirmation | — |
 
-**Tip**: for small in-app "alive" effects, tweening the static state PNGs (scale pulse, crossfade) is free and often looks better at small sizes. Use video clips for onboarding heroes, celebrations, App Store preview videos and social posts. Video models output no alpha channel — clips keep the flat background; the WebP loop is the app-friendly format.
+**Format guidance**: never ship a GIF inside the app bundle — GIF is 3–6× larger than WebP for the same clip (256 colors, weak compression); it exists for READMEs, emails and chats. In-app, use the looping **WebP** (played natively by Coil on Android/Compose and SDWebImage on iOS, ~0.5MB per clip), or MP4 + video player for a full-screen onboarding hero. For small in-app "alive" effects, tweening the static state PNGs (scale pulse, crossfade) is free, a few KB, and often looks better at small sizes. Video models output no alpha channel — clips keep the flat background.
 
 ## Requirements
 
