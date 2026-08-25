@@ -8,6 +8,16 @@ const FAL_NANO_BANANA_URL = 'https://queue.fal.run/fal-ai/nano-banana-2';
 const FAL_NANO_BANANA_EDIT_URL = 'https://queue.fal.run/fal-ai/nano-banana-2/edit';
 const FAL_BG_REMOVE_URL = 'https://queue.fal.run/fal-ai/bria/background/remove';
 
+// Image-to-video models (mascot animation).
+//   seedance-mini — default: reliable + cheap (~$0.07/s @480p, auto duration)
+//   ltx           — cheapest at 1080p (~$0.04/s) but backend has outages
+//   seedance      — premium full Seedance 2.0 (~$0.24/s)
+const FAL_VIDEO_MODEL_URLS: Record<string, string> = {
+  'seedance-mini': 'https://queue.fal.run/bytedance/seedance-2.0/mini/image-to-video',
+  ltx: 'https://queue.fal.run/fal-ai/ltxv-2/image-to-video/fast',
+  seedance: 'https://queue.fal.run/bytedance/seedance-2.0/image-to-video',
+};
+
 function headers(apiKey: string): Record<string, string> {
   return {
     Authorization: `Key ${apiKey}`,
@@ -248,6 +258,75 @@ export async function submitBackgroundRemoval(
   }
 
   return (await response.json()) as FalQueueResponse;
+}
+
+// ── Image-to-video (mascot animation) ────────────────────────────────
+
+export interface VideoGenerationParams {
+  prompt: string;
+  imageUrl: string;
+  durationSeconds: number;
+  resolution: string;
+}
+
+export async function submitVideoGeneration(
+  apiKey: string,
+  model: string,
+  params: VideoGenerationParams,
+): Promise<FalQueueResponse> {
+  const endpoint = FAL_VIDEO_MODEL_URLS[model];
+  if (!endpoint) {
+    logger.fatal(`Unknown video model: ${model}. Available: ${Object.keys(FAL_VIDEO_MODEL_URLS).join(', ')}`);
+    process.exit(1);
+  }
+
+  const payload: Record<string, unknown> = {
+    prompt: params.prompt,
+    image_url: params.imageUrl,
+    resolution: params.resolution,
+    generate_audio: false,
+  };
+  // seedance-mini only supports auto duration; the others take seconds
+  if (model !== 'seedance-mini') payload.duration = params.durationSeconds;
+  if (model === 'ltx') payload.fps = 25;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: headers(apiKey),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    logger.fatal(`fal.ai video generation failed (${response.status}): ${body}`);
+    process.exit(1);
+  }
+
+  return (await response.json()) as FalQueueResponse;
+}
+
+export async function fetchVideoResult(
+  apiKey: string,
+  responseUrl: string,
+): Promise<string> {
+  // Don't bail on !res.ok — fal returns the model's error detail in the body
+  // (e.g. HTTP 500 with "Downstream service error"), which we want to surface.
+  const res = await fetch(responseUrl, { headers: headers(apiKey) });
+  const data = (await res.json().catch(() => ({}))) as {
+    video?: { url?: string };
+    detail?: { msg?: string; type?: string }[];
+  };
+  if (!data.video?.url) {
+    const detail = data.detail?.[0];
+    logger.error(
+      detail
+        ? `fal.ai model error: ${detail.msg ?? detail.type ?? 'unknown'} — this is a model-side failure (failed requests are not billed).`
+        : 'No video URL in fal.ai response.',
+    );
+    logger.fatal('Video generation failed — try again later or a different model (--model seedance-mini | ltx | seedance).');
+    process.exit(1);
+  }
+  return data.video.url;
 }
 
 // ── Image upload (imgbb) ─────────────────────────────────────────────

@@ -1,6 +1,6 @@
 ---
 name: kappmaker
-description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos, illustrations, app icons, store screenshots, the feature graphic, building and publishing (including shipping iOS without a Mac), version bumps, renaming the package, or configuring the CLI's API keys.
+description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos, mascots, illustrations, app icons, store screenshots, the feature graphic, building and publishing (including shipping iOS without a Mac), version bumps, renaming the package, or configuring the CLI's API keys.
 argument-hint: "[command or description]"
 ---
 
@@ -22,6 +22,7 @@ use that skill — do not hand-roll a command a skill already documents.
 | Which keywords to target, ASO research | **kappmaker-aso** |
 | What to write in title / subtitle / keywords, per locale | **kappmaker-aso-metadata** |
 | The app logo / brand mark | **kappmaker-logo** |
+| An app mascot / character and its emotional states | **kappmaker-mascot** |
 | Any other image — illustrations, empty states, onboarding art | **kappmaker-image** |
 | Edit an existing image — split, remove background, enhance, WebP | **kappmaker-image-tools** |
 | App icons, launcher icons | **kappmaker-app-icons** |

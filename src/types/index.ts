@@ -51,6 +51,43 @@ export interface CreateLogoOptions {
   spec?: string;
 }
 
+export interface CreateMascotOptions {
+  prompt?: string;
+  tone?: string;
+  spec?: string;
+  statesSpec?: string;
+  states?: string[];
+  output?: string;
+  resolution?: string;
+  skipStates?: boolean;
+  skipRemoveBg?: boolean;
+  gridOnly?: boolean;
+  choose?: number;
+  yes?: boolean;
+}
+
+export interface MascotAddStateOptions {
+  state?: string;
+  mascot?: string;
+  spec?: string;
+  output?: string;
+  resolution?: string;
+  skipRemoveBg?: boolean;
+}
+
+export interface MascotAnimateOptions {
+  state?: string;
+  image?: string;
+  motion?: string;
+  model?: string;
+  duration?: number;
+  resolution?: string;
+  spec?: string;
+  output?: string;
+  yes?: boolean;
+  gif?: boolean;
+}
+
 export interface SplitOptions {
   rows?: number;
   cols?: number;

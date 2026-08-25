@@ -44,6 +44,9 @@ import { fastlaneConfigure } from './commands/fastlane-configure.js';
 import { convertWebp } from './commands/convert-webp.js';
 import { cloneCommand } from './commands/clone.js';
 import { specTemplate } from './commands/spec-template.js';
+import { createMascot } from './commands/create-mascot.js';
+import { mascotAddState } from './commands/mascot-add-state.js';
+import { mascotAnimate } from './commands/mascot-animate.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
 import {
   firebaseLoginCommand,
@@ -164,9 +167,94 @@ export function createCli(): Command {
     });
 
   program
+    .command('create-mascot')
+    .description('Generate an app mascot with AI: pick from 16 concepts, then generate 16 emotional states (fal.ai)')
+    .option('--prompt <text>', 'App idea / concept (skips the interactive prompt)')
+    .option('--tone <text>', 'App tone woven into the concept grid (e.g. "playful and cozy")')
+    .option('--spec <path>', 'Pre-authored concept-grid spec JSON (see `kappmaker spec-template mascot`)')
+    .option('--states-spec <path>', 'Pre-authored states-grid spec JSON (see `kappmaker spec-template mascot-states`)')
+    .option('--states <names...>', 'Custom state names for the 16-state grid (topped up with defaults)')
+    .option('--output <dir>', 'Output directory', 'Assets/mascot')
+    .option('--resolution <res>', 'AI resolution for the states grid (1K, 2K, 4K)', '2K')
+    .option('--skip-states', 'Stop after the mascot is chosen (no states grid)')
+    .option('--skip-remove-bg', 'Keep original backgrounds (skip fal.ai background removal)')
+    .option('--grid-only', 'Generate and save the concept grid, then exit (non-interactive; pair with --choose later)')
+    .option('--choose <n>', 'Pick cell 1-16 from the existing grid non-interactively (requires a prior --grid-only run)')
+    .option('--yes', 'Skip the "generate states now?" confirmation')
+    .action(async (options) => {
+      const choose = options.choose ? parseInt(options.choose, 10) : undefined;
+      if (choose !== undefined && (isNaN(choose) || choose < 1 || choose > 16)) {
+        console.error('--choose must be a number between 1 and 16');
+        process.exit(1);
+      }
+      await createMascot({
+        prompt: options.prompt,
+        tone: options.tone,
+        spec: options.spec,
+        statesSpec: options.statesSpec,
+        states: options.states,
+        output: options.output,
+        resolution: options.resolution,
+        skipStates: options.skipStates,
+        skipRemoveBg: options.skipRemoveBg,
+        gridOnly: options.gridOnly,
+        choose,
+        yes: options.yes,
+      });
+    });
+
+  program
+    .command('mascot-add-state')
+    .description('Generate one additional emotional state for an existing mascot (fal.ai edit mode)')
+    .option('--state <text>', 'The emotional/situational state to generate (e.g. "shopping", "level up")')
+    .option('--mascot <path>', 'Mascot reference image (default: Assets/mascot/mascot_no_bg.png or mascot.png)')
+    .option('--spec <path>', 'Pre-authored single-state spec JSON used as the prompt')
+    .option('--output <path>', 'Output file path (default: <mascot dir>/states/<state>.png)')
+    .option('--resolution <res>', 'AI resolution (1K, 2K, 4K)', '2K')
+    .option('--skip-remove-bg', 'Keep original background (skip fal.ai background removal)')
+    .action(async (options) => {
+      await mascotAddState({
+        state: options.state,
+        mascot: options.mascot,
+        spec: options.spec,
+        output: options.output,
+        resolution: options.resolution,
+        skipRemoveBg: options.skipRemoveBg,
+      });
+    });
+
+  program
+    .command('mascot-animate')
+    .description('Animate one mascot state into a short looping clip (image-to-video; costs per second — animate only needed states)')
+    .option('--state <name>', 'Existing state to animate (uses Assets/mascot/states/<state>.png)')
+    .option('--image <path>', 'Explicit source image (overrides --state lookup)')
+    .option('--motion <text>', 'Motion description (default: per-state preset, e.g. happy → gentle bounce)')
+    .option('--model <id>', 'Video model: seedance-mini (~$0.07/s, default), ltx (~$0.04/s @1080p, outage-prone), seedance (~$0.24/s premium)', 'seedance-mini')
+    .option('--duration <seconds>', 'Clip length in seconds (ltx: 6-20 even, seedance: 4-15; seedance-mini picks automatically)')
+    .option('--resolution <res>', 'Video resolution (seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p-1080p)')
+    .option('--spec <path>', 'Pre-authored animation spec JSON (see `kappmaker spec-template mascot-animation`)')
+    .option('--output <path>', 'Output MP4 path (default: Assets/mascot/animations/<state>.mp4)')
+    .option('--gif', 'Also convert to a looping GIF (requires ffmpeg; for READMEs, chats, marketing)')
+    .option('--yes', 'Skip the cost confirmation prompt')
+    .action(async (options) => {
+      await mascotAnimate({
+        gif: options.gif,
+        state: options.state,
+        image: options.image,
+        motion: options.motion,
+        model: options.model,
+        duration: options.duration ? parseInt(options.duration, 10) : undefined,
+        resolution: options.resolution,
+        spec: options.spec,
+        output: options.output,
+        yes: options.yes,
+      });
+    });
+
+  program
     .command('spec-template')
     .description('Print (or write) the canonical spec JSON template for an image kind, for use with --spec')
-    .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image (omit to list)')
+    .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image, mascot, mascot-states, mascot-animation (omit to list)')
     .option('--list', 'List available template kinds')
     .option('--output <path>', 'Write the template to a file instead of stdout (refuses to overwrite)')
     .action(async (kind, options) => {

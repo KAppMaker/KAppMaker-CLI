@@ -1,0 +1,21 @@
+{
+  "_instructions": [
+    "Spec template for `kappmaker mascot-animate --spec <file>` — a single short animation clip of the mascot (source image passed as reference).",
+    "This is a proven BASELINE, not a rigid schema — enrich freely. The mechanical rules that keep the clip usable as an app/marketing loop are in loop_rules and constraints: character identity unchanged, loop-friendly start/end pose, static camera, unchanged background, no text.",
+    "Describe ONE motion, concretely (what moves, how fast, what mood). Duration/resolution/model are CLI flags, not spec fields.",
+    "Animate only the states you actually need — video generation is priced per second."
+  ],
+  "type": "mascot_animation",
+  "motion": "",
+  "mood": "",
+  "loop_rules": [
+    "Subtle, loop-friendly motion: the character starts and ends in (or near) the same pose so the clip loops cleanly",
+    "The mascot stays centered; static camera, no zoom, no pan, no cuts",
+    "The background stays exactly as in the source image — flat and unchanged, nothing enters the frame"
+  ],
+  "consistency_rules": [
+    "The character's identity, style, colors and proportions stay EXACTLY as in the source image — no redesign",
+    "Motion expressed through pose, gesture and facial expression only"
+  ],
+  "constraints": "NO TEXT WHATSOEVER: no words, letters, numbers, icons with text meaning, UI elements, speech bubbles, emojis, watermarks or logos"
+}
