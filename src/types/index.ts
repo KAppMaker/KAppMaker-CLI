@@ -48,6 +48,7 @@ export interface KAppMakerConfig {
 export interface CreateLogoOptions {
   output?: string;
   prompt?: string;
+  spec?: string;
 }
 
 export interface SplitOptions {
@@ -84,7 +85,9 @@ export interface TranslateScreenshotsOptions {
 }
 
 export interface GenerateScreenshotsOptions {
-  prompt: string;
+  prompt?: string;
+  spec?: string;
+  printPrompt?: boolean;
   input?: string;
   style?: number;
   output?: string;
@@ -99,9 +102,11 @@ export interface FalQueueResponse {
 }
 
 export interface GenerateFeatureImageOptions {
-  prompt: string;
-  appName: string;
-  primaryColor: string;
+  prompt?: string;
+  spec?: string;
+  printPrompt?: boolean;
+  appName?: string;
+  primaryColor?: string;
   subtitle?: string;
   logo?: string;
   reference?: string[];
@@ -112,7 +117,8 @@ export interface GenerateFeatureImageOptions {
 }
 
 export interface GenerateImageOptions {
-  prompt: string;
+  prompt?: string;
+  spec?: string;
   output?: string;
   numImages?: number;
   aspectRatio?: string;

@@ -14,10 +14,31 @@ description: Generate any other AI image for a KAppMaker app — illustrations, 
 
 ### generate-image — Generic AI Image Generator
 
-**Syntax**: `kappmaker generate-image --prompt <text> [options]`
+**Syntax**: `kappmaker generate-image --spec <spec.json> [options]` (preferred) or
+`kappmaker generate-image --prompt <text> [options]` (quick one-liners only)
+
+**Default to a JSON spec, not a prose prompt.** Structured JSON steers nano-banana-2 noticeably
+better than free text: it pins down composition, palette, lighting and hard constraints separately
+instead of hoping the model untangles them from a sentence — the result is far more accurate and
+repeatable. Reserve bare `--prompt` for genuinely trivial requests ("a red heart icon"); for
+anything with brand, layout or mood requirements, author a spec:
+
+1. `kappmaker spec-template image --output Assets/image-spec.json` — canonical skeleton; its
+   `_instructions` key explains each field and is auto-stripped before generation.
+2. Fill it from `AiGuidelines/` and the user's request: `subject`, `purpose`, `composition`
+   (mention intended aspect ratio framing), `style`, `color_palette` (2–4 values, use brand colors),
+   `lighting`, `mood`, `background`, `constraints` (hard rules — e.g. "no text", "transparent-look
+   background", "leave top third empty for overlay"). Delete fields that don't apply. The skeleton
+   is a baseline — restructure or enrich it freely when that captures the request better.
+3. Run `kappmaker generate-image --spec Assets/image-spec.json [--aspect-ratio ...] [--output ...]`.
+4. Iterating on feedback = edit one or two spec fields and re-run — much more controllable than
+   rewriting a prose prompt.
+
+If the user hands you a predefined spec JSON, pass it through as-is.
 
 **Options**:
-- `--prompt <text>` (required) — Text description of the image
+- `--spec <path>` — Pre-authored JSON spec used verbatim as the structured prompt (preferred, see above)
+- `--prompt <text>` — Free-text description (required unless `--spec`; quick one-liners only)
 - `--output <path>` — Output file or directory (default: `Assets/generated.png`)
 - `--num-images <n>` — Number of images, 1–8 (default: 1)
 - `--aspect-ratio <ratio>` — `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9`, `9:21`, `auto` (default: `1:1`)

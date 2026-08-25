@@ -5,7 +5,7 @@ title: Feature Image Generation
 
 # Feature Image Generation
 
-Generate a Google Play feature graphic (1024×500 banner) from a text description using OpenAI (prompt generation) and fal.ai (image generation). Optionally include the app logo and screenshots that fal.ai places inside device frames.
+Generate a Google Play feature graphic (1024×500 banner) from a JSON spec (or a text description via OpenAI) using fal.ai for image generation. Optionally include the app logo and screenshots that fal.ai places inside device frames.
 
 ## generate-feature-image
 
@@ -15,6 +15,15 @@ kappmaker generate-feature-image \
     --app-name "Masclet" \
     --subtitle "Generate mascots, emotions, and expressions" \
     --primary-color "#E63946"
+```
+
+Or from a pre-authored spec (no OpenAI key needed):
+
+```bash
+kappmaker spec-template feature-graphic --output Assets/playstore/feature-graphic-spec.json
+# fill the skeleton, then:
+kappmaker generate-feature-image --spec Assets/playstore/feature-graphic-spec.json \
+    --logo ./Assets/logo.png --reference ./screenshots/home.png
 ```
 
 With logo + screenshots:
@@ -31,7 +40,7 @@ kappmaker generate-feature-image \
 
 ### Flow
 
-1. OpenAI (GPT-4.1) refines the inputs (app name, subtitle, primary color, concept, reference image positions) into a detailed banner specification.
+1. A detailed banner spec (JSON) is obtained — from your `--spec` file, or refined by OpenAI (GPT-4.1) from the inputs (app name, subtitle, primary color, concept, reference image positions). `--print-prompt` prints the spec-authoring instructions and exits, so you (or an AI agent) can write the spec without any API call. `--logo`/`--reference` still apply with `--spec` — they control the uploaded images.
 2. fal.ai generates one wide image (`nano-banana-2`, or `nano-banana-2/edit` with reference images) at 16:9.
 3. `sharp` resizes/crops to EXACTLY 1024×500 px (Google Play feature graphic spec) via center cover.
 
@@ -49,9 +58,11 @@ Falls back to `Assets/playstore/featureGraphic.png` outside a KAppMaker project.
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | App concept / description (required) | — |
-| `--app-name <name>` | App name rendered on the banner (required) | — |
-| `--primary-color <hex>` | Brand color in hex (required, e.g. `#FF3B30`) | — |
+| `--spec <path>` | Pre-authored banner spec JSON — skips OpenAI entirely | — |
+| `--print-prompt` | Print the spec-authoring instructions and exit (no API calls) | — |
+| `--prompt <text>` | App concept / description (required unless `--spec` is given) | — |
+| `--app-name <name>` | App name rendered on the banner (required unless `--spec` is given) | — |
+| `--primary-color <hex>` | Brand color in hex, e.g. `#FF3B30` (required unless `--spec` is given) | — |
 | `--subtitle <text>` | Tagline rendered below the app name | — |
 | `--logo <path>` | App logo PNG; rendered pixel-faithfully on the brand panel | — |
 | `--reference <paths...>` | Screenshot paths to place inside device frames (max 10) | — |
@@ -61,7 +72,7 @@ Falls back to `Assets/playstore/featureGraphic.png` outside a KAppMaker project.
 
 ### Requirements
 
-Requires `openaiApiKey` and `falApiKey` (both prompted and saved on first use). `imgbbApiKey` is recommended when passing `--logo` or `--reference` — it speeds up uploads. Without it, the CLI falls back to inline base64 data URIs.
+Requires `falApiKey` (prompted and saved on first use). `openaiApiKey` is only needed for the `--prompt`-without-`--spec` flow. `imgbbApiKey` is recommended when passing `--logo` or `--reference` — it speeds up uploads. Without it, the CLI falls back to inline base64 data URIs.
 
 ### Tips
 

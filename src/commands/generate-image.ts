@@ -1,8 +1,9 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { logger } from '../utils/logger.js';
-import { promptInput } from '../utils/prompt.js';
-import { loadConfig, saveConfig } from '../utils/config.js';
+import { loadConfig } from '../utils/config.js';
+import { ensureFalKey } from '../utils/api-keys.js';
+import { loadSpec } from '../utils/spec-file.js';
 import * as fal from '../services/fal.service.js';
 import type { GenerateImageOptions } from '../types/index.js';
 
@@ -15,24 +16,20 @@ const IMAGE_EXT_RE = /\.(png|jpe?g|webp)$/i;
 
 export async function generateImage(options: GenerateImageOptions): Promise<void> {
   const config = await loadConfig();
+  await ensureFalKey(config);
 
-  if (!config.falApiKey) {
-    logger.warn('fal.ai API key is not configured.');
-    logger.info('Get one at: https://fal.ai/dashboard/keys');
-    const key = await promptInput('  Enter your fal.ai API key: ');
-    if (!key.trim()) {
-      logger.fatal('fal.ai API key is required for image generation.');
+  // --spec: a pre-authored JSON spec (e.g. written by a Claude Code skill or
+  // the user) becomes the structured prompt directly — no free-text needed.
+  let prompt: string;
+  if (options.spec) {
+    prompt = await loadSpec(options.spec);
+  } else {
+    const trimmed = options.prompt?.trim();
+    if (!trimmed) {
+      logger.fatal('Either --prompt or --spec is required.');
       process.exit(1);
     }
-    config.falApiKey = key.trim();
-    await saveConfig(config);
-    logger.success('falApiKey saved to config.');
-  }
-
-  const prompt = options.prompt?.trim();
-  if (!prompt) {
-    logger.fatal('Prompt cannot be empty.');
-    process.exit(1);
+    prompt = trimmed;
   }
 
   const aspectRatio = options.aspectRatio ?? '1:1';
@@ -104,7 +101,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<void
 
   // Submit → poll → fetch → download
   logger.step(1, 3, 'Submitting image generation request');
-  logger.info(`Prompt: ${prompt}`);
+  logger.info(`Prompt: ${prompt.length > 200 ? `${prompt.slice(0, 200)}…` : prompt}`);
   logger.info(`Aspect ratio: ${aspectRatio} | Resolution: ${resolution} | Images: ${numImages}`);
 
   const queue = await fal.submitImageGeneration(config.falApiKey, {

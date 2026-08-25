@@ -1,0 +1,32 @@
+{
+  "_instructions": [
+    "Spec template for `kappmaker generate-feature-image --spec <file>`. Fill every empty field; keys starting with `_` are stripped before the spec is sent to the image model.",
+    "This is a proven BASELINE, not a rigid schema: add fields, restructure, or write a richer spec if it produces a better banner. Fixed constraints are only the mechanical ones below (wide banner composition, real text only).",
+    "The output is the Google Play feature graphic: ONE wide 1024×500 banner (center-cover cropped), not a phone screenshot.",
+    "Text on the banner must be ONLY the real app name (and optionally the real subtitle) — never invented marketing copy or lorem text. Repeat them verbatim in constraints.",
+    "Still pass --logo / --reference on the command line — those control which images are uploaded; this spec describes how they are used (left_panel app_icon, right_panel screen_content).",
+    "Run `kappmaker generate-feature-image --print-prompt --prompt ... --app-name ... --primary-color ...` to see the full authoring guidance with your reference-image setup baked in."
+  ],
+  "type": "google_play_feature_graphic",
+  "layout": "",
+  "background": "",
+  "left_panel": {
+    "app_icon": "",
+    "app_name_typography": "",
+    "subtitle_typography": "",
+    "tagline_position": ""
+  },
+  "right_panel": {
+    "device_frame": "",
+    "device_arrangement": "",
+    "screen_content": ""
+  },
+  "color_palette": {
+    "primary": "",
+    "accent": "",
+    "neutral": ""
+  },
+  "typography": "",
+  "mood": "",
+  "constraints": "16:9 wide banner, no empty corners or dead space, crisp legible text, no logo distortion, no fake UI text — only the app name and subtitle given above"
+}

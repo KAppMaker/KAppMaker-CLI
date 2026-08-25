@@ -16,11 +16,27 @@ kappmaker generate-image --prompt "Product render" --num-images 4 --output Asset
 kappmaker generate-image --prompt "Put this logo on a black t-shirt" --reference Assets/app_logo.png
 ```
 
+## Better results with a JSON spec (`--spec`)
+
+For anything with brand, layout or mood requirements, a structured JSON spec steers the model
+noticeably better than a prose prompt — it pins down subject, composition, palette, lighting and
+hard constraints separately, and iterating means editing one field instead of rewriting a sentence:
+
+```bash
+kappmaker spec-template image --output Assets/image-spec.json   # canonical skeleton
+# fill the fields (delete ones that don't apply), then:
+kappmaker generate-image --spec Assets/image-spec.json --aspect-ratio 16:9
+```
+
+The skeleton's `_instructions` key explains each field and is stripped before generation. Any single
+JSON object works — the template is a baseline, not a rigid schema.
+
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | Text description of the image (required) | — |
+| `--prompt <text>` | Text description of the image (required unless `--spec` is given) | — |
+| `--spec <path>` | Pre-authored JSON spec used verbatim as the structured prompt | — |
 | `--output <path>` | Output file or directory | `Assets/generated.png` |
 | `--num-images <n>` | Number of images to generate (1–8) | `1` |
 | `--aspect-ratio <ratio>` | `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9`, `9:21`, `auto` | `1:1` |

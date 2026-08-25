@@ -1,0 +1,22 @@
+{
+  "_instructions": [
+    "Spec template for `kappmaker generate-image --spec <file>` — generic structured prompt for any one-off image (illustration, empty-state art, onboarding graphic, background, hero shot...).",
+    "Fill every field that applies and DELETE the ones that don't; keys starting with `_` are stripped before the spec is sent to the image model.",
+    "This is a proven BASELINE, not a rigid schema: any JSON object works — add fields, restructure, or write a richer spec whenever that better captures the request. No mechanical constraints here.",
+    "Structured JSON steers the model noticeably better than prose: be concrete in subject and composition, keep color_palette to 2-4 values, and state hard rules in constraints.",
+    "Aspect ratio / resolution are CLI flags (--aspect-ratio, --resolution), not spec fields — but mention the intended framing in composition so the design fits it.",
+    "When passing --reference images, describe in `references_usage` how each reference should be used."
+  ],
+  "type": "generic_image",
+  "subject": "",
+  "purpose": "",
+  "composition": "",
+  "style": "",
+  "color_palette": [],
+  "lighting": "",
+  "mood": "",
+  "background": "",
+  "references_usage": "",
+  "text_in_image": "none — no text, labels, or lettering unless explicitly listed here",
+  "constraints": []
+}

@@ -3,8 +3,9 @@ import fs from 'fs-extra';
 import sharp from 'sharp';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
-import { promptInput } from '../utils/prompt.js';
-import { loadConfig, saveConfig } from '../utils/config.js';
+import { loadConfig } from '../utils/config.js';
+import { ensureOpenaiKey, ensureFalKey } from '../utils/api-keys.js';
+import { loadSpec } from '../utils/spec-file.js';
 import * as fal from '../services/fal.service.js';
 import * as openai from '../services/openai.service.js';
 import type { GenerateFeatureImageOptions } from '../types/index.js';
@@ -19,48 +20,27 @@ export async function generateFeatureImage(
 ): Promise<void> {
   const config = await loadConfig();
 
-  if (!config.openaiApiKey) {
-    logger.warn('OpenAI API key is not configured.');
-    logger.info('Get one at: https://platform.openai.com/api-keys');
-    const key = await promptInput('  Enter your OpenAI API key: ');
-    if (!key.trim()) {
-      logger.fatal('OpenAI API key is required for feature image generation.');
-      process.exit(1);
-    }
-    config.openaiApiKey = key.trim();
-    await saveConfig(config);
-    logger.success('openaiApiKey saved to config.');
-  }
-
-  if (!config.falApiKey) {
-    logger.warn('fal.ai API key is not configured.');
-    logger.info('Get one at: https://fal.ai/dashboard/keys');
-    const key = await promptInput('  Enter your fal.ai API key: ');
-    if (!key.trim()) {
-      logger.fatal('fal.ai API key is required for feature image generation.');
-      process.exit(1);
-    }
-    config.falApiKey = key.trim();
-    await saveConfig(config);
-    logger.success('falApiKey saved to config.');
-  }
-
   const prompt = options.prompt?.trim();
   const appName = options.appName?.trim();
   const primaryColor = options.primaryColor?.trim();
   const subtitle = options.subtitle?.trim() || undefined;
+  const usesOpenai = !options.spec;
 
-  if (!prompt) {
-    logger.fatal('--prompt cannot be empty.');
-    process.exit(1);
-  }
-  if (!appName) {
-    logger.fatal('--app-name cannot be empty.');
-    process.exit(1);
-  }
-  if (!primaryColor || !HEX_COLOR_RE.test(primaryColor)) {
-    logger.fatal(`--primary-color must be a hex color like #FF3B30 (got: ${primaryColor ?? 'empty'}).`);
-    process.exit(1);
+  // The OpenAI prompt-builder inputs are only required when there is no
+  // pre-authored spec (--spec supplies the full banner specification itself).
+  if (usesOpenai || options.printPrompt) {
+    if (!prompt) {
+      logger.fatal('--prompt is required (unless --spec is given).');
+      process.exit(1);
+    }
+    if (!appName) {
+      logger.fatal('--app-name is required (unless --spec is given).');
+      process.exit(1);
+    }
+    if (!primaryColor || !HEX_COLOR_RE.test(primaryColor)) {
+      logger.fatal(`--primary-color must be a hex color like #FF3B30 (got: ${primaryColor ?? 'empty'}).`);
+      process.exit(1);
+    }
   }
 
   const resolution = options.resolution ?? '2K';
@@ -97,20 +77,43 @@ export async function generateFeatureImage(
   const hasLogo = Boolean(options.logo);
   const screenshotCount = referencePaths.length - (hasLogo ? 1 : 0);
 
-  // Step 1: Build & refine prompt via OpenAI
-  logger.step(1, totalSteps, 'Generating feature image prompt via OpenAI');
-  const masterPrompt = openai.buildFeatureImagePrompt({
-    appName,
-    subtitle,
-    prompt,
-    primaryColor,
-    hasLogo,
-    screenshotCount,
-  });
+  // --print-prompt: emit the master prompt (schema + constraints) and exit so
+  // any AI model can author the spec JSON passed back via --spec — no OpenAI.
+  if (options.printPrompt) {
+    console.log(openai.buildFeatureImagePrompt({
+      appName: appName!,
+      subtitle,
+      prompt: prompt!,
+      primaryColor: primaryColor!,
+      hasLogo,
+      screenshotCount,
+    }));
+    return;
+  }
 
-  const aiSpinner = ora({ text: 'Calling OpenAI GPT-4.1...', indent: 4 }).start();
-  const refinedPrompt = await openai.generateTextPrompt(config.openaiApiKey, masterPrompt);
-  aiSpinner.succeed(`Feature image prompt generated (${refinedPrompt.length} chars)`);
+  // Step 1: Obtain the banner spec — from --spec file, or via OpenAI
+  let refinedPrompt: string;
+  if (options.spec) {
+    logger.step(1, totalSteps, 'Loading feature image spec (skipping OpenAI)');
+    refinedPrompt = await loadSpec(options.spec);
+  } else {
+    await ensureOpenaiKey(config);
+    logger.step(1, totalSteps, 'Generating feature image prompt via OpenAI');
+    const masterPrompt = openai.buildFeatureImagePrompt({
+      appName: appName!,
+      subtitle,
+      prompt: prompt!,
+      primaryColor: primaryColor!,
+      hasLogo,
+      screenshotCount,
+    });
+
+    const aiSpinner = ora({ text: 'Calling OpenAI GPT-4.1...', indent: 4 }).start();
+    refinedPrompt = await openai.generateTextPrompt(config.openaiApiKey, masterPrompt);
+    aiSpinner.succeed(`Feature image prompt generated (${refinedPrompt.length} chars)`);
+  }
+
+  await ensureFalKey(config);
 
   // Step 2: Upload reference images
   const imageUrls: string[] = [];
