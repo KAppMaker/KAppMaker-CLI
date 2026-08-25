@@ -1,0 +1,31 @@
+{
+  "_instructions": [
+    "Spec template for `kappmaker create-mascot --states-spec <file>` — stage 2, the 4×4 grid showing the CHOSEN mascot (passed as reference image) in 16 emotional/situational states.",
+    "This is a proven BASELINE, not a rigid schema — enrich freely. TWO mechanical constraints are fixed: the output MUST stay a single 4×4 grid, and `states` MUST list exactly 16 entries in grid order (left→right, top→bottom) — the CLI names the sliced files after this list.",
+    "The mascot's identity, style, colors and proportions must stay IDENTICAL across all cells — only expression, pose and small effects change.",
+    "Pick states that map to real app UI moments (loading, success, error, empty, onboarding, streak, paywall…). Backgrounds white/transparent; NO text anywhere."
+  ],
+  "type": "app_mascot_states_grid",
+  "app_idea": "",
+  "grid_layout": {
+    "rows": 4,
+    "columns": 4,
+    "total_cells": 16,
+    "arrangement": "A single high-resolution image: 4×4 grid, the SAME mascot in one clearly readable state per cell, centered with uniform padding and safe margins so cells can be cleanly split, consistent perspective and scale.",
+    "background": "white or transparent — supports the emotion without distracting"
+  },
+  "states": [
+    "happy", "sad", "excited", "thinking",
+    "loading", "success", "error", "idle",
+    "celebrating", "confused", "proud", "curious",
+    "sleeping", "encouraging", "waving", "love"
+  ],
+  "consistency_rules": [
+    "Identity, style, colors, proportions and overall design identical across all 16 cells",
+    "No new styles, outfits, or redesigns — no changes to body shape, face structure or palette beyond small expressive variations",
+    "Emotion expressed through facial expression, body language, posture and subtle visual cues",
+    "Lighting and minor effects may vary subtly per emotion, never enough to break visual consistency",
+    "Each cell reads like a collectible expression of the same mascot"
+  ],
+  "constraints": "NO TEXT WHATSOEVER: no words, letters, numbers, icons with text meaning, UI elements, speech bubbles, emojis, watermarks or logos"
+}

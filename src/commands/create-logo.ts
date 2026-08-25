@@ -6,6 +6,7 @@ import { loadConfig, saveConfig } from '../utils/config.js';
 import * as fal from '../services/fal.service.js';
 import { buildLogoPrompt, extractLogo, openPreview } from '../services/logo.service.js';
 import { loadSpec } from '../utils/spec-file.js';
+import { askGridSelection, type GridSelectionResult } from '../utils/grid-select.js';
 import type { CreateLogoOptions, ExtractOptions } from '../types/index.js';
 
 const ASSETS_DIR = 'Assets';
@@ -53,7 +54,7 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
   await fs.ensureDir(assetsDir);
 
   const gridPath = path.join(assetsDir, GRID_FILENAME);
-  let selection: SelectionResult | null = null;
+  let selection: GridSelectionResult | null = null;
 
   while (selection === null) {
     // Generate
@@ -73,7 +74,7 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
     await openPreview(gridPath);
 
     // Selection loop
-    selection = await askSelection();
+    selection = await askGridSelection('logo');
   }
 
   // Extract and save
@@ -94,47 +95,3 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
   logger.done();
 }
 
-interface SelectionResult {
-  index: number;
-  zoom?: number;
-  gap?: number;
-}
-
-async function askSelection(): Promise<SelectionResult | null> {
-  while (true) {
-    const answer = await promptInput(
-      'Choose a logo (1-16) or R to regenerate. Optional: "5 --zoom 1.1 --gap 3": ',
-    );
-    const trimmed = answer.trim().toLowerCase();
-
-    if (trimmed === 'r') {
-      return null; // signals regeneration
-    }
-
-    const parsed = parseSelection(trimmed);
-    if (parsed) return parsed;
-
-    logger.warn('Please enter a number 1-16, optionally with --zoom and --gap, or R to regenerate.');
-  }
-}
-
-function parseSelection(input: string): SelectionResult | null {
-  const tokens = input.split(/\s+/);
-  const num = parseInt(tokens[0], 10);
-  if (isNaN(num) || num < 1 || num > 16) return null;
-
-  const result: SelectionResult = { index: num };
-
-  for (let i = 1; i < tokens.length - 1; i++) {
-    if (tokens[i] === '--zoom') {
-      const val = parseFloat(tokens[i + 1]);
-      if (!isNaN(val) && val > 0) result.zoom = val;
-    }
-    if (tokens[i] === '--gap') {
-      const val = parseInt(tokens[i + 1], 10);
-      if (!isNaN(val) && val >= 0) result.gap = val;
-    }
-  }
-
-  return result;
-}

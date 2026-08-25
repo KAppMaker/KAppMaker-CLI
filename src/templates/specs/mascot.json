@@ -1,0 +1,33 @@
+{
+  "_instructions": [
+    "Spec template for `kappmaker create-mascot --spec <file>` — stage 1, the 4×4 grid of 16 DIFFERENT mascot concepts the user picks from.",
+    "This is a proven BASELINE, not a rigid schema: add fields, restructure, or write a richer spec if it produces better mascots. ONE mechanical constraint is fixed: the output MUST stay a single 4×4 grid of 16 mascot concepts with uniform margins — the CLI slices it into cells afterwards.",
+    "Fill app_idea and app_tone from AiGuidelines/ (brand color, audience, vibe). Customize concept_directions to steer the 16 cells; leave entries generic to let the model explore.",
+    "Backgrounds must stay white or transparent (background removal runs afterwards), and the image must contain NO text of any kind."
+  ],
+  "type": "app_mascot_concept_grid",
+  "app_idea": "",
+  "app_tone": "",
+  "brand_colors": [],
+  "grid_layout": {
+    "rows": 4,
+    "columns": 4,
+    "total_cells": 16,
+    "arrangement": "A single high-resolution image: 4×4 grid, one unique mascot CONCEPT per cell, consistent size and perspective across cells, uniform margins/padding so each cell can be cleanly split later, clear separation between squares.",
+    "background": "white or transparent — emphasizes the mascot designs, supports background removal"
+  },
+  "concept_directions": [
+    "cartoon", "chibi", "flat vector", "digital painting",
+    "3D render", "minimalist", "sketch", "semi-realistic",
+    "bold colors", "pastel palette", "comic style", "clay-like 3D",
+    "sticker style", "geometric", "soft gradient", "playful character"
+  ],
+  "character_rules": [
+    "Each cell is a DIFFERENT character concept — distinct appearance, coloring, shape or style",
+    "All mascots playful, cute, or gamified — suitable for an ultra-cute app style",
+    "Each mascot occupies roughly the same amount of space in its cell",
+    "If brand_colors are given, weave them into some mascots while keeping variety",
+    "No clutter, distortion, or blurriness — every mascot clearly stands out"
+  ],
+  "constraints": "NO TEXT WHATSOEVER: no words, letters, numbers, icons with text meaning, UI elements, speech bubbles, emojis, watermarks or logos"
+}

@@ -44,6 +44,8 @@ import { fastlaneConfigure } from './commands/fastlane-configure.js';
 import { convertWebp } from './commands/convert-webp.js';
 import { cloneCommand } from './commands/clone.js';
 import { specTemplate } from './commands/spec-template.js';
+import { createMascot } from './commands/create-mascot.js';
+import { mascotAddState } from './commands/mascot-add-state.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
 import {
   firebaseLoginCommand,
@@ -164,9 +166,55 @@ export function createCli(): Command {
     });
 
   program
+    .command('create-mascot')
+    .description('Generate an app mascot with AI: pick from 16 concepts, then generate 16 emotional states (fal.ai)')
+    .option('--prompt <text>', 'App idea / concept (skips the interactive prompt)')
+    .option('--tone <text>', 'App tone woven into the concept grid (e.g. "playful and cozy")')
+    .option('--spec <path>', 'Pre-authored concept-grid spec JSON (see `kappmaker spec-template mascot`)')
+    .option('--states-spec <path>', 'Pre-authored states-grid spec JSON (see `kappmaker spec-template mascot-states`)')
+    .option('--states <names...>', 'Custom state names for the 16-state grid (topped up with defaults)')
+    .option('--output <dir>', 'Output directory', 'Assets/mascot')
+    .option('--resolution <res>', 'AI resolution for the states grid (1K, 2K, 4K)', '2K')
+    .option('--skip-states', 'Stop after the mascot is chosen (no states grid)')
+    .option('--skip-remove-bg', 'Keep original backgrounds (skip fal.ai background removal)')
+    .action(async (options) => {
+      await createMascot({
+        prompt: options.prompt,
+        tone: options.tone,
+        spec: options.spec,
+        statesSpec: options.statesSpec,
+        states: options.states,
+        output: options.output,
+        resolution: options.resolution,
+        skipStates: options.skipStates,
+        skipRemoveBg: options.skipRemoveBg,
+      });
+    });
+
+  program
+    .command('mascot-add-state')
+    .description('Generate one additional emotional state for an existing mascot (fal.ai edit mode)')
+    .option('--state <text>', 'The emotional/situational state to generate (e.g. "shopping", "level up")')
+    .option('--mascot <path>', 'Mascot reference image (default: Assets/mascot/mascot_no_bg.png or mascot.png)')
+    .option('--spec <path>', 'Pre-authored single-state spec JSON used as the prompt')
+    .option('--output <path>', 'Output file path (default: <mascot dir>/states/<state>.png)')
+    .option('--resolution <res>', 'AI resolution (1K, 2K, 4K)', '2K')
+    .option('--skip-remove-bg', 'Keep original background (skip fal.ai background removal)')
+    .action(async (options) => {
+      await mascotAddState({
+        state: options.state,
+        mascot: options.mascot,
+        spec: options.spec,
+        output: options.output,
+        resolution: options.resolution,
+        skipRemoveBg: options.skipRemoveBg,
+      });
+    });
+
+  program
     .command('spec-template')
     .description('Print (or write) the canonical spec JSON template for an image kind, for use with --spec')
-    .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image (omit to list)')
+    .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image, mascot, mascot-states (omit to list)')
     .option('--list', 'List available template kinds')
     .option('--output <path>', 'Write the template to a file instead of stdout (refuses to overwrite)')
     .action(async (kind, options) => {

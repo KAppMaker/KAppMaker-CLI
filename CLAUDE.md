@@ -45,7 +45,10 @@ npx tsx src/index.ts firebase auth-anonymous --project <id>                     
 npx tsx src/index.ts firebase configs --project <id> --app-name <Name> [--package-name <pkg>]  # Step 6 — download SDK configs
 npx tsx src/index.ts create-logo [--prompt "..."]  # Logo generation (--prompt skips interactive input)
 npx tsx src/index.ts create-logo --spec logo-spec.json  # Logo generation from a pre-authored spec JSON (must keep the 4×4 grid)
-npx tsx src/index.ts spec-template                 # List canonical spec JSON templates (screenshots, feature-graphic, logo, image)
+npx tsx src/index.ts create-mascot --prompt "..." [--tone "..."]  # Mascot: 16-concept grid → pick one → 16 emotional states, bg auto-removed
+npx tsx src/index.ts create-mascot --spec mascot-spec.json --states-spec states-spec.json  # Same, from pre-authored spec JSONs
+npx tsx src/index.ts mascot-add-state --state "shopping"          # One more state for the existing mascot (edit mode + bg removal)
+npx tsx src/index.ts spec-template                 # List canonical spec JSON templates (screenshots, feature-graphic, logo, image, mascot, mascot-states)
 npx tsx src/index.ts spec-template screenshots --output Assets/screenshots/spec.json  # Write a spec skeleton to fill and pass via --spec
 npx tsx src/index.ts generate-image --prompt "..." # Generic AI image generator (fal.ai nano-banana-2)
 npx tsx src/index.ts generate-image --spec spec.json  # Same, with a pre-authored JSON spec as the structured prompt
@@ -131,7 +134,7 @@ OpenAI step optional: OpenAI's only role was turning a description into that JSO
 (Claude Code skill) or the user can author it instead and no `openaiApiKey` is needed.
 
 **Canonical templates** live in `src/templates/specs/` — one JSON per image kind (`screenshots.json`,
-`feature-graphic.json`, `logo.json`, `image.json`), each preserving the proven prompt structure that
+`feature-graphic.json`, `logo.json`, `image.json`, `mascot.json`, `mascot-states.json`), each preserving the proven prompt structure that
 produced good images (the schemas the OpenAI path emitted; the logo one is the JSON-ified
 `buildLogoPrompt` 4×4-grid structure). Each carries a top-level `_instructions` array explaining the
 fill rules; `loadSpec` strips all `_`-prefixed top-level keys before sending. The
@@ -140,8 +143,9 @@ refuses to overwrite); registry in `src/commands/spec-template.ts` — adding a 
 a JSON into `src/templates/specs/` and register it there (tsc copies imported JSON into `dist/`).
 Templates are a proven BASELINE, not a rigid schema — `loadSpec` accepts any single JSON object, so
 an agent or user may restructure/enrich the spec freely. Only mechanical constraints are fixed
-(screenshots: 2×4 grid + 8 entries; logo: 4×4 grid of 16 icons — post-processing slices on those;
-feature graphic: wide banner + real text only).
+(screenshots: 2×4 grid + 8 entries; logo: 4×4 grid of 16 icons; mascot: 4×4 grid of 16 concepts;
+mascot-states: 4×4 grid + exactly 16 `states` entries in grid order, which name the sliced files —
+post-processing slices on those; feature graphic: wide banner + real text only).
 
 `--print-prompt` on the two OpenAI-backed commands prints the full spec-authoring instructions
 (schema + style direction from `src/services/screenshot-styles.ts` / `buildFeatureImagePrompt`) and
@@ -246,6 +250,8 @@ src/
     translate-screenshots.ts  # Screenshot translation to multiple locales (fal.ai)
     generate-screenshots.ts   # AI screenshot generation (fal.ai; OpenAI or --spec for the screenshot spec, --print-prompt)
     spec-template.ts        # `spec-template <kind>` — print/write canonical --spec JSON templates (registry over src/templates/specs/)
+    create-mascot.ts        # Mascot: 16-concept 4×4 grid → interactive pick → 16 emotional-states grid (chosen mascot as reference) → split + bg removal
+    mascot-add-state.ts     # One additional mascot state via edit mode (default ref: Assets/mascot/mascot_no_bg.png)
     fastlane-configure.ts   # Set up Fastlane (Gemfile + Fastfile + bundle install)
     publish.ts              # Build and upload to Google Play / App Store via Fastlane
     generate-keystore.ts    # Generate Android signing keystore
@@ -265,7 +271,8 @@ src/
     gradle.service.ts       # Gradle build helpers (local.properties, clean & build)
     ios.service.ts          # CocoaPods install
     fastlane.service.ts     # Android release build (keystore + gradle) + AAB path finder
-    logo.service.ts         # Prompt builder + sharp image extraction/splitting
+    logo.service.ts         # Prompt builder + sharp image extraction/splitting (extractLogo/splitGrid also reused by create-mascot)
+    mascot.service.ts       # Mascot prompt builders (concept grid / states grid / single state), default 16 states, state slugs, bg-removal helper
     asc.service.ts          # App Store Connect CLI wrapper (bundle ID + capabilities, app creation, version, categories, metadata)
     asc-monetization.service.ts  # ASC pricing, subscriptions, in-app purchases
     gpc.service.ts          # Google Play Publisher API wrapper (service-account JWT auth, edits, listings, data safety, app state probe) — no external CLI
@@ -283,6 +290,7 @@ src/
     config.ts               # User config loader/saver (~/.config/kappmaker/config.json)
     api-keys.ts             # Interactive first-use prompts for OpenAI/fal keys (ensureOpenaiKey, ensureFalKey)
     spec-file.ts            # loadSpec — read/validate --spec JSON, strip _-prefixed keys, normalize for fal.ai
+    grid-select.ts          # Interactive 4×4 grid cell picker (shared by create-logo and create-mascot)
     prompt.ts               # Interactive prompts (confirm, input)
   templates/
     specs/                  # Canonical --spec JSON templates per image kind (screenshots, feature-graphic, logo, image) — served by `kappmaker spec-template`

@@ -56,6 +56,7 @@ const sidebars: SidebarsConfig = {
       link: {type: 'generated-index', description: 'Generate logos, screenshots, and process images with AI.'},
       items: [
         'ai-image-tools/create-logo',
+        'ai-image-tools/mascot',
         'ai-image-tools/generate-image',
         'ai-image-tools/screenshots',
         'ai-image-tools/feature-image',
