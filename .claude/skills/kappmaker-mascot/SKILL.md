@@ -98,8 +98,8 @@ approved the spend in conversation.
   and conversion is skipped with a tip.
 - **Format guidance — never put a GIF in the app bundle.** GIF is 3-6× larger than WebP (256
   colors, weak compression) and exists only for marketing surfaces (GitHub README, emails, chat).
-  In-app: use the looping **WebP** (Coil on Android/Compose and SDWebImage on iOS play it natively,
-  ~0.5MB per clip); MP4 + player for a full-screen onboarding hero. For small always-on UI mascots,
+  In-app: use the looping **WebP** (~0.5MB per clip); MP4 + player for a full-screen onboarding
+  hero. For small always-on UI mascots,
   tweening the static state PNGs app-side is a few KB and usually reads better.
 - Transparent source PNGs are auto-flattened onto white before upload (video models have no alpha).
 - `--motion` defaults to a per-state preset (happy → gentle bounce, loading → patient sway, …);
