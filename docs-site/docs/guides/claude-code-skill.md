@@ -56,7 +56,7 @@ Once installed, just describe what you want in plain English. Claude will check 
 
 ### Screenshots
 
-**Generate** marketing screenshots from a text prompt (OpenAI prompt → fal.ai image grid → split into 8 individual screenshots):
+**Generate** marketing screenshots (Claude authors the screenshot spec JSON itself — no OpenAI key needed — then fal.ai renders the image grid, split into 8 individual screenshots):
 
 ```
 /kappmaker generate screenshots for my fitness app

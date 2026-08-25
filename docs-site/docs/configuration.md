@@ -45,7 +45,7 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 | `organization` | Organization for Fastlane signing | App name |
 | `falApiKey` | fal.ai API key | — |
 | `imgbbApiKey` | imgbb API key | — |
-| `openaiApiKey` | OpenAI API key | — |
+| `openaiApiKey` | OpenAI API key (only for `--prompt` flows without `--spec`) | — |
 | `ascAuthName` | ASC keychain credential name | `KAppMaker` |
 | `ascKeyId` | App Store Connect API Key ID | — |
 | `ascIssuerId` | App Store Connect Issuer ID | — |

@@ -38,7 +38,7 @@ The CLI integrates with several external services for AI image generation, app s
 
 ## OpenAI — Prompt Generation
 
-**Used for:** Generating detailed screenshot specifications from a short app description (uses GPT-4.1). Only needed for the `generate-screenshots` command.
+**Used for:** Generating detailed image specifications from a short app description (uses GPT-4.1). Only needed for the `--prompt` flows of `generate-screenshots` and `generate-feature-image` — **optional entirely** if you pass a pre-authored spec via `--spec` (see `kappmaker spec-template`), which is what the Claude Code skills do.
 
 **How to get your key:**
 1. Sign up at [platform.openai.com](https://platform.openai.com)

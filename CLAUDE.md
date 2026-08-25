@@ -227,9 +227,9 @@ src/
     clone.ts                # `kappmaker clone <AppName>` — step 1 of create as a standalone command (also called by create.ts)
     git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone command (also called by create.ts)
     firebase.ts             # `kappmaker firebase` subcommands: login, project, apps, auth-anonymous, configs (steps 2-6 of create as standalones; also called by create.ts)
-    create-logo.ts          # Logo generation (fal.ai + sharp); accepts --prompt to skip interactive input
+    create-logo.ts          # Logo generation (fal.ai + sharp); accepts --prompt to skip interactive input, --spec for a pre-authored grid spec
     generate-image.ts       # Generic AI image generator (fal.ai nano-banana-2; --prompt or --spec, --num-images, --aspect-ratio, --resolution, --reference)
-    generate-feature-image.ts # Google Play feature graphic generator (OpenAI + fal.ai, sharp resize to 1024×500)
+    generate-feature-image.ts # Google Play feature graphic generator (fal.ai + sharp resize to 1024×500; OpenAI or --spec for the banner spec, --print-prompt)
     generate-ios-icons.ts   # iOS AppIcon.appiconset generator (sharp-only, 11 sizes + Contents.json, no AI)
     generate-android-icons.ts # Android mipmap-* launcher icon generator (sharp-only, 5 densities × 3 files + adaptive XML + colors.xml upsert, no AI)
     create-appstore-app.ts  # App Store Connect setup (13-step orchestrator via asc CLI)
@@ -244,7 +244,8 @@ src/
     enhance.ts              # image-enhance — upscale quality (fal.ai nano-banana-2/edit)
     convert-webp.ts         # convert-webp — PNG/JPG/BMP/TIFF/GIF to WebP (sharp, no API key needed)
     translate-screenshots.ts  # Screenshot translation to multiple locales (fal.ai)
-    generate-screenshots.ts   # AI screenshot generation (OpenAI + fal.ai)
+    generate-screenshots.ts   # AI screenshot generation (fal.ai; OpenAI or --spec for the screenshot spec, --print-prompt)
+    spec-template.ts        # `spec-template <kind>` — print/write canonical --spec JSON templates (registry over src/templates/specs/)
     fastlane-configure.ts   # Set up Fastlane (Gemfile + Fastfile + bundle install)
     publish.ts              # Build and upload to Google Play / App Store via Fastlane
     generate-keystore.ts    # Generate Android signing keystore
@@ -280,6 +281,8 @@ src/
     exec.ts                 # execa wrapper with spinner and streaming modes
     validator.ts            # CLI dependency checks + app name validation
     config.ts               # User config loader/saver (~/.config/kappmaker/config.json)
+    api-keys.ts             # Interactive first-use prompts for OpenAI/fal keys (ensureOpenaiKey, ensureFalKey)
+    spec-file.ts            # loadSpec — read/validate --spec JSON, strip _-prefixed keys, normalize for fal.ai
     prompt.ts               # Interactive prompts (confirm, input)
   templates/
     specs/                  # Canonical --spec JSON templates per image kind (screenshots, feature-graphic, logo, image) — served by `kappmaker spec-template`
