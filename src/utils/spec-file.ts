@@ -31,6 +31,12 @@ export async function loadSpec(
     process.exit(1);
   }
 
+  // Underscore-prefixed keys (e.g. the templates' _instructions) are
+  // authoring aids, not prompt content — strip them before sending.
+  for (const key of Object.keys(parsed as Record<string, unknown>)) {
+    if (key.startsWith('_')) delete (parsed as Record<string, unknown>)[key];
+  }
+
   const screenshots = (parsed as { screenshots?: unknown }).screenshots;
   if (
     expectedScreenshotCount !== undefined &&

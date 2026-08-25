@@ -5,6 +5,7 @@ import { promptInput } from '../utils/prompt.js';
 import { loadConfig, saveConfig } from '../utils/config.js';
 import * as fal from '../services/fal.service.js';
 import { buildLogoPrompt, extractLogo, openPreview } from '../services/logo.service.js';
+import { loadSpec } from '../utils/spec-file.js';
 import type { CreateLogoOptions, ExtractOptions } from '../types/index.js';
 
 const ASSETS_DIR = 'Assets';
@@ -27,10 +28,19 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
     logger.success('falApiKey saved to config.');
   }
 
-  const appIdea = options.prompt?.trim()
-    ? options.prompt.trim()
-    : (await promptInput('Describe your app idea (concept, audience, style preferences): ')).trim();
-  if (!appIdea) {
+  // --spec: a pre-authored logo-grid spec JSON replaces the built-in prompt
+  // (must still describe a 4×4 grid — the slicing below assumes it).
+  let specPrompt: string | undefined;
+  if (options.spec) {
+    specPrompt = await loadSpec(options.spec);
+  }
+
+  const appIdea = specPrompt
+    ? ''
+    : options.prompt?.trim()
+      ? options.prompt.trim()
+      : (await promptInput('Describe your app idea (concept, audience, style preferences): ')).trim();
+  if (!specPrompt && !appIdea) {
     logger.fatal('App idea cannot be empty.');
     process.exit(1);
   }
@@ -48,7 +58,7 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
   while (selection === null) {
     // Generate
     logger.step(1, 3, 'Generating logo grid');
-    const prompt = buildLogoPrompt(appIdea);
+    const prompt = specPrompt ?? buildLogoPrompt(appIdea);
     const queue = await fal.submitGeneration(config.falApiKey, prompt);
     await fal.pollUntilComplete(config.falApiKey, queue.status_url, {
       label: 'Generating logos — this usually takes 1–2 minutes',

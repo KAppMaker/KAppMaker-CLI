@@ -21,13 +21,15 @@ description: Generate the Google Play feature graphic with AI — the 1024x500 b
 Without `--spec`, the CLI calls OpenAI (GPT-4.1) to turn the inputs into a JSON banner spec — that
 path exists solely for raw-CLI users without an agent. The flow:
 
-1. Run `kappmaker generate-feature-image --print-prompt --prompt "<concept>" --app-name "<Name>" --primary-color "#RRGGBB" [--subtitle ...] [--logo ...] [--reference ...]`
-   — it prints the exact spec-authoring instructions (JSON schema + constraints, aware of which
-   reference images you're passing) and exits without calling any API.
-2. Write the JSON spec yourself, filling app name, brand color and value props from `AiGuidelines/`.
-   If the user supplied their own spec JSON, use it as-is.
-3. Save to `Assets/playstore/feature-graphic-spec.json` and run with `--spec` **plus the same
-   `--logo`/`--reference` flags** (those control the uploaded images, independent of the spec).
+1. Run `kappmaker spec-template feature-graphic --output Assets/playstore/feature-graphic-spec.json`
+   — writes the canonical banner spec skeleton (the exact JSON shape the OpenAI path used; its
+   `_instructions` key explains the rules and is auto-stripped before generation).
+2. Optionally run `kappmaker generate-feature-image --print-prompt --prompt "<concept>" --app-name "<Name>" --primary-color "#RRGGBB" [--logo ...] [--reference ...]`
+   for the full authoring guidance with your reference-image setup baked in.
+3. Fill the skeleton yourself: app name, brand color and value props from `AiGuidelines/`. Banner
+   text must be ONLY the real app name/subtitle. If the user supplied their own spec JSON, use it as-is.
+4. Run with `--spec` **plus the same `--logo`/`--reference` flags** (those control the uploaded
+   images, independent of the spec).
 
 **Options**:
 - `--spec <path>` — Pre-authored banner spec JSON; skips OpenAI entirely (preferred from this skill)

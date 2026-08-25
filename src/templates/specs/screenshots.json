@@ -1,0 +1,92 @@
+{
+  "_instructions": [
+    "Spec template for `kappmaker generate-screenshots --spec <file>`. Fill every empty field; keys starting with `_` are stripped before the spec is sent to the image model.",
+    "Exactly 8 entries in `screenshots` — the output is a fixed 2×4 grid; do not add or remove entries.",
+    "Keep each screen_visual_description to 2-3 sentences max — the image generator works best with focused descriptions.",
+    "Run `kappmaker generate-screenshots --print-prompt --prompt \"<app description>\" --style <1-8>` to get the style-specific visual direction (device framing, layout zones, typography rules) and bake it into the fields below.",
+    "When reference screenshots are passed via --input, the CLI prepends the instruction to use them as the app screens — describe marketing framing here, not the app UI pixels.",
+    "All 8 cells must share one brand system: same palette, same typography hierarchy, same lighting. Fill screenshots_overview.visual_consistency_rules accordingly."
+  ],
+  "type": "app_store_pro_screenshots",
+  "grid_layout": {
+    "rows": 2,
+    "columns": 4,
+    "total_cells": 8,
+    "arrangement": "All 8 screenshots arranged in a single image as a 2×4 grid (2 rows, 4 columns). Each grid cell contains one complete vertical marketing screenshot."
+  },
+  "style": {
+    "branding_theme": "",
+    "color_palette": [],
+    "typography": ""
+  },
+  "screenshots_overview": {
+    "count": 8,
+    "device_frames": "",
+    "tagline_style": "",
+    "visual_consistency_rules": []
+  },
+  "screenshots": [
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    },
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    },
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    },
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    },
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    },
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    },
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    },
+    {
+      "title_text": "",
+      "subtitle_text": "",
+      "screen_visual_description": "",
+      "ui_elements_emphasized": [],
+      "background_effects": ""
+    }
+  ],
+  "lighting": {
+    "ambient": "",
+    "device_glow": "",
+    "shadow_style": ""
+  },
+  "realism": ""
+}

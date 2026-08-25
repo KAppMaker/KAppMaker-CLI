@@ -23,13 +23,15 @@ for users running the raw CLI without an agent. You can write that JSON better y
 project context, and no `openaiApiKey` is needed. The flow:
 
 1. Ask the user which style preset (1–8) they want if not specified.
-2. Run `kappmaker generate-screenshots --print-prompt --prompt "<one-line app description>" --style <id>`
-   — it prints the exact spec-authoring instructions (JSON schema + style direction) for that style
+2. Run `kappmaker spec-template screenshots --output Assets/screenshots/spec.json` — writes the
+   canonical spec skeleton (the exact JSON shape the OpenAI path used; its `_instructions` key
+   explains the rules and is auto-stripped before generation).
+3. Run `kappmaker generate-screenshots --print-prompt --prompt "<one-line app description>" --style <id>`
+   — it prints the style-specific visual direction (device framing, layout zones, typography rules)
    and exits without calling any API. It also reports whether reference screenshots were detected.
-3. Follow those instructions yourself: write the JSON spec object (exactly 8 `screenshots` entries,
-   marketing copy drawn from `AiGuidelines/` — value props, brand color, tone). If the user supplied
-   their own spec JSON, use it as-is.
-4. Save it to `Assets/screenshots/spec.json` (project-visible, so the user can tweak and re-run).
+4. Fill the skeleton yourself: exactly 8 `screenshots` entries, marketing copy drawn from
+   `AiGuidelines/` (value props, brand color, tone), style direction baked into the style/lighting
+   fields. If the user supplied their own spec JSON, use it as-is.
 5. Run `kappmaker generate-screenshots --spec Assets/screenshots/spec.json [--input <dir>] [--style <id>]`.
 
 **Options**:

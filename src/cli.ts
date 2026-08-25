@@ -43,6 +43,7 @@ import { publishCommand } from './commands/publish.js';
 import { fastlaneConfigure } from './commands/fastlane-configure.js';
 import { convertWebp } from './commands/convert-webp.js';
 import { cloneCommand } from './commands/clone.js';
+import { specTemplate } from './commands/spec-template.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
 import {
   firebaseLoginCommand,
@@ -156,9 +157,20 @@ export function createCli(): Command {
     .command('create-logo')
     .description('Generate an app logo using AI (fal.ai)')
     .option('--prompt <text>', 'App idea / concept (skips the interactive prompt)')
+    .option('--spec <path>', 'Pre-authored logo-grid spec JSON used as the prompt (see `kappmaker spec-template logo`)')
     .option('--output <path>', 'Custom output path for the logo')
     .action(async (options) => {
       await createLogo(options);
+    });
+
+  program
+    .command('spec-template')
+    .description('Print (or write) the canonical spec JSON template for an image kind, for use with --spec')
+    .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image (omit to list)')
+    .option('--list', 'List available template kinds')
+    .option('--output <path>', 'Write the template to a file instead of stdout (refuses to overwrite)')
+    .action(async (kind, options) => {
+      await specTemplate(kind, options);
     });
 
   // ── Image tools ────────────────────────────────────────────────────

@@ -44,6 +44,9 @@ npx tsx src/index.ts firebase apps --project <id> --app-name <Name> --package-na
 npx tsx src/index.ts firebase auth-anonymous --project <id>                               # Step 5 — enable anonymous auth
 npx tsx src/index.ts firebase configs --project <id> --app-name <Name> [--package-name <pkg>]  # Step 6 — download SDK configs
 npx tsx src/index.ts create-logo [--prompt "..."]  # Logo generation (--prompt skips interactive input)
+npx tsx src/index.ts create-logo --spec logo-spec.json  # Logo generation from a pre-authored spec JSON (must keep the 4×4 grid)
+npx tsx src/index.ts spec-template                 # List canonical spec JSON templates (screenshots, feature-graphic, logo, image)
+npx tsx src/index.ts spec-template screenshots --output Assets/screenshots/spec.json  # Write a spec skeleton to fill and pass via --spec
 npx tsx src/index.ts generate-image --prompt "..." # Generic AI image generator (fal.ai nano-banana-2)
 npx tsx src/index.ts generate-image --spec spec.json  # Same, with a pre-authored JSON spec as the structured prompt
 npx tsx src/index.ts image-split <image> [opts]    # Split grid image (--keep 1,3 to filter)
@@ -122,18 +125,28 @@ When adding new skill-driven workflows: place the procedure as a new `###` secti
 
 ## Spec-File Image Generation (`--spec`, 1.25.0+)
 
-`generate-screenshots`, `generate-feature-image`, and `generate-image` accept `--spec <file.json>` —
-a pre-authored JSON spec used directly as the fal.ai prompt. This makes the OpenAI step optional:
-OpenAI's only role was turning a description into that JSON, so an agent (Claude Code skill) or the
-user can author it instead and no `openaiApiKey` is needed. `--print-prompt` on the two
-OpenAI-backed commands prints the exact spec-authoring instructions (JSON schema + style direction
-from `src/services/screenshot-styles.ts` / `buildFeatureImagePrompt`) and exits without calling any
-API — that keeps the schema's single source of truth in the CLI instead of duplicating it in skill
-docs. Spec loading/validation lives in `src/utils/spec-file.ts`; the interactive API-key prompts
-were deduped into `src/utils/api-keys.ts`. The kappmaker-screenshots / kappmaker-feature-graphic /
-kappmaker-image skills instruct the agent to ALWAYS use the `--spec` path (author the JSON itself,
-save it under `Assets/` so the user can tweak and re-run); the bare `--prompt` → OpenAI path remains
-for raw-CLI users only.
+`generate-screenshots`, `generate-feature-image`, `generate-image`, and `create-logo` accept
+`--spec <file.json>` — a pre-authored JSON spec used directly as the fal.ai prompt. This makes the
+OpenAI step optional: OpenAI's only role was turning a description into that JSON, so an agent
+(Claude Code skill) or the user can author it instead and no `openaiApiKey` is needed.
+
+**Canonical templates** live in `src/templates/specs/` — one JSON per image kind (`screenshots.json`,
+`feature-graphic.json`, `logo.json`, `image.json`), each preserving the proven prompt structure that
+produced good images (the schemas the OpenAI path emitted; the logo one is the JSON-ified
+`buildLogoPrompt` 4×4-grid structure). Each carries a top-level `_instructions` array explaining the
+fill rules; `loadSpec` strips all `_`-prefixed top-level keys before sending. The
+`kappmaker spec-template <kind> [--output <path>]` command prints/writes a template (`--output`
+refuses to overwrite); registry in `src/commands/spec-template.ts` — adding a new image kind = drop
+a JSON into `src/templates/specs/` and register it there (tsc copies imported JSON into `dist/`).
+
+`--print-prompt` on the two OpenAI-backed commands prints the full spec-authoring instructions
+(schema + style direction from `src/services/screenshot-styles.ts` / `buildFeatureImagePrompt`) and
+exits without calling any API. Spec loading/validation lives in `src/utils/spec-file.ts` (must parse
+as a single JSON object; screenshot-count mismatch warns); the interactive API-key prompts were
+deduped into `src/utils/api-keys.ts`. The screenshots / feature-graphic / image / logo skills
+instruct the agent to ALWAYS use the spec path: `spec-template` skeleton → fill from `AiGuidelines/`
+→ save under `Assets/` (so the user can tweak and re-run) → `--spec`. The bare `--prompt` → OpenAI
+path remains for raw-CLI users only.
 
 ## Version Bumping (this repo's own releases)
 
@@ -265,6 +278,7 @@ src/
     config.ts               # User config loader/saver (~/.config/kappmaker/config.json)
     prompt.ts               # Interactive prompts (confirm, input)
   templates/
+    specs/                  # Canonical --spec JSON templates per image kind (screenshots, feature-graphic, logo, image) — served by `kappmaker spec-template`
     appstore-config.json    # Default App Store Connect config template
     googleplay-config.json  # Default Google Play Console config template
     data-safety-template.json  # Canonical Play Data Safety form schema (783 rows, 217 Q IDs)

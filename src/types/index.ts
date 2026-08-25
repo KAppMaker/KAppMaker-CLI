@@ -48,6 +48,7 @@ export interface KAppMakerConfig {
 export interface CreateLogoOptions {
   output?: string;
   prompt?: string;
+  spec?: string;
 }
 
 export interface SplitOptions {
