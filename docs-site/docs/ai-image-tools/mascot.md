@@ -65,6 +65,31 @@ Uses the existing mascot as the reference image (default: `Assets/mascot/mascot_
 | `--output <path>` | Output file path | `<mascot dir>/states/<slug>.png` |
 | `--skip-remove-bg` | Keep the original background | — |
 
+## mascot-animate
+
+Animate a state into a short looping clip (image-to-video). **Priced per second — animate only the states you need** (an onboarding hero, a celebration), not all 16.
+
+```bash
+kappmaker mascot-animate --state happy                          # per-state default motion, ~$0.24 for 6s
+kappmaker mascot-animate --state celebrating --motion "throws confetti and dances"
+kappmaker mascot-animate --state happy --model seedance --duration 4   # premium (~$0.24/s)
+```
+
+The command prints a cost estimate and asks for confirmation before generating (`--yes` skips). Output: `Assets/mascot/animations/<state>.mp4`, plus a looping `.webp` when `ffmpeg` is installed.
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--state <name>` | Existing state to animate (`Assets/mascot/states/<state>.png`) | — |
+| `--image <path>` | Explicit source image | — |
+| `--motion <text>` | Motion description | Per-state preset |
+| `--model <id>` | `ltx` (~$0.04/s @1080p) or `seedance` (~$0.24/s) | `ltx` |
+| `--duration <seconds>` | ltx: 6–20 (even), seedance: 4–15 | 6 / 4 |
+| `--resolution <res>` | ltx: 1080p/1440p/2160p, seedance: 480p–1080p | 1080p / 720p |
+| `--spec <path>` | Pre-authored animation spec (`spec-template mascot-animation`) | — |
+| `--yes` | Skip the cost confirmation | — |
+
+**Tip**: for small in-app "alive" effects, tweening the static state PNGs (scale pulse, crossfade) is free and often looks better at small sizes. Use video clips for onboarding heroes, celebrations, App Store preview videos and social posts. Video models output no alpha channel — clips keep the flat background; the WebP loop is the app-friendly format.
+
 ## Requirements
 
 Requires `falApiKey` only (prompted on first use). No OpenAI key. Background removal uses fal.ai's bria model — one call per image, so a full 16-state run makes ~18 fal.ai calls; pass `--skip-remove-bg` to halve that.

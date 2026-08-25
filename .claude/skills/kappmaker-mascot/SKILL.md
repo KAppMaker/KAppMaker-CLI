@@ -1,6 +1,6 @@
 ---
 name: kappmaker-mascot
-description: Generate an AI mascot for a KAppMaker app and its emotional states — a character that boosts engagement, virality and growth. Pick from 16 concepts, then render the chosen mascot in 16 app-UI states (happy, loading, error, celebrating...), backgrounds auto-removed. Use when the user asks for a mascot, app character, or mascot emotions/states. For the brand logo use kappmaker-logo.
+description: Generate an AI mascot for a KAppMaker app and its emotional states — a character that boosts engagement, virality and growth. Pick from 16 concepts, then render the chosen mascot in 16 app-UI states (happy, loading, error, celebrating...), backgrounds auto-removed; selected states can be animated into short looping clips. Use when the user asks for a mascot, app character, mascot emotions/states, or animating the mascot. For the brand logo use kappmaker-logo.
 ---
 
 # KAppMaker — Mascot
@@ -69,6 +69,28 @@ Generates a single new state for the existing mascot (default reference:
 `Assets/mascot/states/<slug>.png`, removes the background. Use for states discovered later —
 "shopping", "level up", "streak lost". `--spec <path>` accepts a pre-authored single-state spec;
 `--skip-remove-bg` and `--output` as above.
+
+### mascot-animate — Animate a state into a looping clip
+
+**Syntax**: `kappmaker mascot-animate --state <name> [--motion "<description>"] [options]`
+
+Turns ONE existing state PNG into a short video clip (image-to-video), saved as MP4 +
+looping WebP (WebP conversion needs ffmpeg; skipped gracefully without it).
+
+**Video generation is priced per second — NEVER animate all states.** Animate only the states the
+user actually needs (typically 1-3: an onboarding hero, a celebration, maybe loading). Always let
+the command show its cost estimate and confirmation; pass `--yes` only when the user already
+approved the spend in conversation.
+
+- Default model **ltx** (`fal-ai/ltxv-2/image-to-video/fast`): ~$0.04/s at 1080p → a 6s loop ≈ $0.24.
+- `--model seedance` (Seedance 2.0): ~$0.24/s — reserve for one hero moment, not UI loops.
+- `--motion` defaults to a per-state preset (happy → gentle bounce, loading → patient sway, …);
+  write a custom one for anything specific. `--spec` accepts a pre-authored animation spec
+  (`kappmaker spec-template mascot-animation`) — fill `motion`/`mood`, keep the loop rules.
+- Output: `Assets/mascot/animations/<state>.mp4` (+ `.webp`).
+- Honest guidance for the user: for small in-app "alive" effects, tweening the static state PNGs
+  app-side (scale pulse, crossfade) is free and often reads better — reserve video clips for
+  onboarding heroes, celebrations, App Store preview material and social posts.
 
 ---
 

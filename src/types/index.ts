@@ -72,6 +72,18 @@ export interface MascotAddStateOptions {
   skipRemoveBg?: boolean;
 }
 
+export interface MascotAnimateOptions {
+  state?: string;
+  image?: string;
+  motion?: string;
+  model?: string;
+  duration?: number;
+  resolution?: string;
+  spec?: string;
+  output?: string;
+  yes?: boolean;
+}
+
 export interface SplitOptions {
   rows?: number;
   cols?: number;

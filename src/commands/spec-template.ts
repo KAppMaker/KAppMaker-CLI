@@ -7,6 +7,7 @@ import logoTemplate from '../templates/specs/logo.json' with { type: 'json' };
 import imageTemplate from '../templates/specs/image.json' with { type: 'json' };
 import mascotTemplate from '../templates/specs/mascot.json' with { type: 'json' };
 import mascotStatesTemplate from '../templates/specs/mascot-states.json' with { type: 'json' };
+import mascotAnimationTemplate from '../templates/specs/mascot-animation.json' with { type: 'json' };
 
 // Registry of canonical spec-JSON templates, one per image kind. Adding a new
 // image kind = drop a template into src/templates/specs/ and register it here.
@@ -17,6 +18,7 @@ const TEMPLATES: Record<string, { spec: unknown; usedBy: string }> = {
   image: { spec: imageTemplate, usedBy: 'generate-image --spec' },
   mascot: { spec: mascotTemplate, usedBy: 'create-mascot --spec' },
   'mascot-states': { spec: mascotStatesTemplate, usedBy: 'create-mascot --states-spec' },
+  'mascot-animation': { spec: mascotAnimationTemplate, usedBy: 'mascot-animate --spec' },
 };
 
 export interface SpecTemplateOptions {

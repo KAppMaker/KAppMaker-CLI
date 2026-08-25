@@ -107,6 +107,46 @@ export function stateSlug(state: string): string {
     .slice(0, 40) || 'state';
 }
 
+// ── Animation (image-to-video) ─────────────────────────────────────
+
+// Sensible default motion per well-known state, used when --motion is omitted.
+export const DEFAULT_STATE_MOTIONS: Record<string, string> = {
+  happy: 'bounces gently in place with a big smile, small joyful hops',
+  sad: 'shoulders slump slowly, head tilts down, a slow sigh',
+  excited: 'jumps up and down quickly, arms raised, sparkles of energy',
+  thinking: 'taps chin slowly, eyes look up, subtle head tilt',
+  loading: 'sways side to side rhythmically, as if waiting patiently',
+  success: 'pumps fist in a small victory pose, confident nod',
+  error: 'flinches slightly, shakes head slowly, apologetic look',
+  idle: 'breathes softly, blinks occasionally, tiny weight shifts',
+  celebrating: 'throws arms up and does a little dance in place',
+  confused: 'scratches head, looks left and right, puzzled squint',
+  proud: 'puffs chest, hands on hips, chin slightly raised',
+  curious: 'leans forward, eyes widen, small step closer',
+  sleeping: 'chest rises and falls slowly, gentle swaying, eyes closed',
+  encouraging: 'claps enthusiastically, nods with a warm smile',
+  waving: 'waves one hand in a friendly loop, warm smile',
+  love: 'hugs itself, gentle sway, eyes soften warmly',
+};
+
+export function buildMascotAnimationPrompt(motion: string): string {
+  return `Animate the mascot character from the provided image. The mascot ${motion}.
+
+Rules:
+- The character's identity, style, colors and proportions stay EXACTLY as in the source image — no redesign.
+- Subtle, loop-friendly motion: the character starts and ends in (or near) the same pose so the clip loops cleanly.
+- The mascot stays centered; static camera, no zoom, no pan, no cuts.
+- The background stays exactly as in the source image — flat and unchanged, nothing enters the frame.
+- No text, letters, numbers, UI elements, speech bubbles, emojis, watermarks or logos.`;
+}
+
+// Per-model duration limits (seconds): ltx 6-20 even values; seedance 4-15.
+export function clampAnimationDuration(model: string, requested: number): number {
+  if (model === 'seedance') return Math.min(15, Math.max(4, Math.round(requested)));
+  const even = Math.round(requested / 2) * 2;
+  return Math.min(20, Math.max(6, even));
+}
+
 export async function removeBackgroundToFile(
   apiKey: string,
   inputPath: string,

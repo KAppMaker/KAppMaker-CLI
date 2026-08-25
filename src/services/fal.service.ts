@@ -8,6 +8,13 @@ const FAL_NANO_BANANA_URL = 'https://queue.fal.run/fal-ai/nano-banana-2';
 const FAL_NANO_BANANA_EDIT_URL = 'https://queue.fal.run/fal-ai/nano-banana-2/edit';
 const FAL_BG_REMOVE_URL = 'https://queue.fal.run/fal-ai/bria/background/remove';
 
+// Image-to-video models (mascot animation). ltx = cheap default (~$0.04/s at
+// 1080p), seedance = premium character motion (~$0.24-0.30/s).
+const FAL_VIDEO_MODEL_URLS: Record<string, string> = {
+  ltx: 'https://queue.fal.run/fal-ai/ltxv-2/image-to-video/fast',
+  seedance: 'https://queue.fal.run/bytedance/seedance-2.0/image-to-video',
+};
+
 function headers(apiKey: string): Record<string, string> {
   return {
     Authorization: `Key ${apiKey}`,
@@ -248,6 +255,68 @@ export async function submitBackgroundRemoval(
   }
 
   return (await response.json()) as FalQueueResponse;
+}
+
+// ── Image-to-video (mascot animation) ────────────────────────────────
+
+export interface VideoGenerationParams {
+  prompt: string;
+  imageDataUri: string;
+  durationSeconds: number;
+  resolution: string;
+}
+
+export async function submitVideoGeneration(
+  apiKey: string,
+  model: string,
+  params: VideoGenerationParams,
+): Promise<FalQueueResponse> {
+  const endpoint = FAL_VIDEO_MODEL_URLS[model];
+  if (!endpoint) {
+    logger.fatal(`Unknown video model: ${model}. Available: ${Object.keys(FAL_VIDEO_MODEL_URLS).join(', ')}`);
+    process.exit(1);
+  }
+
+  const payload: Record<string, unknown> = {
+    prompt: params.prompt,
+    image_url: params.imageDataUri,
+    resolution: params.resolution,
+    duration: params.durationSeconds,
+    generate_audio: false,
+  };
+  if (model === 'ltx') payload.fps = 25;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: headers(apiKey),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    logger.fatal(`fal.ai video generation failed (${response.status}): ${body}`);
+    process.exit(1);
+  }
+
+  return (await response.json()) as FalQueueResponse;
+}
+
+export async function fetchVideoResult(
+  apiKey: string,
+  responseUrl: string,
+): Promise<string> {
+  const res = await fetch(responseUrl, { headers: headers(apiKey) });
+  if (!res.ok) {
+    logger.fatal(`Failed to fetch video result (${res.status})`);
+    process.exit(1);
+  }
+
+  const data = (await res.json()) as { video?: { url?: string } };
+  if (!data.video?.url) {
+    logger.fatal('No video URL in fal.ai response');
+    process.exit(1);
+  }
+  return data.video.url;
 }
 
 // ── Image upload (imgbb) ─────────────────────────────────────────────

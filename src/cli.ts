@@ -46,6 +46,7 @@ import { cloneCommand } from './commands/clone.js';
 import { specTemplate } from './commands/spec-template.js';
 import { createMascot } from './commands/create-mascot.js';
 import { mascotAddState } from './commands/mascot-add-state.js';
+import { mascotAnimate } from './commands/mascot-animate.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
 import {
   firebaseLoginCommand,
@@ -212,9 +213,35 @@ export function createCli(): Command {
     });
 
   program
+    .command('mascot-animate')
+    .description('Animate one mascot state into a short looping clip (image-to-video; costs per second — animate only needed states)')
+    .option('--state <name>', 'Existing state to animate (uses Assets/mascot/states/<state>.png)')
+    .option('--image <path>', 'Explicit source image (overrides --state lookup)')
+    .option('--motion <text>', 'Motion description (default: per-state preset, e.g. happy → gentle bounce)')
+    .option('--model <id>', 'Video model: ltx (cheap, ~$0.04/s) or seedance (premium, ~$0.24/s)', 'ltx')
+    .option('--duration <seconds>', 'Clip length in seconds (ltx: 6-20 even, seedance: 4-15)')
+    .option('--resolution <res>', 'Video resolution (ltx: 1080p/1440p/2160p, seedance: 480p/720p/1080p)')
+    .option('--spec <path>', 'Pre-authored animation spec JSON (see `kappmaker spec-template mascot-animation`)')
+    .option('--output <path>', 'Output MP4 path (default: Assets/mascot/animations/<state>.mp4)')
+    .option('--yes', 'Skip the cost confirmation prompt')
+    .action(async (options) => {
+      await mascotAnimate({
+        state: options.state,
+        image: options.image,
+        motion: options.motion,
+        model: options.model,
+        duration: options.duration ? parseInt(options.duration, 10) : undefined,
+        resolution: options.resolution,
+        spec: options.spec,
+        output: options.output,
+        yes: options.yes,
+      });
+    });
+
+  program
     .command('spec-template')
     .description('Print (or write) the canonical spec JSON template for an image kind, for use with --spec')
-    .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image, mascot, mascot-states (omit to list)')
+    .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image, mascot, mascot-states, mascot-animation (omit to list)')
     .option('--list', 'List available template kinds')
     .option('--output <path>', 'Write the template to a file instead of stdout (refuses to overwrite)')
     .action(async (kind, options) => {

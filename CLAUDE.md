@@ -48,6 +48,7 @@ npx tsx src/index.ts create-logo --spec logo-spec.json  # Logo generation from a
 npx tsx src/index.ts create-mascot --prompt "..." [--tone "..."]  # Mascot: 16-concept grid → pick one → 16 emotional states, bg auto-removed
 npx tsx src/index.ts create-mascot --spec mascot-spec.json --states-spec states-spec.json  # Same, from pre-authored spec JSONs
 npx tsx src/index.ts mascot-add-state --state "shopping"          # One more state for the existing mascot (edit mode + bg removal)
+npx tsx src/index.ts mascot-animate --state happy [--motion "..."] [--model ltx|seedance]  # Animate ONE state into a looping clip (per-second pricing; cost confirm before spend)
 npx tsx src/index.ts spec-template                 # List canonical spec JSON templates (screenshots, feature-graphic, logo, image, mascot, mascot-states)
 npx tsx src/index.ts spec-template screenshots --output Assets/screenshots/spec.json  # Write a spec skeleton to fill and pass via --spec
 npx tsx src/index.ts generate-image --prompt "..." # Generic AI image generator (fal.ai nano-banana-2)
@@ -252,6 +253,7 @@ src/
     spec-template.ts        # `spec-template <kind>` — print/write canonical --spec JSON templates (registry over src/templates/specs/)
     create-mascot.ts        # Mascot: 16-concept 4×4 grid → interactive pick → 16 emotional-states grid (chosen mascot as reference) → split + bg removal
     mascot-add-state.ts     # One additional mascot state via edit mode (default ref: Assets/mascot/mascot_no_bg.png)
+    mascot-animate.ts       # One state → short looping clip (fal i2v: ltx cheap default / seedance premium; cost estimate + confirm; ffmpeg → looping WebP)
     fastlane-configure.ts   # Set up Fastlane (Gemfile + Fastfile + bundle install)
     publish.ts              # Build and upload to Google Play / App Store via Fastlane
     generate-keystore.ts    # Generate Android signing keystore
