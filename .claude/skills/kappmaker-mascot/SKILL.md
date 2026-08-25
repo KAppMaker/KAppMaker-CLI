@@ -90,8 +90,13 @@ user actually needs (typically 1-3: an onboarding hero, a celebration, maybe loa
 the command show its cost estimate and confirmation; pass `--yes` only when the user already
 approved the spend in conversation.
 
-- Default model **ltx** (`fal-ai/ltxv-2/image-to-video/fast`): ~$0.04/s at 1080p → a 6s loop ≈ $0.24.
-- `--model seedance` (Seedance 2.0): ~$0.24/s — reserve for one hero moment, not UI loops.
+- Default model **seedance-mini** (Seedance 2.0 Mini): ~$0.07/s at 480p, auto duration → a clip ≈ $0.30-0.45. Reliable and cheap.
+- `--model ltx` (`fal-ai/ltxv-2/image-to-video/fast`): cheapest at 1080p (~$0.04/s) but the backend has outages — if it fails with "Downstream service error", fall back to seedance-mini.
+- `--model seedance` (full Seedance 2.0): ~$0.24/s — reserve for one hero moment, not UI loops.
+- `--gif` also emits a looping GIF (READMEs, chats). WebP/GIF conversion requires **ffmpeg on the
+  machine** (NOT bundled with kappmaker — `brew install ffmpeg`); without it the MP4 is still saved
+  and conversion is skipped with a tip.
+- Transparent source PNGs are auto-flattened onto white before upload (video models have no alpha).
 - `--motion` defaults to a per-state preset (happy → gentle bounce, loading → patient sway, …);
   write a custom one for anything specific. `--spec` accepts a pre-authored animation spec
   (`kappmaker spec-template mascot-animation`) — fill `motion`/`mood`, keep the loop rules.

@@ -70,22 +70,23 @@ Uses the existing mascot as the reference image (default: `Assets/mascot/mascot_
 Animate a state into a short looping clip (image-to-video). **Priced per second — animate only the states you need** (an onboarding hero, a celebration), not all 16.
 
 ```bash
-kappmaker mascot-animate --state happy                          # per-state default motion, ~$0.24 for 6s
-kappmaker mascot-animate --state celebrating --motion "throws confetti and dances"
+kappmaker mascot-animate --state happy                          # seedance-mini @480p, ~$0.35 per clip
+kappmaker mascot-animate --state celebrating --motion "throws confetti and dances" --gif
 kappmaker mascot-animate --state happy --model seedance --duration 4   # premium (~$0.24/s)
 ```
 
-The command prints a cost estimate and asks for confirmation before generating (`--yes` skips). Output: `Assets/mascot/animations/<state>.mp4`, plus a looping `.webp` when `ffmpeg` is installed.
+The command prints a cost estimate and asks for confirmation before generating (`--yes` skips). Output: `Assets/mascot/animations/<state>.mp4`, plus a looping `.webp` (and `.gif` with `--gif`) when `ffmpeg` is installed — ffmpeg is **not** bundled with kappmaker (`brew install ffmpeg`); without it the MP4 is still saved. Transparent source PNGs are auto-flattened onto white before upload (video models output no alpha channel).
 
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--state <name>` | Existing state to animate (`Assets/mascot/states/<state>.png`) | — |
 | `--image <path>` | Explicit source image | — |
 | `--motion <text>` | Motion description | Per-state preset |
-| `--model <id>` | `ltx` (~$0.04/s @1080p) or `seedance` (~$0.24/s) | `ltx` |
-| `--duration <seconds>` | ltx: 6–20 (even), seedance: 4–15 | 6 / 4 |
-| `--resolution <res>` | ltx: 1080p/1440p/2160p, seedance: 480p–1080p | 1080p / 720p |
+| `--model <id>` | `seedance-mini` (~$0.07/s), `ltx` (~$0.04/s @1080p, outage-prone), `seedance` (~$0.24/s) | `seedance-mini` |
+| `--duration <seconds>` | ltx: 6–20 (even), seedance: 4–15; seedance-mini picks automatically | auto / 6 / 4 |
+| `--resolution <res>` | seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p–1080p | 480p / 1080p / 720p |
 | `--spec <path>` | Pre-authored animation spec (`spec-template mascot-animation`) | — |
+| `--gif` | Also emit a looping GIF (READMEs, chats, marketing) | — |
 | `--yes` | Skip the cost confirmation | — |
 
 **Tip**: for small in-app "alive" effects, tweening the static state PNGs (scale pulse, crossfade) is free and often looks better at small sizes. Use video clips for onboarding heroes, celebrations, App Store preview videos and social posts. Video models output no alpha channel — clips keep the flat background; the WebP loop is the app-friendly format.

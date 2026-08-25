@@ -85,6 +85,7 @@ export interface MascotAnimateOptions {
   spec?: string;
   output?: string;
   yes?: boolean;
+  gif?: boolean;
 }
 
 export interface SplitOptions {

@@ -229,14 +229,16 @@ export function createCli(): Command {
     .option('--state <name>', 'Existing state to animate (uses Assets/mascot/states/<state>.png)')
     .option('--image <path>', 'Explicit source image (overrides --state lookup)')
     .option('--motion <text>', 'Motion description (default: per-state preset, e.g. happy → gentle bounce)')
-    .option('--model <id>', 'Video model: ltx (cheap, ~$0.04/s) or seedance (premium, ~$0.24/s)', 'ltx')
-    .option('--duration <seconds>', 'Clip length in seconds (ltx: 6-20 even, seedance: 4-15)')
-    .option('--resolution <res>', 'Video resolution (ltx: 1080p/1440p/2160p, seedance: 480p/720p/1080p)')
+    .option('--model <id>', 'Video model: seedance-mini (~$0.07/s, default), ltx (~$0.04/s @1080p, outage-prone), seedance (~$0.24/s premium)', 'seedance-mini')
+    .option('--duration <seconds>', 'Clip length in seconds (ltx: 6-20 even, seedance: 4-15; seedance-mini picks automatically)')
+    .option('--resolution <res>', 'Video resolution (seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p-1080p)')
     .option('--spec <path>', 'Pre-authored animation spec JSON (see `kappmaker spec-template mascot-animation`)')
     .option('--output <path>', 'Output MP4 path (default: Assets/mascot/animations/<state>.mp4)')
+    .option('--gif', 'Also convert to a looping GIF (requires ffmpeg; for READMEs, chats, marketing)')
     .option('--yes', 'Skip the cost confirmation prompt')
     .action(async (options) => {
       await mascotAnimate({
+        gif: options.gif,
         state: options.state,
         image: options.image,
         motion: options.motion,
