@@ -178,7 +178,15 @@ export function createCli(): Command {
     .option('--resolution <res>', 'AI resolution for the states grid (1K, 2K, 4K)', '2K')
     .option('--skip-states', 'Stop after the mascot is chosen (no states grid)')
     .option('--skip-remove-bg', 'Keep original backgrounds (skip fal.ai background removal)')
+    .option('--grid-only', 'Generate and save the concept grid, then exit (non-interactive; pair with --choose later)')
+    .option('--choose <n>', 'Pick cell 1-16 from the existing grid non-interactively (requires a prior --grid-only run)')
+    .option('--yes', 'Skip the "generate states now?" confirmation')
     .action(async (options) => {
+      const choose = options.choose ? parseInt(options.choose, 10) : undefined;
+      if (choose !== undefined && (isNaN(choose) || choose < 1 || choose > 16)) {
+        console.error('--choose must be a number between 1 and 16');
+        process.exit(1);
+      }
       await createMascot({
         prompt: options.prompt,
         tone: options.tone,
@@ -189,6 +197,9 @@ export function createCli(): Command {
         resolution: options.resolution,
         skipStates: options.skipStates,
         skipRemoveBg: options.skipRemoveBg,
+        gridOnly: options.gridOnly,
+        choose,
+        yes: options.yes,
       });
     });
 

@@ -37,7 +37,15 @@ beats prose, and templates preserve the proven prompt shape):
    Both specs are baselines, not straitjackets — enrich freely within the grid contracts. Plain
    `--prompt "<app idea>" [--tone ...]` works too, using the built-in prompts.
 
-**Flow** (interactive):
+**Agent flow (no TTY)** — when driving this from a coding agent, the interactive picker can't be
+used; run two-phase instead:
+
+1. `kappmaker create-mascot --spec ... --grid-only` — generates and saves the concept grid, exits.
+2. Show `Assets/mascot/mascot_variations.png` to the user and ask which cell (1-16) they like.
+3. `kappmaker create-mascot --spec ... --states-spec ... --choose <n> --yes` — reuses the saved
+   grid, extracts cell n, removes background, generates the 16 states, slices and cleans them.
+
+**Flow** (interactive terminal):
 1. Generates a 4×4 grid of 16 mascot concepts → opens preview → user picks 1-16 (or R to regenerate;
    optional `5 --zoom 1.1 --gap 3`).
 2. Extracts the chosen mascot to `Assets/mascot/mascot.png` + background-removed `mascot_no_bg.png`.

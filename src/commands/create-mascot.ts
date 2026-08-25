@@ -18,14 +18,17 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
   const config = await loadConfig();
   await ensureFalKey(config);
 
-  const appIdea = options.prompt?.trim()
-    ? options.prompt.trim()
-    : options.spec && options.statesSpec
-      ? ''
-      : (await promptInput('Describe your app idea (concept, audience, vibe): ')).trim();
-  if (!appIdea && !(options.spec && options.statesSpec)) {
-    logger.fatal('App idea cannot be empty (or pass both --spec and --states-spec).');
-    process.exit(1);
+  // The app idea feeds the built-in prompts; a stage covered by a spec (or
+  // skipped entirely) doesn't need it.
+  const needsIdeaForVariations = !options.spec && !options.choose;
+  const needsIdeaForStates = !options.statesSpec && !options.skipStates && !options.gridOnly;
+  let appIdea = options.prompt?.trim() ?? '';
+  if (!appIdea && (needsIdeaForVariations || needsIdeaForStates)) {
+    appIdea = (await promptInput('Describe your app idea (concept, audience, vibe): ')).trim();
+    if (!appIdea) {
+      logger.fatal('App idea cannot be empty (or pass --spec / --states-spec instead).');
+      process.exit(1);
+    }
   }
 
   const outDir = path.resolve(options.output ?? DEFAULT_OUTPUT_DIR);
@@ -38,7 +41,15 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
     ? await loadSpec(options.spec)
     : mascot.buildMascotVariationPrompt(appIdea, options.tone?.trim() || undefined);
 
-  let selection: GridSelectionResult | null = null;
+  // --choose <n> reuses an already-generated grid non-interactively (agent
+  // flow: run once with --grid-only, show the grid, then re-run with --choose).
+  let selection: GridSelectionResult | null =
+    options.choose && (await fs.pathExists(gridPath)) ? { index: options.choose } : null;
+  if (options.choose && selection === null) {
+    logger.fatal(`--choose needs an existing grid at ${gridPath} — run with --grid-only first.`);
+    process.exit(1);
+  }
+
   while (selection === null) {
     logger.step(1, 4, 'Generating mascot concept grid (16 variations)');
     const queue = await fal.submitGeneration(config.falApiKey, variationPrompt);
@@ -48,6 +59,12 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
     const imageUrl = await fal.fetchResult(config.falApiKey, queue.response_url);
     await fal.downloadImage(imageUrl, gridPath);
     logger.info(`Grid saved to ${gridPath}`);
+
+    if (options.gridOnly) {
+      logger.success('Grid generated (--grid-only). Pick a cell, then re-run with --choose <1-16>.');
+      logger.done();
+      return;
+    }
 
     await openPreview(gridPath);
     selection = await askGridSelection('mascot');
@@ -74,7 +91,9 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
     return;
   }
 
-  const proceed = (await promptInput('Generate 16 emotional states for this mascot now? (Y/n): ')).trim().toLowerCase();
+  const proceed = options.yes
+    ? 'y'
+    : (await promptInput('Generate 16 emotional states for this mascot now? (Y/n): ')).trim().toLowerCase();
   if (proceed === 'n' || proceed === 'no') {
     logger.info('Skipped. Generate states later with `kappmaker mascot-add-state` or by re-running.');
     logger.done();
@@ -110,8 +129,15 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
   const statesGridPath = path.join(outDir, 'mascot_states_grid.png');
   await fal.downloadImage(statesUrl, statesGridPath);
 
-  // Split grid into 16 tiles, then rename tiles to their state slugs
+  // Remove the background from the WHOLE grid in one fal call, then split —
+  // the sliced tiles inherit transparency (16× cheaper than per-tile removal).
   logger.step(4, 4, 'Splitting states and removing backgrounds');
+  if (!options.skipRemoveBg) {
+    await mascot.removeBackgroundToFile(
+      config.falApiKey, statesGridPath, statesGridPath, 'states grid',
+    );
+  }
+
   const statesDir = path.join(outDir, 'states');
   await fs.ensureDir(statesDir);
   await splitGrid(statesGridPath, statesDir, {
@@ -123,9 +149,6 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
     const from = path.join(statesDir, `image_${i + 1}.png`);
     const to = path.join(statesDir, `${mascot.stateSlug(states[i])}.png`);
     if (await fs.pathExists(from)) await fs.move(from, to, { overwrite: true });
-    if (!options.skipRemoveBg && (await fs.pathExists(to))) {
-      await mascot.removeBackgroundToFile(config.falApiKey, to, to, mascot.stateSlug(states[i]));
-    }
   }
 
   logger.success(`16 mascot states saved to ${statesDir}`);

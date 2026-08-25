@@ -92,4 +92,4 @@ The command prints a cost estimate and asks for confirmation before generating (
 
 ## Requirements
 
-Requires `falApiKey` only (prompted on first use). No OpenAI key. Background removal uses fal.ai's bria model — one call per image, so a full 16-state run makes ~18 fal.ai calls; pass `--skip-remove-bg` to halve that.
+Requires `falApiKey` only (prompted on first use). No OpenAI key. A full run makes ~4 fal.ai calls: one per grid generation (concepts, states) and one background removal each for the chosen mascot and the whole states grid — the grid is cleaned in a single call before slicing, so tiles inherit transparency.

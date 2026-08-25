@@ -61,6 +61,9 @@ export interface CreateMascotOptions {
   resolution?: string;
   skipStates?: boolean;
   skipRemoveBg?: boolean;
+  gridOnly?: boolean;
+  choose?: number;
+  yes?: boolean;
 }
 
 export interface MascotAddStateOptions {
