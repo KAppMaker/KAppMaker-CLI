@@ -1627,7 +1627,7 @@ Every generated file passes these checks before being written to disk:
 
 ### Supported locales
 
-Mode 1 uses a fixed set of 9. Mode 2 accepts ~30 locale codes covering both platforms — the workflow holds the iOS↔Play mapping (e.g. iOS `ko` ↔ Play `ko-KR`, iOS `zh-Hans` ↔ Play `zh-CN`). See [the skill file](.claude/skills/kappmaker/SKILL.md#localize-aso-metadata--per-locale-name--subtitle--keywords--description) for the full table.
+Mode 1 uses a fixed set of 9. Mode 2 accepts ~30 locale codes covering both platforms — the workflow holds the iOS↔Play mapping (e.g. iOS `ko` ↔ Play `ko-KR`, iOS `zh-Hans` ↔ Play `zh-CN`). See [the skill file](skills/kappmaker/SKILL.md#localize-aso-metadata--per-locale-name--subtitle--keywords--description) for the full table.
 
 ### Pair with screenshot translation
 
