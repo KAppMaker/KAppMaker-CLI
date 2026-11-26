@@ -17,7 +17,7 @@ description: Set up an app on App Store Connect (ASC) for iOS — the app record
 **Syntax**: `kappmaker create-appstore-app [--config <path>]`
 
 **Prerequisites**:
-- `asc` CLI installed **≥ 5.9.0** (macOS/Linux: `brew install asc` / `brew update && brew upgrade asc`; without Homebrew: `curl -fsSL https://asccli.sh/install | bash`). KAppMaker 1.27+ uses `pricing availability create --if-exists update`, `prices import --confirm` and group-version localizations, which older asc lacks. `kappmaker doctor` shows the installed version.
+- `asc` CLI installed **≥ 5.9.0** (macOS/Linux: `brew install asc` / `brew update && brew upgrade asc`; without Homebrew: `curl -fsSL https://asccli.sh/install | bash`). KAppMaker 2.0+ uses `pricing availability create --if-exists update`, `prices import --confirm` and group-version localizations, which older asc lacks. `kappmaker doctor` shows the installed version.
 - Repo location: https://github.com/rorkai/App-Store-Connect-CLI (renamed from rudrankriyam in 2026)
 - Config keys: `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath` (for API auth)
 - `appleId` — now required (used by both `asc web apps create` and privacy setup)

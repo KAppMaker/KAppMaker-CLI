@@ -378,7 +378,7 @@ Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fann
 - `AppStoreSubscription.ppp_enabled`
 - `AppStoreInAppPurchase.ppp_enabled`
 
-**ASC implementation detail (1.7.0+ — bulk CSV import)**: requires **asc CLI ≥ 5.9.0** (rorkai/App-Store-Connect-CLI, renamed from rudrankriyam; 1.27.0 moved to the 5.x command surface — `pricing availability create`, `prices import --confirm`, group-version localizations, `subscriptions setup --no-verify`). Both subscriptions and IAPs land their per-territory PPP fan-out in a **single API call** per product:
+**ASC implementation detail (1.7.0+ — bulk CSV import)**: requires **asc CLI ≥ 5.9.0** (rorkai/App-Store-Connect-CLI, renamed from rudrankriyam; 2.0.0 moved to the 5.x command surface — `pricing availability create`, `prices import --confirm`, group-version localizations, `subscriptions setup --no-verify`). Both subscriptions and IAPs land their per-territory PPP fan-out in a **single API call** per product:
 
 - **Subscriptions**: `asc subscriptions pricing prices import --input <csv>` (added in asc 1.4.0). KAppMaker writes a temp CSV with `territory,price,price_point_id` rows for all 175 territories and pipes it in. ~1 API call per subscription instead of ~155 — eliminates the rate-limit cascade we hit in 1.6.x. **Two-pass import (1.13.19+)**: pass 1 omits `--start-date` (rows land as STARTING prices — correct for never-approved subs; future-dated rows are rejected on fresh subs with "Create a starting price before creating future prices"). On an APPROVED subscription Apple rejects every starting-price row with _"Initial price cannot be created again after subscription is approved"_ — pre-1.13.19 this only produced a warning and prices silently never changed on re-runs. Pass 2 collects those territories and re-imports them with `--start-date` (tomorrow UTC; if Apple answers _"must be on or after YYYY-MM-DD"_ — its day boundary runs ahead of UTC — a third pass retries with the exact date Apple demands). Price decreases apply to existing subscribers automatically; increases trigger Apple's subscriber-consent flow. Neither needs App Review.
 - **IAPs**: `asc iap pricing schedules create --prices "PP_ID:DATE,..."` (already batch from earlier versions).
@@ -653,7 +653,7 @@ The Adapty CLI v0.1.5 (the current shipping version) hardcodes a period whitelis
 
 ### Adapty Prices Are Not Developer-Set
 
-**Update (adapty CLI 0.33, KAppMaker 1.27):** the CLI now takes `products create --price-usd` (body
+**Update (adapty CLI 0.33, KAppMaker 2.0):** the CLI now takes `products create --price-usd` (body
 `price_usd`), and KAppMaker sends `price` there when the installed adapty is ≥ 0.33. Store prices
 still come from ASC / Play; the paragraphs below describe the pre-0.33 API. Also new in 0.33:
 `paywalls create --products '<json>'` replaces the deprecated `--product-id` (used automatically on

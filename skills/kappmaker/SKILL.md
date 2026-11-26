@@ -138,7 +138,13 @@ after each batch.**
 - Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline on first use and saved to config —
   never a fatal exit. For key sources and all config keys → **kappmaker-config**.
 - **Firebase auth errors**: run `firebase login` first.
-- **`asc` not found**: `brew install asc`. **`adapty` not found**: `npm install -g adapty`.
+- **A tool missing or too old** (asc, adapty, firebase, JDK, Android SDK, Xcode…): run
+  `kappmaker doctor` — it prints each tool's version and the exact install line for this OS
+  (macOS Homebrew / Linux apt). asc must be ≥ 5.9, adapty ≥ 0.33, Node ≥ 22.12.
+- **App Army kit** (`kappmaker-army`): `kappmaker army <cmd>` forwards to it; if it is not
+  installed, `kappmaker army install` (laptop) or `kappmaker army install --server` (VPS, root)
+  downloads and checksum-verifies the installer. Never pass the licence key on the command line
+  yourself — let the installer prompt for it.
 - **App name validation**: PascalCase, starts uppercase, alphanumeric only.
 - Steps that fail on a missing dependency warn and skip rather than aborting the whole flow; if no
   config file exists when `create` runs, `config init` is triggered automatically.
