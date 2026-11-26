@@ -80,10 +80,10 @@ jobs:
       contents: write
     env:
       github_token: ${{ secrets.GITHUB_TOKEN }}
-      app_name: Koko
+      app_name: __APP_NAME__
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -117,7 +117,7 @@ jobs:
       - name: Set up Ruby and fastlane
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.4'
           bundler-cache: true
           working-directory: MobileApp
 
@@ -133,6 +133,7 @@ jobs:
           # throughout the build log. Set it only for the bootstrap run.
           MATCH_READONLY: ${{ vars.MATCH_READONLY }}
           FASTLANE_SKIP_UPDATE_CHECK: '1'
+          FASTLANE_OPT_OUT_USAGE: 'YES'
           FASTLANE_HIDE_CHANGELOG: '1'
         run: |
           bundle exec fastlane ios ci_appstore_release \
@@ -144,7 +145,7 @@ jobs:
       # Keep the .ipa reachable when a later step fails.
       - name: Upload .ipa artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-ipa
           path: MobileApp/distribution/ios/*.ipa
@@ -153,7 +154,7 @@ jobs:
 
       - name: Create new release from tag
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: |

@@ -126,3 +126,11 @@ test('asc minimum matches the version the asc service enforces', async () => {
   const { MIN_ASC_VERSION } = await import('../services/asc.service.js');
   assert.equal(toolById('asc').min, MIN_ASC_VERSION);
 });
+
+test('firebase login uses --no-localhost on headless machines only', async () => {
+  const { isHeadless } = await import('../services/firebase.service.js');
+  assert.equal(isHeadless({ SSH_CONNECTION: '1 2 3 4' }, 'darwin'), true);
+  assert.equal(isHeadless({}, 'linux'), true);
+  assert.equal(isHeadless({ DISPLAY: ':0' }, 'linux'), false);
+  assert.equal(isHeadless({}, 'darwin'), false);
+});
