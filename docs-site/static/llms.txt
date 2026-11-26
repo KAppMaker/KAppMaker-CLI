@@ -1,13 +1,15 @@
 # KAppMaker CLI
 
 > Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure
-> Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the
-> KAppMaker AI agent drives on your behalf. See https://kappmaker.com.
+> Firebase, build signed releases and ship to the App Store and Google Play. It is the CLI behind
+> KAppMaker AI, the agentic KMP app development kit you install on your own machine. See
+> https://kappmaker.com.
 
-The CLI is installed with `npm i -g kappmaker` and runs standalone, but it is also the toolchain
-behind [KAppMaker AI](https://kappmaker.com): a cloud machine that runs Claude Code non-stop and
-takes instructions over Telegram, so an app gets built while its owner sleeps. Every command below
-is one an agent can run unattended — no Xcode, no Android Studio, no Mac required for iOS.
+The CLI is installed with `npm i -g kappmaker` and runs standalone, but it is also the CLI behind
+[KAppMaker AI](https://kappmaker.com): the agentic Kotlin Multiplatform app development kit a buyer
+installs once, with one command, on their own laptop or VPS (`kappmaker army install`). The kit's
+agents run Claude Code on that machine and drive these commands unattended — no Xcode, no Android
+Studio, no Mac required for iOS. Nothing is collected from the machine it runs on.
 
 ## Start here
 

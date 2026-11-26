@@ -35,6 +35,8 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 ```bash
 npm run dev          # Run with tsx (no build needed)
 npm run build        # Compile TypeScript to dist/
+npx tsx src/index.ts army <cmd> [args]             # Forward to kappmaker-army (App Army kit); exit code passed through
+npx tsx src/index.ts army install [--server] [--key K] [--dry-run]  # Download kappmaker.com/install.sh, verify vs install.sh.sha256, run it (key via env only)
 npx tsx src/index.ts create <AppName>              # Full end-to-end app setup (13 steps)
 npx tsx src/index.ts clone <AppName>               # Step 1 only — clone template into <AppName>-All
 npx tsx src/index.ts git setup-upstream [path]     # Step 10 only — rename origin to upstream (default: cwd)
@@ -176,7 +178,14 @@ Rule of thumb: code change → bump CLI version (all three spots); skill change 
 Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
 maintained by hand and drift silently.
 
-Test scripts: `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers).
+Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate). `npm run lint` = type check.
+
+## Privacy (hard rule)
+
+The CLI never collects or sends anything about the user's machine: no telemetry, analytics, crash
+reports or update checks. Network calls go only to the services a command is configured for
+(fal.ai, OpenAI, Apple, Google, Adapty, RevenueCat, imgbb, GitHub) and to kappmaker.com for
+`kappmaker army install` (install.sh + its checksum, fixed User-Agent). Keep it that way.
 
 ## Custom Template Support
 
@@ -234,6 +243,7 @@ src/
   cli.ts                    # Commander.js program setup
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
+    army.ts                 # `kappmaker army` — forward to kappmaker-army, or install the kit via verified install.sh (army.test.ts = tests)
     clone.ts                # `kappmaker clone <AppName>` — step 1 of create as a standalone command (also called by create.ts)
     git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone command (also called by create.ts)
     firebase.ts             # `kappmaker firebase` subcommands: login, project, apps, auth-anonymous, configs (steps 2-6 of create as standalones; also called by create.ts)
@@ -267,6 +277,7 @@ src/
     update-version.ts       # Bump Android + iOS version codes and version name
     config.ts               # Config management (list, set, get, init)
   services/
+    army.service.ts         # kit lookup (PATH, ~/.army/kit/cli), install.sh download + SHA-256 check, inherited-stdio runner
     firebase.service.ts     # Firebase CLI wrapper (project + app creation + anonymous auth via REST)
     fal.service.ts          # fal.ai HTTP API (submit, poll, fetch, download, translate, screenshot generation)
     openai.service.ts       # OpenAI API (prompt generation for screenshots)

@@ -2,7 +2,9 @@
 
 > **Full documentation at [cli.kappmaker.com](https://cli.kappmaker.com)**
 
-CLI tool that automates the entire mobile app launch process — from project scaffolding to store-ready builds.
+The CLI behind [KAppMaker AI](https://kappmaker.com), the agentic Kotlin Multiplatform app development kit you install on your own laptop or server. It automates the entire mobile app launch process — from project scaffolding to store-ready builds — and every command is one an agent can run unattended.
+
+It works on its own too: `npm install -g kappmaker` and drive it by hand or from Claude Code. Once the App Army kit is installed, `kappmaker army <command>` hands off to it (see [`kappmaker army`](#kappmaker-army)). The CLI sends nothing about you or your machine anywhere: no telemetry, no analytics, no update checks. The only network calls it makes are to the services you configure for the command you run.
 
 A single `kappmaker create` command can:
 - Clone a template repository and set up a new project
@@ -89,9 +91,29 @@ Claude will check your config, verify API keys are set, and walk you through any
 
 **Context-aware**: when a command needs inputs you didn't pass (app description, app name, brand color, tagline, keywords, etc.), the skill reads your project's `AiGuidelines/` folder first (`app-idea.md`, `prd.md`, `keywords.md`, `brand.md`), then `README.md`, then existing ASO metadata, and fills in what it finds — you're only prompted for things that aren't already written down somewhere in the project.
 
+## `kappmaker army`
+
+Bridge to the App Army kit (`kappmaker-army`), the part of KAppMaker AI that runs agents on your own machine.
+
+```bash
+kappmaker army install                 # laptop (macOS / Linux)
+kappmaker army install --server        # a Linux server, as root (adds a worker user, hardening, services)
+kappmaker army install --dry-run       # show what the installer would do, change nothing
+kappmaker army doctor                  # = kappmaker-army doctor
+kappmaker army update                  # = kappmaker-army update
+kappmaker army worker add app2         # any other kappmaker-army command, args passed through
+```
+
+- **With the kit installed**, every `kappmaker army <cmd> [args]` runs `kappmaker-army <cmd> [args]` (found on `PATH`, or in `~/.army/kit/cli`) and exits with its exit code. Flags, `--help` included, go to the kit.
+- **`install`** downloads `https://kappmaker.com/install.sh` and `install.sh.sha256` to a private temp directory, refuses to run anything if the checksum is missing or does not match, then runs the verified script with your arguments. Any `install.sh` option works (`--sudo limited|full`, `--worker NAME`, `--version vX.Y.Z`, `--update`, …). It is the same as `curl -fsSL https://kappmaker.com/install.sh | bash`, plus the checksum check, and is safe to re-run.
+- **Licence key**: the installer asks for it with hidden input. `--key K` or `KAPPMAKER_LICENSE_KEY` also work; the key reaches `install.sh` only through its environment, never its command line or the output. (`--key` on your own command line still lands in shell history, so the prompt or the env var is better.)
+- **Without the kit**, `doctor`, `update` and every other command print the install lines and exit 1.
+- `KAPPMAKER_API` points the download at another origin (https only, except `localhost`).
+
 ## Table of Contents
 
 - [Claude Code Skill](#claude-code-skill)
+- [`kappmaker army`](#kappmaker-army) — install or run the App Army kit
 - [Configuration](#configuration)
 - [Commands Overview](#commands-overview)
 - [Features](#features)
@@ -128,6 +150,7 @@ Claude will check your config, verify API keys are set, and walk you through any
   - [`update-version`](#update-version)
 - [Config Reference](#config-reference)
 - [Project Structure](#project-structure)
+- [License](#license)
 
 ## Commands Overview
 
@@ -1930,3 +1953,7 @@ src/
     googleplay.ts           # Google Play Console types
     adapty.ts               # Adapty types
 ```
+
+## License
+
+[MIT](LICENSE). Third-party notices: [NOTICE.md](NOTICE.md).
