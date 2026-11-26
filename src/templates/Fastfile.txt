@@ -143,7 +143,7 @@ platform :ios do
   root_dir = File.expand_path("..", __dir__)
   output_dir = File.join(root_dir, "distribution/ios")
   project_file = File.join(root_dir, "iosApp/iosApp.xcodeproj/project.pbxproj")
-  bundle_id = File.read(project_file)[/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([A-Za-z0-9\.-_]+);/, 1]
+  bundle_id = File.read(project_file)[/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([A-Za-z0-9._-]+);/, 1]
   UI.user_error!("Could not find PRODUCT_BUNDLE_IDENTIFIER in project.pbxproj") if bundle_id.nil?
   appstore_metadata_path = File.join(root_dir, "distribution/ios/appstore_metadata")
   appstore_text_metadata_path = File.join(appstore_metadata_path, "texts")
@@ -160,7 +160,7 @@ platform :ios do
       scheme: "iosApp",
       project: "iosApp/iosApp.xcodeproj",
       configuration: "Release",
-      export_method: "app-store",
+      export_method: "app-store-connect",
       silent: false,
       output_name: "iosApp",
       output_directory: output_dir,

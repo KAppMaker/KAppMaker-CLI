@@ -1,3 +1,4 @@
+import { loadConfig } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
 import { STYLE_PROMPTS } from './screenshot-styles.js';
 
@@ -92,10 +93,36 @@ ${referenceLines.join('\n')}
 
 // ── OpenAI API ─────────────────────────────────────────────────────
 
+// gpt-4.1 is deprecated (OpenAI notice 2026-10-14, shutdown 2027-01-14).
+// Override without a release: `kappmaker config set openaiModel <id>` or
+// KAPPMAKER_OPENAI_MODEL. The --spec path needs no OpenAI at all.
+export const DEFAULT_OPENAI_MODEL = 'gpt-4.1';
+
+export async function resolveOpenaiModel(): Promise<string> {
+  if (process.env.KAPPMAKER_OPENAI_MODEL) return process.env.KAPPMAKER_OPENAI_MODEL;
+  const config = await loadConfig().catch(() => undefined);
+  return config?.openaiModel || DEFAULT_OPENAI_MODEL;
+}
+
+/** Text of a Responses API result: `output_text`, else the first message item (reasoning models put a reasoning item first). */
+export function extractResponseText(data: {
+  output_text?: string;
+  output?: { type?: string; content?: { type?: string; text?: string }[] }[];
+}): string | undefined {
+  if (data.output_text) return data.output_text;
+  for (const item of data.output ?? []) {
+    if (item.type && item.type !== 'message') continue;
+    const text = item.content?.find((c) => typeof c.text === 'string')?.text;
+    if (text) return text;
+  }
+  return undefined;
+}
+
 export async function generateTextPrompt(
   apiKey: string,
   prompt: string,
 ): Promise<string> {
+  const model = await resolveOpenaiModel();
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -103,7 +130,7 @@ export async function generateTextPrompt(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4.1',
+      model,
       input: prompt,
     }),
   });
@@ -114,11 +141,7 @@ export async function generateTextPrompt(
     process.exit(1);
   }
 
-  const data = (await response.json()) as {
-    output?: { content?: { text?: string }[] }[];
-  };
-
-  const text = data.output?.[0]?.content?.[0]?.text;
+  const text = extractResponseText((await response.json()) as Parameters<typeof extractResponseText>[0]);
   if (!text) {
     logger.fatal('No text returned from OpenAI');
     process.exit(1);

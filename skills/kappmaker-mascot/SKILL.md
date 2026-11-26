@@ -91,7 +91,7 @@ the command show its cost estimate and confirmation; pass `--yes` only when the 
 approved the spend in conversation.
 
 - Default model **seedance-mini** (Seedance 2.0 Mini): ~$0.07/s at 480p, auto duration → a clip ≈ $0.30-0.45. Reliable and cheap.
-- `--model ltx` (`fal-ai/ltxv-2/image-to-video/fast`): cheapest at 1080p (~$0.04/s) but the backend has outages — if it fails with "Downstream service error", fall back to seedance-mini.
+- `--model ltx` (`fal-ai/ltx-2.3/image-to-video/fast`, LTX 2.3): cheapest at 1080p (~$0.04/s); duration 6–20 s in even steps. If it fails with "Downstream service error", fall back to seedance-mini.
 - `--model seedance` (full Seedance 2.0): ~$0.24/s — reserve for one hero moment, not UI loops.
 - `--gif` also emits a looping GIF (READMEs, chats). WebP/GIF conversion requires **ffmpeg on the
   machine** (NOT bundled with kappmaker — `brew install ffmpeg`); without it the MP4 is still saved

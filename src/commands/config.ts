@@ -22,7 +22,7 @@ import {
   loadAdaptyDefaults,
   saveAdaptyDefaults,
 } from '../utils/config.js';
-import { promptInput, confirm } from '../utils/prompt.js';
+import { promptInput, confirm, isInteractive, CONFIG_INIT_HINT } from '../utils/prompt.js';
 import type { AppStoreConfig } from '../types/appstore.js';
 import type { AdaptyConfig } from '../types/adapty.js';
 
@@ -76,7 +76,42 @@ const PROMPTS: Record<string, string> = {
   ascPrivateKeyPath: 'Path to .p8 private key file',
 };
 
-export async function configInit(): Promise<void> {
+export interface ConfigInitOptions {
+  /** Non-interactive: no prompts; flags / env / existing values / defaults. */
+  yes?: boolean;
+  templateRepo?: string;
+  bundlePrefix?: string;
+  organization?: string;
+  androidSdkPath?: string;
+  serviceAccount?: string;
+}
+
+/**
+ * `config init --yes`: writes the config without asking anything, for the
+ * kit's installer and headless agents. Precedence per key: flag → env
+ * (KAPPMAKER_TEMPLATE_REPO, KAPPMAKER_BUNDLE_PREFIX, KAPPMAKER_ORGANIZATION,
+ * ANDROID_HOME) → value already saved → default. API keys are never taken
+ * here; they are asked on first use or set with `config set`.
+ */
+export async function configInitNonInteractive(options: ConfigInitOptions, env = process.env): Promise<void> {
+  const config = await loadConfig();
+  const pick = (flag: string | undefined, envValue: string | undefined, current: string) =>
+    flag ?? envValue ?? current;
+  config.templateRepo = pick(options.templateRepo, env.KAPPMAKER_TEMPLATE_REPO, config.templateRepo);
+  config.bundleIdPrefix = pick(options.bundlePrefix, env.KAPPMAKER_BUNDLE_PREFIX, config.bundleIdPrefix);
+  config.organization = pick(options.organization, env.KAPPMAKER_ORGANIZATION, config.organization);
+  config.androidSdkPath = pick(options.androidSdkPath, env.ANDROID_HOME || env.ANDROID_SDK_ROOT, config.androidSdkPath);
+  if (options.serviceAccount) config.googleServiceAccountPath = await copyKeyToConfigDir(options.serviceAccount);
+  await saveConfig(config);
+  logger.success(`Config saved to ${getConfigPath()} (non-interactive; change any value with kappmaker config set <key> <value>)`);
+}
+
+export async function configInit(options: ConfigInitOptions = {}): Promise<void> {
+  if (options.yes) return configInitNonInteractive(options);
+  if (!isInteractive()) {
+    logger.fatal(`No terminal to ask in. Run instead: ${CONFIG_INIT_HINT}`);
+    process.exit(2);
+  }
   console.log(chalk.bold('\n  KAppMaker Config Setup\n'));
   console.log(chalk.gray('  Press Enter to keep the default value.\n'));
 

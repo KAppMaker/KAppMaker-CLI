@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { logger } from '../utils/logger.js';
+import { installHint, toolById } from '../utils/prereqs.js';
 
 const run = promisify(execFile);
 
@@ -24,7 +25,7 @@ export async function validateGhInstalled(): Promise<void> {
     await run('gh', ['--version']);
   } catch {
     logger.fatal('GitHub CLI (`gh`) is not installed.');
-    logger.info('Install it: https://cli.github.com  (macOS: brew install gh, Linux: see docs)');
+    logger.info(`Install it: ${installHint(toolById('gh'))}`);
     process.exit(1);
   }
 }

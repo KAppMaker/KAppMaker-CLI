@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'KAppMaker CLI',
-  tagline: 'Automate mobile app bootstrapping — from project scaffolding to store-ready builds',
+  tagline: 'The CLI behind KAppMaker AI — agentic Kotlin Multiplatform app development on your own machine',
   favicon: 'img/favicon.ico',
 
   url: 'https://cli.kappmaker.com',
@@ -46,8 +46,8 @@ const config: Config = {
     // Site-wide description. Docusaurus emits none of its own, so every page
     // that does not set one in front matter shipped with no meta description.
     metadata: [
-      {name: 'description', content: 'Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the KAppMaker AI agent drives on your behalf. See kappmaker.com.'},
-      {property: 'og:description', content: 'Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the KAppMaker AI agent drives on your behalf. See kappmaker.com.'},
+      {name: 'description', content: 'Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. It is the CLI behind KAppMaker AI, the agentic KMP app development kit you install on your own machine. See kappmaker.com.'},
+      {property: 'og:description', content: 'Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. It is the CLI behind KAppMaker AI, the agentic KMP app development kit you install on your own machine. See kappmaker.com.'},
     ],
     navbar: {
       title: 'KAppMaker CLI',

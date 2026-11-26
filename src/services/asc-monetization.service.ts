@@ -100,13 +100,17 @@ async function findPricePointForPrice(
 }
 
 async function setAppAvailability(appId: string, availableInNew: boolean, territories: string[]): Promise<void> {
-  // Use asc app-setup availability set — needs ASC_TIMEOUT for 175 territories
+  // asc 3.0 renamed `app-setup availability set` to `edit`, which only edits
+  // an existing record and cannot change the new-territory flag. `pricing
+  // availability create --if-exists update` (asc 5.6+) creates or updates.
+  // Needs ASC_TIMEOUT for ~175 territories.
   await run('asc', [
-    'app-setup', 'availability', 'set',
+    'pricing', 'availability', 'create',
     '--app', appId,
     '--territory', territories.join(','),
-    '--available', 'true',
-    '--available-in-new-territories', String(availableInNew),
+    '--available=true',
+    `--available-in-new-territories=${availableInNew}`,
+    '--if-exists', 'update',
     '--output', 'json',
   ], {
     label: `Setting app availability (${territories.length} territories)`,
@@ -147,6 +151,7 @@ export async function setupSubscriptions(
   reviewOpts: ReviewScreenshotOptions = {},
 ): Promise<void> {
   let groupId = await findGroupByName(appId, group.reference_name);
+  const createdGroup = !groupId;
 
   // Resolve territories for subscription availability
   let territories: string[] = [];
@@ -158,24 +163,25 @@ export async function setupSubscriptions(
   }
 
   for (const sub of group.subscriptions) {
-    await setupSubscription(appId, group.reference_name, groupId, sub, territories, reviewOpts);
+    await setupSubscription(appId, group.reference_name, groupId, sub, territories, reviewOpts, group.localizations?.[0]);
     // After first subscription creates the group, fetch its ID for subsequent ones
     if (!groupId) {
       groupId = await findGroupByName(appId, group.reference_name);
     }
   }
 
-  // Set group localizations (setup command doesn't handle these)
-  if (group.localizations && group.localizations.length > 0) {
-    // Re-fetch group ID if it was just created
-    if (!groupId) {
-      groupId = await findGroupByName(appId, group.reference_name);
-    }
-    if (groupId) {
-      for (const loc of group.localizations) {
+  // The first group localization rides on `subscriptions setup` when it
+  // creates the group. `subscriptions groups localizations create` was
+  // removed in asc 5.0; further locales now live on the group's version.
+  const extraLocs = group.localizations?.slice(createdGroup ? 1 : 0) ?? [];
+  if (extraLocs.length > 0) {
+    if (!groupId) groupId = await findGroupByName(appId, group.reference_name);
+    const versionId = groupId ? await findGroupVersionId(groupId) : null;
+    if (versionId) {
+      for (const loc of extraLocs) {
         const args = [
-          'subscriptions', 'groups', 'localizations', 'create',
-          '--group-id', groupId,
+          'subscriptions', 'groups', 'versions', 'localizations', 'create',
+          '--version-id', versionId,
           '--locale', loc.locale,
           '--name', loc.name,
         ];
@@ -186,8 +192,36 @@ export async function setupSubscriptions(
           allowFailure: true,
         });
       }
+    } else if (groupId) {
+      logger.warn(`No editable version found for subscription group "${group.reference_name}" — add its other localizations in App Store Connect.`);
     }
   }
+}
+
+/** Latest version of a subscription group (holds its localizations since asc 5.0). */
+async function findGroupVersionId(groupId: string): Promise<string | null> {
+  const list = async () => run('asc', [
+    'subscriptions', 'groups', 'versions', 'list', '--group-id', groupId, '--paginate', '--output', 'json',
+  ], { label: 'Fetching subscription group version', allowFailure: true });
+  let result = await list();
+  const pick = (stdout: string): string | null => {
+    try {
+      const data = JSON.parse(stdout)?.data as Array<{ id?: string }> | undefined;
+      return data?.length ? data[data.length - 1].id ?? null : null;
+    } catch {
+      return null;
+    }
+  };
+  let id = result.exitCode === 0 ? pick(result.stdout) : null;
+  if (!id) {
+    await run('asc', ['subscriptions', 'groups', 'versions', 'create', '--group-id', groupId, '--output', 'json'], {
+      label: 'Creating subscription group version',
+      allowFailure: true,
+    });
+    result = await list();
+    id = result.exitCode === 0 ? pick(result.stdout) : null;
+  }
+  return id;
 }
 
 async function setupSubscription(
@@ -197,13 +231,22 @@ async function setupSubscription(
   sub: AppStoreSubscription,
   territories: string[],
   reviewOpts: ReviewScreenshotOptions = {},
+  groupLoc?: { locale: string; name: string; custom_app_name?: string },
 ): Promise<void> {
-  const args = ['subscriptions', 'setup', '--app', appId];
+  // --no-verify: since asc 5.x setup reads the result back and exits non-zero
+  // unless the subscription is already complete (review screenshot, all
+  // prices…). KAppMaker adds those in the steps below, so verifying here
+  // would always fail on a fresh subscription.
+  const args = ['subscriptions', 'setup', '--app', appId, '--no-verify'];
 
   if (existingGroupId) {
     args.push('--group-id', existingGroupId);
   } else {
     args.push('--group-reference-name', groupReferenceName);
+    if (groupLoc) {
+      args.push('--group-locale', groupLoc.locale, '--group-display-name', groupLoc.name);
+      if (groupLoc.custom_app_name) args.push('--group-custom-app-name', groupLoc.custom_app_name);
+    }
   }
 
   args.push(
@@ -244,16 +287,21 @@ async function setupSubscription(
   });
 
   let subscriptionId: string | null = null;
+  try {
+    // Present on success and, since asc 5.x, on partial failures too.
+    subscriptionId = JSON.parse(result.stdout)?.subscriptionId ?? null;
+  } catch {
+    // Fall through
+  }
+  // asc 1.x said "already been used"; 5.x reuses the subscription and
+  // reports a mismatch with "existing subscription …".
+  const output = `${result.stdout}\n${result.stderr}`;
   const alreadyExists =
-    result.exitCode !== 0 &&
-    (result.stdout.includes('already been used') || result.stderr.includes('already been used'));
+    result.exitCode !== 0 && (/already been used/.test(output) || /existing subscription/i.test(output));
 
-  if (result.exitCode === 0) {
-    try {
-      subscriptionId = JSON.parse(result.stdout)?.subscriptionId ?? null;
-    } catch {
-      // Fall through
-    }
+  if (result.exitCode === 0 || subscriptionId) {
+    // created or reused (a non-zero exit with an id = a later setup step failed;
+    // the steps below redo pricing and the screenshot anyway)
   } else if (alreadyExists) {
     logger.info(`Subscription "${sub.ref_name}" (${sub.product_id}) already exists — refreshing pricing.`);
   } else {
@@ -492,6 +540,7 @@ async function importSubscriptionPriceRows(
         '--app', appId,
         '--subscription-id', subscriptionId,
         '--input', csvPath,
+        '--confirm', // required since asc 3.3 (otherwise a usage error)
         '--output', 'json',
       ];
       if (startDate) args.push('--start-date', startDate);
@@ -502,6 +551,8 @@ async function importSubscriptionPriceRows(
       });
       type ImportResp = {
         created?: number;
+        skipped?: number;
+        reconciled?: number;
         failed?: number;
         failures?: Array<{ territory: string; error: string }>;
       };
@@ -517,7 +568,9 @@ async function importSubscriptionPriceRows(
         out.failures.push(...chunk.map((row) => ({ territory: row.split(',')[0], error: 'import call failed (no JSON response)' })));
         continue;
       }
-      out.created += parsed.created ?? 0;
+      // Rows already at the target price come back as skipped/reconciled on
+      // re-runs (asc 5.x) — they are applied, not failures.
+      out.created += (parsed.created ?? 0) + (parsed.skipped ?? 0) + (parsed.reconciled ?? 0);
       out.failed += parsed.failed ?? 0;
       if (parsed.failures?.length) out.failures.push(...parsed.failures);
     } finally {

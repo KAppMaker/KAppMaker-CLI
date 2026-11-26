@@ -61,7 +61,7 @@
       scheme: "iosApp",
       project: "iosApp/iosApp.xcodeproj",
       configuration: "Release",
-      export_method: "app-store",
+      export_method: "app-store-connect",
       silent: false,
       output_name: "iosApp",
       output_directory: output_dir,

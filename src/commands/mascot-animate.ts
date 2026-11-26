@@ -1,6 +1,7 @@
 import path from 'node:path';
 import fs from 'fs-extra';
 import { execa } from 'execa';
+import { installHint, toolById } from '../utils/prereqs.js';
 import sharp from 'sharp';
 import { logger } from '../utils/logger.js';
 import { promptInput } from '../utils/prompt.js';
@@ -21,7 +22,7 @@ export async function mascotAnimate(options: MascotAnimateOptions): Promise<void
 
   const model = options.model ?? 'seedance-mini';
   if (!COST_PER_SECOND[model]) {
-    logger.fatal(`Unknown model: ${model}. Available: seedance-mini (cheap default), ltx (cheapest 1080p, outage-prone), seedance (premium).`);
+    logger.fatal(`Unknown model: ${model}. Available: seedance-mini (cheap default), ltx (LTX 2.3, cheapest 1080p), seedance (premium).`);
     process.exit(1);
   }
 
@@ -122,8 +123,8 @@ async function convertToWebpLoop(mp4Path: string): Promise<void> {
       webpPath,
     ]);
     logger.success(`Looping WebP saved to ${webpPath}`);
-  } catch {
-    logger.info('ffmpeg not found — kept MP4 only. Install ffmpeg (`brew install ffmpeg`) to also get a looping WebP.');
+  } catch (error) {
+    logFfmpegFailure(error, 'kept MP4 only', 'to also get a looping WebP');
   }
 }
 
@@ -139,7 +140,15 @@ async function convertToGifLoop(mp4Path: string): Promise<void> {
       gifPath,
     ]);
     logger.success(`Looping GIF saved to ${gifPath}`);
-  } catch {
-    logger.info('ffmpeg not found — skipped GIF. Install ffmpeg (`brew install ffmpeg`).');
+  } catch (error) {
+    logFfmpegFailure(error, 'skipped GIF', 'for the GIF');
+  }
+}
+
+function logFfmpegFailure(error: unknown, what: string, why: string): void {
+  if ((error as { code?: string }).code === 'ENOENT') {
+    logger.info(`ffmpeg not found — ${what}. Install it ${why}: ${installHint(toolById('ffmpeg'))}`);
+  } else {
+    logger.warn(`ffmpeg failed — ${what}: ${(error as Error).message.split('\n')[0]}`);
   }
 }

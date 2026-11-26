@@ -5,11 +5,40 @@ import { execa } from 'execa';
 import { run, runStreaming } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
 import { confirm } from '../utils/prompt.js';
+import { checkTool, toolById, versionAtLeast } from '../utils/prereqs.js';
 import type { AdaptyProduct } from '../types/adapty.js';
 
-const ADAPTY_API_BASE = 'https://api-admin.adapty.io/api/v1/developer';
+// Same hosts and precedence as the adapty CLI (0.2x+): ADAPTY_API_URL, else
+// the account's region (ADAPTY_REGION, or `region` saved by
+// `adapty auth login --region eu`), else US.
+const ADAPTY_API_HOSTS: Record<string, string> = {
+  us: 'https://api-admin.adapty.io/api/v1/developer',
+  eu: 'https://api-eu-admin.adapty.io/api/v1/developer',
+};
+
+export function adaptyApiBase(env: NodeJS.ProcessEnv, storedRegion?: string): string {
+  if (env.ADAPTY_API_URL) return env.ADAPTY_API_URL.replace(/\/$/, '');
+  const region = (env.ADAPTY_REGION || storedRegion || 'us').toLowerCase();
+  return ADAPTY_API_HOSTS[region] ?? ADAPTY_API_HOSTS.us;
+}
+
+// `paywalls create --products` replaced the deprecated `--product-id` in
+// adapty 0.33; older CLIs only know --product-id.
+const ADAPTY_PRODUCTS_FLAG_VERSION = '0.33.0';
+let adaptyVersion: string | null | undefined;
+
+async function installedAdaptyVersion(): Promise<string | null> {
+  if (adaptyVersion !== undefined) return adaptyVersion;
+  const result = await checkTool(toolById('adapty'));
+  adaptyVersion = result.version ?? null;
+  return adaptyVersion;
+}
 
 export async function validateAdaptyInstalled(): Promise<void> {
+  const status = await checkTool(toolById('adapty'));
+  if (status.status === 'outdated') {
+    logger.warn(`adapty CLI ${status.version} is older than ${status.min}. Upgrade: ${status.hint}`);
+  }
   try {
     await execa('adapty', ['--version']);
   } catch {
@@ -254,6 +283,12 @@ export async function createProduct(
   if (product.android_base_plan_id) {
     args.push('--android-base-plan-id', product.android_base_plan_id);
   }
+  // adapty 0.33+ stores a USD price on the product (shown in the dashboard,
+  // needed for `adapty products push`). Older CLIs have no such flag.
+  const version = await installedAdaptyVersion();
+  if (product.price && version && versionAtLeast(version, ADAPTY_PRODUCTS_FLAG_VERSION)) {
+    args.push('--price-usd', product.price);
+  }
 
   const result = await run('adapty', args, {
     label: `Creating product: ${product.title}`,
@@ -274,15 +309,18 @@ export async function createProduct(
   return '';
 }
 
-async function getAdaptyAuthToken(): Promise<string | null> {
-  if (process.env.ADAPTY_TOKEN) return process.env.ADAPTY_TOKEN;
+async function getAdaptyAuth(): Promise<{ token: string | null; apiBase: string }> {
   const configPath = path.join(os.homedir(), '.config', 'adapty', 'config.json');
+  let cfg: { access_token?: string; region?: string } | null = null;
   try {
-    const cfg = await fs.readJson(configPath);
-    return cfg?.access_token ?? null;
+    cfg = await fs.readJson(configPath);
   } catch {
-    return null;
+    // no stored session
   }
+  return {
+    token: process.env.ADAPTY_TOKEN ?? cfg?.access_token ?? null,
+    apiBase: adaptyApiBase(process.env, cfg?.region),
+  };
 }
 
 /** Direct REST-API path for periods the CLI doesn't accept (currently just "consumable"). */
@@ -291,7 +329,7 @@ async function createProductViaApi(
   product: AdaptyProduct,
   accessLevelId: string,
 ): Promise<string> {
-  const token = await getAdaptyAuthToken();
+  const { token, apiBase } = await getAdaptyAuth();
   if (!token) {
     logger.warn(`Skipping "${product.title}" — could not read Adapty auth token. Run "adapty auth login" and retry.`);
     return '';
@@ -305,8 +343,9 @@ async function createProductViaApi(
   if (product.ios_product_id) body.ios_product_id = product.ios_product_id;
   if (product.android_product_id) body.android_product_id = product.android_product_id;
   if (product.android_base_plan_id) body.android_base_plan_id = product.android_base_plan_id;
+  if (product.price) body.price_usd = product.price;
 
-  const url = `${ADAPTY_API_BASE}/apps/${appId}/products/`;
+  const url = `${apiBase}/apps/${appId}/products/`;
   let response: Response;
   try {
     response = await fetch(url, {
@@ -352,10 +391,20 @@ export async function createPaywall(
     '--title', title,
   ];
 
-  for (const productId of productIds) {
-    if (productId) {
-      args.push('--product-id', productId);
+  const ids = productIds.filter(Boolean);
+  const version = await installedAdaptyVersion();
+  if (version && versionAtLeast(version, ADAPTY_PRODUCTS_FLAG_VERSION)) {
+    if (ids.length > 0) {
+      args.push('--products', JSON.stringify(ids.map((product_id) => ({
+        product_id,
+        offer_id: null,
+        fallback_offer_id: null,
+        billing_plan_id: null,
+        flow_product_id: null,
+      }))));
     }
+  } else {
+    for (const productId of ids) args.push('--product-id', productId);
   }
 
   args.push('--json');

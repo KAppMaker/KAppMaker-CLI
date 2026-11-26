@@ -3,6 +3,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import fs from 'fs-extra';
 import type { KAppMakerConfig } from '../types/index.js';
+import { defaultAndroidSdkPath } from './prereqs.js';
 import appStoreTemplate from '../templates/appstore-config.json' with { type: 'json' };
 import adaptyTemplate from '../templates/adapty-config.json' with { type: 'json' };
 import googlePlayTemplate from '../templates/googleplay-config.json' with { type: 'json' };
@@ -15,13 +16,16 @@ const APPSTORE_DEFAULTS_FILE = path.join(CONFIG_DIR, 'appstore-defaults.json');
 const ADAPTY_DEFAULTS_FILE = path.join(CONFIG_DIR, 'adapty-defaults.json');
 
 const DEFAULT_CONFIG: KAppMakerConfig = {
-  templateRepo: 'git@github.com:KAppMaker/KAppMaker-All.git',
+  // HTTPS: the template is public, and a fresh laptop/VPS has no GitHub SSH key.
+  templateRepo: 'https://github.com/KAppMaker/KAppMaker-All.git',
   bundleIdPrefix: '',
-  androidSdkPath: path.join(os.homedir(), 'Library', 'Android', 'sdk'),
+  // ANDROID_HOME / ANDROID_SDK_ROOT, else ~/Library/Android/sdk (macOS) or ~/Android/Sdk (Linux).
+  androidSdkPath: defaultAndroidSdkPath(),
   organization: '',
   falApiKey: '',
   imgbbApiKey: '',
   openaiApiKey: '',
+  openaiModel: '',
   ascAuthName: 'KAppMaker',
   ascKeyId: '',
   ascIssuerId: '',

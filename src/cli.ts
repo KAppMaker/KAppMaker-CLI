@@ -48,6 +48,8 @@ import { createMascot } from './commands/create-mascot.js';
 import { mascotAddState } from './commands/mascot-add-state.js';
 import { mascotAnimate } from './commands/mascot-animate.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
+import { army } from './commands/army.js';
+import { doctor } from './commands/doctor.js';
 import {
   firebaseLoginCommand,
   firebaseProjectCommand,
@@ -66,8 +68,33 @@ export function createCli(): Command {
 
   program
     .name('kappmaker')
-    .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version(version);
+    .description(
+      'The CLI behind KAppMaker AI: create, configure, build and ship Kotlin Multiplatform apps for Android and iOS',
+    )
+    .version(version)
+    // Lets `kappmaker army …` hand every flag (even --help/--version) to the kit.
+    .enablePositionalOptions();
+
+  program
+    .command('doctor')
+    .description('Check the external tools the CLI uses (versions + exact install lines for macOS/Linux)')
+    .option('--json', 'Machine-readable output', false)
+    .option('--strict', 'Exit 1 when a required tool is missing or too old', false)
+    .action(async (options) => {
+      process.exit(await doctor(options));
+    });
+
+  program
+    .command('army')
+    .description('Run the App Army kit (kappmaker-army <cmd>), or install it: kappmaker army install [--server]')
+    .argument('[args...]', 'Command and arguments for kappmaker-army')
+    .helpOption(false)
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .passThroughOptions()
+    .action(async (args: string[]) => {
+      process.exit(await army(args));
+    });
 
   program
     .command('create')
@@ -229,7 +256,7 @@ export function createCli(): Command {
     .option('--state <name>', 'Existing state to animate (uses Assets/mascot/states/<state>.png)')
     .option('--image <path>', 'Explicit source image (overrides --state lookup)')
     .option('--motion <text>', 'Motion description (default: per-state preset, e.g. happy → gentle bounce)')
-    .option('--model <id>', 'Video model: seedance-mini (~$0.07/s, default), ltx (~$0.04/s @1080p, outage-prone), seedance (~$0.24/s premium)', 'seedance-mini')
+    .option('--model <id>', 'Video model: seedance-mini (~$0.07/s, default), ltx (LTX 2.3, ~$0.04/s @1080p), seedance (~$0.24/s premium)', 'seedance-mini')
     .option('--duration <seconds>', 'Clip length in seconds (ltx: 6-20 even, seedance: 4-15; seedance-mini picks automatically)')
     .option('--resolution <res>', 'Video resolution (seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p-1080p)')
     .option('--spec <path>', 'Pre-authored animation spec JSON (see `kappmaker spec-template mascot-animation`)')
@@ -818,9 +845,15 @@ export function createCli(): Command {
 
   config
     .command('init')
-    .description('Interactively set up configuration')
-    .action(async () => {
-      await configInit();
+    .description('Set up configuration (interactive; --yes for no questions, e.g. from an installer or agent)')
+    .option('-y, --yes', 'No questions: use the flags below, env vars, saved values or defaults', false)
+    .option('--template-repo <url>', 'Template repository (default: https://github.com/KAppMaker/KAppMaker-All.git)')
+    .option('--bundle-prefix <prefix>', 'Bundle/App ID prefix, e.g. com.yourcompany (default: com.<appname>)')
+    .option('--organization <name>', 'Organization name for signing (default: the app name)')
+    .option('--android-sdk-path <path>', 'Android SDK path (default: ANDROID_HOME or the platform default)')
+    .option('--service-account <path>', 'Google Play service account JSON (copied into the config dir)')
+    .action(async (options) => {
+      await configInit(options);
     });
 
   config

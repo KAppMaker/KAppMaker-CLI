@@ -1,8 +1,13 @@
 {
   "name": "kappmaker",
-  "version": "1.26.1",
-  "description": "CLI the KAppMaker AI agent drives to create, configure, build and ship Kotlin Multiplatform apps for Android and iOS. Part of KAppMaker AI, the always on machine that builds your app while you sleep.",
+  "version": "2.0.0",
+  "description": "The CLI behind KAppMaker AI, the agentic Kotlin Multiplatform app development kit you install on your own laptop or server: create, configure, build and ship Android and iOS apps from one command line.",
   "homepage": "https://kappmaker.com",
+  "license": "MIT",
+  "author": "KAppMaker (https://kappmaker.com)",
+  "bugs": {
+    "url": "https://github.com/KAppMaker/KAppMaker-CLI/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/KAppMaker/KAppMaker-CLI.git"
@@ -13,10 +18,12 @@
     "kmp",
     "android",
     "ios",
-    "claude-code",
+    "mobile-app-development",
+    "agentic",
     "ai-agent",
-    "app-builder",
-    "always-on",
+    "claude-code",
+    "app-army",
+    "self-hosted",
     "fastlane",
     "app-store-connect",
     "google-play",
@@ -27,30 +34,38 @@
     "kappmaker": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.*",
+    "LICENSE",
+    "NOTICE.md"
   ],
   "scripts": {
     "build": "tsc && cp src/templates/Fastfile.txt src/templates/ios-ci-workflow.yml src/templates/ios-ci-lane.rb dist/templates/",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test:ppp": "tsx src/services/ppp-pricing.service.test.ts",
-    "test:ios-ci": "tsx src/commands/ios-ci.test.ts"
+    "test:ios-ci": "tsx src/commands/ios-ci.test.ts",
+    "lint": "tsc --noEmit",
+    "test": "npm run test:ppp && npm run test:ios-ci && npm run test:army && npm run test:prereqs && npm run test:headless",
+    "test:army": "tsx --test src/commands/army.test.ts",
+    "test:prereqs": "tsx --test src/utils/prereqs.test.ts",
+    "test:headless": "tsx --test src/utils/headless.test.ts"
   },
   "dependencies": {
-    "chalk": "^5.4.1",
-    "commander": "^13.1.0",
-    "execa": "^9.5.2",
-    "fs-extra": "^11.3.0",
-    "ora": "^8.2.0",
-    "sharp": "^0.35.3"
+    "chalk": "^6.0.1",
+    "commander": "^15.1.0",
+    "execa": "^10.2.1",
+    "fs-extra": "^11.4.1",
+    "ora": "^10.0.0",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^22.13.10",
-    "tsx": "^4.22.4",
-    "typescript": "^5.8.2"
+    "@types/node": "^22.20.7",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   }
 }

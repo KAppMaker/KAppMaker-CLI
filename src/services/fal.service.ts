@@ -10,11 +10,11 @@ const FAL_BG_REMOVE_URL = 'https://queue.fal.run/fal-ai/bria/background/remove';
 
 // Image-to-video models (mascot animation).
 //   seedance-mini — default: reliable + cheap (~$0.07/s @480p, auto duration)
-//   ltx           — cheapest at 1080p (~$0.04/s) but backend has outages
+//   ltx           — LTX 2.3 fast, cheapest at 1080p (fal-ai/ltxv-2 was removed; 404 since 2026)
 //   seedance      — premium full Seedance 2.0 (~$0.24/s)
 const FAL_VIDEO_MODEL_URLS: Record<string, string> = {
   'seedance-mini': 'https://queue.fal.run/bytedance/seedance-2.0/mini/image-to-video',
-  ltx: 'https://queue.fal.run/fal-ai/ltxv-2/image-to-video/fast',
+  ltx: 'https://queue.fal.run/fal-ai/ltx-2.3/image-to-video/fast',
   seedance: 'https://queue.fal.run/bytedance/seedance-2.0/image-to-video',
 };
 
@@ -286,9 +286,15 @@ export async function submitVideoGeneration(
     resolution: params.resolution,
     generate_audio: false,
   };
-  // seedance-mini only supports auto duration; the others take seconds
-  if (model !== 'seedance-mini') payload.duration = params.durationSeconds;
-  if (model === 'ltx') payload.fps = 25;
+  // Schemas (fal queue OpenAPI, 2026-11): LTX 2.3 takes an integer duration
+  // (6–20, even); both Seedance 2.0 endpoints take a STRING enum ("auto",
+  // "4"…"15"). seedance-mini keeps "auto" so the model picks the length.
+  if (model === 'ltx') {
+    payload.duration = params.durationSeconds;
+    payload.fps = 25;
+  } else if (model === 'seedance') {
+    payload.duration = String(params.durationSeconds);
+  }
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -341,6 +347,9 @@ export async function uploadImageToImgbb(
   const form = new URLSearchParams();
   form.append('key', imgbbApiKey);
   form.append('image', b64);
+  // fal only needs the URL while the job runs; without an expiry the
+  // screenshot would stay public on imgbb forever. (seconds, imgbb: 60–15552000)
+  form.append('expiration', '86400');
 
   const response = await fetch('https://api.imgbb.com/1/upload', {
     method: 'POST',

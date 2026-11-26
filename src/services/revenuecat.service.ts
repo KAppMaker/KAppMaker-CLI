@@ -74,7 +74,7 @@ async function request<T>(
   body?: unknown,
 ): Promise<T> {
   const key = await requireApiKey();
-  const response = await fetch(`${BASE_URL}${pathname}`, {
+  const send = () => fetch(`${BASE_URL}${pathname}`, {
     method,
     headers: {
       Authorization: `Bearer ${key}`,
@@ -82,6 +82,16 @@ async function request<T>(
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+
+  // Project-configuration endpoints allow ~60 requests/min and answer 429
+  // with Retry-After; a full setup run can hit that. Wait and retry (3x).
+  let response = await send();
+  for (let attempt = 0; response.status === 429 && attempt < 3; attempt++) {
+    const waitSeconds = Math.min(60, Number(response.headers.get('retry-after')) || 2 ** (attempt + 2));
+    logger.info(`RevenueCat rate limit — retrying in ${waitSeconds}s`);
+    await new Promise((r) => setTimeout(r, waitSeconds * 1000));
+    response = await send();
+  }
 
   const text = await response.text();
   if (!response.ok) {

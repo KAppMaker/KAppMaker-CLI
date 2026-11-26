@@ -63,7 +63,7 @@ export async function run(
 export async function runStreaming(
   command: string,
   args: string[],
-  options?: { cwd?: string; label?: string; allowFailure?: boolean },
+  options?: { cwd?: string; label?: string; allowFailure?: boolean; env?: Record<string, string> },
 ): Promise<number> {
   if (options?.label) {
     logger.info(options.label);
@@ -73,6 +73,7 @@ export async function runStreaming(
     cwd: options?.cwd,
     stdio: 'inherit',
     reject: false,
+    env: options?.env ? { ...process.env, ...options.env } : undefined,
   });
 
   if (wasSignaled(result)) {

@@ -3,17 +3,22 @@ slug: /
 sidebar_position: 1
 title: Getting Started
 description: >-
-  Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. This is the tool the KAppMaker AI agent drives on your behalf. See kappmaker.com.
+  Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure Firebase, build signed releases and ship to the App Store and Google Play. It is the CLI behind KAppMaker AI, the agentic KMP app development kit you install on your own machine. See kappmaker.com.
 ---
 
 # KAppMaker CLI
 
 CLI tool that automates the entire mobile app launch process — from project scaffolding to store-ready builds.
 
-It runs standalone on your own machine, and it is also the toolchain behind
-[KAppMaker AI](https://kappmaker.com): a cloud machine running Claude Code around the clock that
-takes its instructions over Telegram, so your app gets built while you sleep. Every command here is
-one an agent can run unattended.
+It runs standalone, and it is also the CLI behind [KAppMaker AI](https://kappmaker.com): the
+agentic Kotlin Multiplatform app development kit you install with one command on your own laptop or
+any server you rent. The kit's agents run Claude Code on your machine, under your own accounts, and
+drive these commands for you. Every command here is one an agent can run unattended, and nothing is
+ever sent back to KAppMaker from your machine.
+
+`kappmaker army <command>` hands off to the kit (`kappmaker-army`) once it is installed;
+`kappmaker army install` (or `install --server`) downloads the kit installer, checks it against its
+published SHA-256 and runs it.
 
 A single `kappmaker create` command can:
 
@@ -93,19 +98,25 @@ See the [Custom Templates guide](/guides/custom-templates) for details on what w
 
 ## Prerequisites
 
-- **Node.js** >= 20
-- **Git**
+- **Node.js** >= 22.12 — macOS: `brew install node@22`; Linux: `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs`
+- **Git** — macOS: `xcode-select --install`; Linux: `sudo apt-get install -y git`
 - **Firebase CLI** — `npm install -g firebase-tools`
-- **Fastlane** — via Bundler in the template repo
-- **Android SDK** — installed at `~/Library/Android/sdk` (configurable)
-- **asc CLI** (optional, for App Store Connect) — `brew install asc`
+- **Fastlane** — via Bundler in the template repo (Ruby 3 + `gem install bundler`; Linux: `sudo apt-get install -y ruby-full build-essential`)
+- **JDK 17+** (Gradle, keytool) — macOS: `brew install --cask temurin@17`; Linux: `sudo apt-get install -y openjdk-17-jdk`
+- **Android SDK** — `ANDROID_HOME`, else `~/Library/Android/sdk` (macOS) or `~/Android/Sdk` (Linux); configurable via `androidSdkPath`
+- **asc CLI** (optional, for App Store Connect) — **≥ 5.9.0**: `brew install asc` (macOS/Linux) or `curl -fsSL https://asccli.sh/install | bash`
 - **Adapty CLI** (optional, for Adapty setup) — `npm install -g adapty`
+- **GitHub CLI** (optional, for `ios-ci`) — macOS: `brew install gh`; Linux: `sudo apt-get install -y gh`
 - **No extra CLI for Google Play Console** — `kappmaker gpc` talks to the Play Publisher API directly
+
+Run **`kappmaker doctor`** to see which of these are installed, at what version, and the exact install line for anything missing on your platform.
 
 ## Commands Overview
 
 | Command | Description |
 |---------|-------------|
+| `doctor` | Check the external tools the CLI uses: versions + exact install lines (macOS/Linux) |
+| `army <cmd>` / `army install` | Run the App Army kit (`kappmaker-army`), or download, verify and run its installer |
 | [`create`](/project-setup/create) | Full end-to-end app setup (Firebase, logo, ASC, GPC, Adapty, release build) |
 | [`clone`](/project-setup/clone) | Clone the template into `<AppName>-All` (step 1 of `create` standalone) |
 | [`git setup-upstream`](/project-setup/git-setup-upstream) | Rename `origin` to `upstream` after a manual clone |

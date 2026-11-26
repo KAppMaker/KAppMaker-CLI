@@ -28,13 +28,15 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 - Graceful degradation — steps that fail or detect missing dependencies warn and skip instead of aborting the entire flow
 - Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline and saved to config on first use — no fatal exits for missing keys
 - Missing App Store Connect config (API key, Apple ID) triggers inline interactive setup via `configAppStoreDefaults`
-- If no `~/.config/kappmaker/config.json` exists when `create` runs, `configInit()` is called automatically before the first step
+- If no `~/.config/kappmaker/config.json` exists when `create`/`clone` runs, `configInit()` is called automatically before the first step — only with a terminal. Without one (agent, Telegram worker, CI, `KAPPMAKER_NONINTERACTIVE=1`) commands fail with one line naming `kappmaker config init --yes [...]` (non-interactive, flags/env/defaults) instead of prompting; `create` (inherently interactive) refuses up front and points at the standalone steps. Never strip the inherited env when spawning `./gradlew` — the kit's `gradle-slot` wrapper relies on `GRADLE_SLOT_HELD` reaching it.
 
 ## Commands
 
 ```bash
 npm run dev          # Run with tsx (no build needed)
 npm run build        # Compile TypeScript to dist/
+npx tsx src/index.ts army <cmd> [args]             # Forward to kappmaker-army (App Army kit); exit code passed through
+npx tsx src/index.ts army install [--server] [--key K] [--dry-run]  # Download kappmaker.com/install.sh, verify vs install.sh.sha256, run it (key via env only)
 npx tsx src/index.ts create <AppName>              # Full end-to-end app setup (13 steps)
 npx tsx src/index.ts clone <AppName>               # Step 1 only — clone template into <AppName>-All
 npx tsx src/index.ts git setup-upstream [path]     # Step 10 only — rename origin to upstream (default: cwd)
@@ -176,7 +178,14 @@ Rule of thumb: code change → bump CLI version (all three spots); skill change 
 Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
 maintained by hand and drift silently.
 
-Test scripts: `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers).
+Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour). `npm run lint` = type check.
+
+## Privacy (hard rule)
+
+The CLI never collects or sends anything about the user's machine: no telemetry, analytics, crash
+reports or update checks. Network calls go only to the services a command is configured for
+(fal.ai, OpenAI, Apple, Google, Adapty, RevenueCat, imgbb, GitHub) and to kappmaker.com for
+`kappmaker army install` (install.sh + its checksum, fixed User-Agent). Keep it that way.
 
 ## Custom Template Support
 
@@ -234,6 +243,7 @@ src/
   cli.ts                    # Commander.js program setup
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
+    army.ts                 # `kappmaker army` — forward to kappmaker-army, or install the kit via verified install.sh (army.test.ts = tests)
     clone.ts                # `kappmaker clone <AppName>` — step 1 of create as a standalone command (also called by create.ts)
     git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone command (also called by create.ts)
     firebase.ts             # `kappmaker firebase` subcommands: login, project, apps, auth-anonymous, configs (steps 2-6 of create as standalones; also called by create.ts)
@@ -267,6 +277,7 @@ src/
     update-version.ts       # Bump Android + iOS version codes and version name
     config.ts               # Config management (list, set, get, init)
   services/
+    army.service.ts         # kit lookup (PATH, ~/.army/kit/cli), install.sh download + SHA-256 check, inherited-stdio runner
     firebase.service.ts     # Firebase CLI wrapper (project + app creation + anonymous auth via REST)
     fal.service.ts          # fal.ai HTTP API (submit, poll, fetch, download, translate, screenshot generation)
     openai.service.ts       # OpenAI API (prompt generation for screenshots)
@@ -331,7 +342,7 @@ User config file: `~/.config/kappmaker/config.json` (managed via `src/utils/conf
 
 | Key | Default | Used by |
 |-----|---------|---------|
-| `templateRepo` | `git@github.com:KAppMaker/KAppMaker-All.git` | `create.ts` → template clone |
+| `templateRepo` | `https://github.com/KAppMaker/KAppMaker-All.git` (an SSH URL from an older config falls back to HTTPS when the clone fails) | `create.ts` → template clone |
 | `bundleIdPrefix` | `""` (empty = `com.<appname>`) | `create.ts` → package/bundle ID |
 | `androidSdkPath` | `~/Library/Android/sdk` | `gradle.service.ts` → `local.properties` |
 | `organization` | `""` (empty = app name) | `fastlane.service.ts` → keystore signing |
@@ -367,7 +378,7 @@ Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fann
 - `AppStoreSubscription.ppp_enabled`
 - `AppStoreInAppPurchase.ppp_enabled`
 
-**ASC implementation detail (1.7.0+ — bulk CSV import)**: requires **asc CLI ≥ 1.4.0** (rorkai/App-Store-Connect-CLI, renamed from rudrankriyam). Both subscriptions and IAPs land their per-territory PPP fan-out in a **single API call** per product:
+**ASC implementation detail (1.7.0+ — bulk CSV import)**: requires **asc CLI ≥ 5.9.0** (rorkai/App-Store-Connect-CLI, renamed from rudrankriyam; 2.0.0 moved to the 5.x command surface — `pricing availability create`, `prices import --confirm`, group-version localizations, `subscriptions setup --no-verify`). Both subscriptions and IAPs land their per-territory PPP fan-out in a **single API call** per product:
 
 - **Subscriptions**: `asc subscriptions pricing prices import --input <csv>` (added in asc 1.4.0). KAppMaker writes a temp CSV with `territory,price,price_point_id` rows for all 175 territories and pipes it in. ~1 API call per subscription instead of ~155 — eliminates the rate-limit cascade we hit in 1.6.x. **Two-pass import (1.13.19+)**: pass 1 omits `--start-date` (rows land as STARTING prices — correct for never-approved subs; future-dated rows are rejected on fresh subs with "Create a starting price before creating future prices"). On an APPROVED subscription Apple rejects every starting-price row with _"Initial price cannot be created again after subscription is approved"_ — pre-1.13.19 this only produced a warning and prices silently never changed on re-runs. Pass 2 collects those territories and re-imports them with `--start-date` (tomorrow UTC; if Apple answers _"must be on or after YYYY-MM-DD"_ — its day boundary runs ahead of UTC — a third pass retries with the exact date Apple demands). Price decreases apply to existing subscribers automatically; increases trigger Apple's subscriber-consent flow. Neither needs App Review.
 - **IAPs**: `asc iap pricing schedules create --prices "PP_ID:DATE,..."` (already batch from earlier versions).
@@ -642,6 +653,14 @@ The Adapty CLI v0.1.5 (the current shipping version) hardcodes a period whitelis
 
 ### Adapty Prices Are Not Developer-Set
 
+**Update (adapty CLI 0.33, KAppMaker 2.0):** the CLI now takes `products create --price-usd` (body
+`price_usd`), and KAppMaker sends `price` there when the installed adapty is ≥ 0.33. Store prices
+still come from ASC / Play; the paragraphs below describe the pre-0.33 API. Also new in 0.33:
+`paywalls create --products '<json>'` replaces the deprecated `--product-id` (used automatically on
+≥ 0.33), and EU accounts (`adapty auth login --region eu`) live on `api-eu-admin.adapty.io` — the
+consumable REST workaround follows `ADAPTY_API_URL` / `ADAPTY_REGION` / the stored `region`.
+`consumable` is still not in the CLI's `--period` list in 0.33, so the workaround stays.
+
 Adapty's developer API **strips price-related fields** from product create/get responses (verified via OPTIONS metadata: "_Strips response to plan-specified fields (id, title, vendor_products)_" and confirmed against 7 price-field variants — `price`, `currency_code`, `localized_price`, `price_string`, `display_price`, `vendor_products.app_store.price`, `prices[]` — all silently dropped). Prices show up in the Adapty dashboard **only after** the user connects App Store Connect + Google Play integrations in the dashboard (Settings → Integrations) — those are dashboard-only steps; the CLI/API doesn't expose them.
 
 The `price` field on each `AdaptyProduct` is therefore used only by KAppMaker for:
@@ -733,6 +752,6 @@ kappmaker gpc
 
 ## Defaults
 
-- Template repo: `git@github.com:KAppMaker/KAppMaker-All.git`
+- Template repo: `https://github.com/KAppMaker/KAppMaker-All.git` (public; HTTPS so a fresh machine without a GitHub SSH key can clone)
 - Package pattern: `com.measify.<appname>` (when `bundleIdPrefix` is set to `com.measify`)
 - After cloning, origin is renamed to upstream (user adds their own origin later)

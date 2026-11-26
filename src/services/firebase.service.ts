@@ -6,9 +6,18 @@ import { logger } from '../utils/logger.js';
 import { promptInput } from '../utils/prompt.js';
 import type { FirebaseAppResult } from '../types/index.js';
 
+/** No browser on this machine (SSH session, or Linux without a display) — e.g. a VPS running the kit. */
+export function isHeadless(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): boolean {
+  if (env.SSH_CONNECTION || env.SSH_TTY) return true;
+  return platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY;
+}
+
 export async function firebaseLogin(): Promise<void> {
-  await runStreaming('firebase', ['login'], {
-    label: 'Opening Firebase login...',
+  // The default flow waits for a browser redirect to localhost, which never
+  // arrives on a server; --no-localhost prints a URL and asks for the code.
+  const args = isHeadless() ? ['login', '--no-localhost'] : ['login'];
+  await runStreaming('firebase', args, {
+    label: isHeadless() ? 'Firebase login (no browser here: open the URL on any device, paste the code back)' : 'Opening Firebase login...',
   });
 }
 

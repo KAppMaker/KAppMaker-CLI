@@ -5,6 +5,10 @@ import { logger } from '../utils/logger.js';
 import { getConfigDir } from '../utils/config.js';
 import type { KAppMakerConfig } from '../types/index.js';
 
+// fastlane's own usage reporting and update check stay off on the buyer's
+// machine (the kit's privacy rule covers what our tools trigger, too).
+const FASTLANE_ENV = { FASTLANE_OPT_OUT_USAGE: 'YES', FASTLANE_SKIP_UPDATE_CHECK: '1' };
+
 export interface PublishOptions {
   track: string;
   uploadMetadata: boolean;
@@ -65,7 +69,7 @@ export async function publishAndroid(
       `upload_images:${options.uploadImages}`,
       `submit_for_review:${options.submitForReview}`,
     ],
-    { cwd: mobileDir, label: 'Fastlane: Android Play Store release' },
+    { cwd: mobileDir, label: 'Fastlane: Android Play Store release', env: FASTLANE_ENV },
   );
 
   logger.success('Android publish complete!');
@@ -88,7 +92,7 @@ export async function publishIos(
       `upload_screenshots:${options.uploadScreenshots}`,
       `submit_for_review:${options.submitForReview}`,
     ],
-    { cwd: mobileDir, label: 'Fastlane: iOS App Store release' },
+    { cwd: mobileDir, label: 'Fastlane: iOS App Store release', env: FASTLANE_ENV },
   );
 
   logger.success('iOS publish complete!');
