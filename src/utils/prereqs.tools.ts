@@ -47,7 +47,7 @@ export const TOOLS: ToolSpec[] = [
     name: 'Ruby',
     command: 'ruby',
     versionArgs: ['--version'],
-    min: '3.0.0',
+    min: '3.2.0', // fastlane 2.242 requires Ruby >= 3.2
     usedBy: 'fastlane (publish, android-release-build, fastlane configure)',
     install: {
       macos: 'brew install ruby   (then put $(brew --prefix ruby)/bin first on PATH)',
@@ -80,9 +80,9 @@ export const TOOLS: ToolSpec[] = [
     versionArgs: [],
     usedBy: 'create (local.properties), android-release-build',
     install: {
-      macos: 'brew install --cask android-commandlinetools && sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"',
+      macos: 'brew install --cask android-commandlinetools && sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"',
       linux:
-        'download "Command line tools only" from https://developer.android.com/studio#command-line-tools-only into ~/Android/Sdk/cmdline-tools/latest, then sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"',
+        'download "Command line tools only" from https://developer.android.com/studio#command-line-tools-only into ~/Android/Sdk/cmdline-tools/latest, then sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"',
     },
   },
   {
@@ -106,7 +106,7 @@ export const TOOLS: ToolSpec[] = [
     command: 'adapty',
     versionArgs: ['--version'],
     versionPattern: /adapty\/(\d+\.\d+\.\d+)/,
-    min: '0.1.5',
+    min: '0.33.0',
     usedBy: 'adapty setup, iap add',
     install: npmGlobal('adapty'),
     upgrade: npmGlobal('adapty@latest'),
@@ -140,7 +140,7 @@ export const TOOLS: ToolSpec[] = [
     name: 'Xcode (local iOS builds)',
     command: 'xcodebuild',
     versionArgs: ['-version'],
-    min: '16.0',
+    min: '26.0', // App Store Connect accepts only Xcode 26 / iOS 26 SDK builds since 2026-04-28
     usedBy: 'publish --platform ios (without --remote)',
     platforms: ['macos'],
     install: {

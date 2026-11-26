@@ -27,7 +27,7 @@ const BANNERS: Record<string, { out: string; err?: string; version: string }> = 
   bundler: { out: 'Bundler version 2.5.16', version: '2.5.16' },
   java: { out: '', err: 'openjdk version "17.0.11" 2024-04-16\nOpenJDK Runtime Environment Temurin-17.0.11+9', version: '17.0.11' },
   asc: { out: '5.17.1 (commit: unknown, date: unknown)', version: '5.17.1' },
-  adapty: { out: 'adapty/0.1.5 darwin-arm64 node-v22.22.0', version: '0.1.5' },
+  adapty: { out: 'adapty/0.33.0 darwin-arm64 node-v22.22.0', version: '0.33.0' },
   gh: { out: 'gh version 2.54.0 (2024-07-31)\nhttps://github.com/cli/cli/releases/tag/v2.54.0', version: '2.54.0' },
   ffmpeg: { out: 'ffmpeg version 7.1.1 Copyright (c) 2000-2025 the FFmpeg developers', version: '7.1.1' },
   xcode: { out: 'Xcode 26.5\nBuild version 17F42', version: '26.5' },
@@ -109,4 +109,20 @@ test('versionAtLeast / parseVersion', () => {
   assert.equal(versionAtLeast('2.9', '2.30.0'), false);
   assert.equal(versionAtLeast('5.17.1', '1.4.0'), true);
   assert.equal(parseVersion('no digits here'), null);
+});
+
+test('Adapty REST host follows ADAPTY_API_URL, then region (env, stored), then US', async () => {
+  const { adaptyApiBase } = await import('../services/adapty.service.js');
+  const us = 'https://api-admin.adapty.io/api/v1/developer';
+  const eu = 'https://api-eu-admin.adapty.io/api/v1/developer';
+  assert.equal(adaptyApiBase({}), us);
+  assert.equal(adaptyApiBase({}, 'eu'), eu);
+  assert.equal(adaptyApiBase({ ADAPTY_REGION: 'EU' }, 'us'), eu);
+  assert.equal(adaptyApiBase({ ADAPTY_API_URL: 'https://x.test/api/' }, 'eu'), 'https://x.test/api');
+  assert.equal(adaptyApiBase({}, 'mars'), us);
+});
+
+test('asc minimum matches the version the asc service enforces', async () => {
+  const { MIN_ASC_VERSION } = await import('../services/asc.service.js');
+  assert.equal(toolById('asc').min, MIN_ASC_VERSION);
 });

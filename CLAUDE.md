@@ -653,6 +653,14 @@ The Adapty CLI v0.1.5 (the current shipping version) hardcodes a period whitelis
 
 ### Adapty Prices Are Not Developer-Set
 
+**Update (adapty CLI 0.33, KAppMaker 1.27):** the CLI now takes `products create --price-usd` (body
+`price_usd`), and KAppMaker sends `price` there when the installed adapty is ≥ 0.33. Store prices
+still come from ASC / Play; the paragraphs below describe the pre-0.33 API. Also new in 0.33:
+`paywalls create --products '<json>'` replaces the deprecated `--product-id` (used automatically on
+≥ 0.33), and EU accounts (`adapty auth login --region eu`) live on `api-eu-admin.adapty.io` — the
+consumable REST workaround follows `ADAPTY_API_URL` / `ADAPTY_REGION` / the stored `region`.
+`consumable` is still not in the CLI's `--period` list in 0.33, so the workaround stays.
+
 Adapty's developer API **strips price-related fields** from product create/get responses (verified via OPTIONS metadata: "_Strips response to plan-specified fields (id, title, vendor_products)_" and confirmed against 7 price-field variants — `price`, `currency_code`, `localized_price`, `price_string`, `display_price`, `vendor_products.app_store.price`, `prices[]` — all silently dropped). Prices show up in the Adapty dashboard **only after** the user connects App Store Connect + Google Play integrations in the dashboard (Settings → Integrations) — those are dashboard-only steps; the CLI/API doesn't expose them.
 
 The `price` field on each `AdaptyProduct` is therefore used only by KAppMaker for:
