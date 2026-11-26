@@ -28,7 +28,7 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 - Graceful degradation — steps that fail or detect missing dependencies warn and skip instead of aborting the entire flow
 - Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline and saved to config on first use — no fatal exits for missing keys
 - Missing App Store Connect config (API key, Apple ID) triggers inline interactive setup via `configAppStoreDefaults`
-- If no `~/.config/kappmaker/config.json` exists when `create` runs, `configInit()` is called automatically before the first step
+- If no `~/.config/kappmaker/config.json` exists when `create`/`clone` runs, `configInit()` is called automatically before the first step — only with a terminal. Without one (agent, Telegram worker, CI, `KAPPMAKER_NONINTERACTIVE=1`) commands fail with one line naming `kappmaker config init --yes [...]` (non-interactive, flags/env/defaults) instead of prompting; `create` (inherently interactive) refuses up front and points at the standalone steps. Never strip the inherited env when spawning `./gradlew` — the kit's `gradle-slot` wrapper relies on `GRADLE_SLOT_HELD` reaching it.
 
 ## Commands
 
@@ -178,7 +178,7 @@ Rule of thumb: code change → bump CLI version (all three spots); skill change 
 Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
 maintained by hand and drift silently.
 
-Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate). `npm run lint` = type check.
+Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour). `npm run lint` = type check.
 
 ## Privacy (hard rule)
 
@@ -342,7 +342,7 @@ User config file: `~/.config/kappmaker/config.json` (managed via `src/utils/conf
 
 | Key | Default | Used by |
 |-----|---------|---------|
-| `templateRepo` | `git@github.com:KAppMaker/KAppMaker-All.git` | `create.ts` → template clone |
+| `templateRepo` | `https://github.com/KAppMaker/KAppMaker-All.git` (an SSH URL from an older config falls back to HTTPS when the clone fails) | `create.ts` → template clone |
 | `bundleIdPrefix` | `""` (empty = `com.<appname>`) | `create.ts` → package/bundle ID |
 | `androidSdkPath` | `~/Library/Android/sdk` | `gradle.service.ts` → `local.properties` |
 | `organization` | `""` (empty = app name) | `fastlane.service.ts` → keystore signing |
@@ -752,6 +752,6 @@ kappmaker gpc
 
 ## Defaults
 
-- Template repo: `git@github.com:KAppMaker/KAppMaker-All.git`
+- Template repo: `https://github.com/KAppMaker/KAppMaker-All.git` (public; HTTPS so a fresh machine without a GitHub SSH key can clone)
 - Package pattern: `com.measify.<appname>` (when `bundleIdPrefix` is set to `com.measify`)
 - After cloning, origin is renamed to upstream (user adds their own origin later)

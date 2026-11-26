@@ -11,6 +11,7 @@ Configuration is stored at `~/.config/kappmaker/config.json`.
 
 ```bash
 kappmaker config init                                    # Interactive setup
+kappmaker config init --yes --bundle-prefix com.example   # No questions (installers, agents, servers); flags/env/defaults
 kappmaker config list                                    # Show all values
 kappmaker config set <key> <value>                       # Set a value
 kappmaker config get <key>                               # Get a value

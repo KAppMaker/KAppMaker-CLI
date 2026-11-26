@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
 import { validateDependencies, validateAppName } from '../utils/validator.js';
-import { confirm, promptInput } from '../utils/prompt.js';
+import { confirm, promptInput, isInteractive, CONFIG_INIT_HINT } from '../utils/prompt.js';
 import * as gradle from '../services/gradle.service.js';
 import { refactor } from '../services/refactor.service.js';
 import * as ios from '../services/ios.service.js';
@@ -59,6 +59,15 @@ export async function createApp(
   options: CreateOptions,
 ): Promise<void> {
   validateAppName(appName);
+  // create asks a dozen questions along the way; without a terminal each
+  // would read EOF and silently pick "no". Fail up front with the way out.
+  if (!isInteractive()) {
+    logger.fatal(
+      'kappmaker create asks questions as it goes and needs a terminal. Without one, run the steps on their own: ' +
+        `${CONFIG_INIT_HINT}, then kappmaker clone ${appName}, kappmaker firebase …, kappmaker refactor … (see cli.kappmaker.com).`,
+    );
+    process.exit(2);
+  }
   await validateDependencies();
 
   // If config file doesn't exist, run interactive setup first so API keys,

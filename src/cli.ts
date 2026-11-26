@@ -845,9 +845,15 @@ export function createCli(): Command {
 
   config
     .command('init')
-    .description('Interactively set up configuration')
-    .action(async () => {
-      await configInit();
+    .description('Set up configuration (interactive; --yes for no questions, e.g. from an installer or agent)')
+    .option('-y, --yes', 'No questions: use the flags below, env vars, saved values or defaults', false)
+    .option('--template-repo <url>', 'Template repository (default: https://github.com/KAppMaker/KAppMaker-All.git)')
+    .option('--bundle-prefix <prefix>', 'Bundle/App ID prefix, e.g. com.yourcompany (default: com.<appname>)')
+    .option('--organization <name>', 'Organization name for signing (default: the app name)')
+    .option('--android-sdk-path <path>', 'Android SDK path (default: ANDROID_HOME or the platform default)')
+    .option('--service-account <path>', 'Google Play service account JSON (copied into the config dir)')
+    .action(async (options) => {
+      await configInit(options);
     });
 
   config
