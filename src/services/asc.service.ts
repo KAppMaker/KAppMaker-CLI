@@ -13,10 +13,12 @@ import type {
   AppStoreReviewInfoConfig,
 } from '../types/appstore.js';
 
-// Minimum supported asc CLI version. v1.0 removed compatibility shims for
-// `apps create`, `age-rating set`, `submit preflight`, `release run`, etc.
-// See https://docs.asccli.sh/migrate-to-1-0
-const MIN_ASC_VERSION = '1.2.1';
+// Minimum supported asc CLI version: `pricing availability create
+// --all-territories --if-exists update` (5.9) and `prices import --confirm`
+// (3.3) are used by the monetization path; `subscriptions groups
+// localizations` moved under group versions in 5.0.
+// See https://docs.asccli.sh/migrate-to-5-0
+export const MIN_ASC_VERSION = '5.9.0';
 
 export async function validateAscInstalled(): Promise<void> {
   let versionOutput: string | null = null;
@@ -26,11 +28,16 @@ export async function validateAscInstalled(): Promise<void> {
   } catch {
     logger.warn('asc CLI is not installed.');
     console.log('');
-    const shouldInstall = await confirm('  Would you like to install it? (brew install asc)');
+    // Homebrew works on macOS and Linux; without it, the official install
+    // script (it verifies checksums) is the documented route.
+    const hasBrew = (await execa('brew', ['--version'], { reject: false })).exitCode === 0;
+    const hint = hasBrew ? 'brew install asc' : 'curl -fsSL https://asccli.sh/install | bash';
+    const shouldInstall = await confirm(`  Would you like to install it? (${hint})`);
     if (shouldInstall) {
-      await runStreaming('brew', ['install', 'asc'], { label: 'Installing asc CLI...' });
+      if (hasBrew) await runStreaming('brew', ['install', 'asc'], { label: 'Installing asc CLI...' });
+      else await runStreaming('bash', ['-c', hint], { label: 'Installing asc CLI...' });
     } else {
-      logger.fatal('asc CLI is required. Install manually: brew install asc');
+      logger.fatal(`asc CLI is required. Install manually: ${hint}`);
       process.exit(1);
     }
     return;
@@ -39,8 +46,8 @@ export async function validateAscInstalled(): Promise<void> {
   if (versionOutput && !meetsMinimumVersion(versionOutput, MIN_ASC_VERSION)) {
     const found = versionOutput.match(/\d+\.\d+\.\d+/)?.[0] ?? versionOutput.trim();
     logger.warn(`asc CLI ${found} is older than ${MIN_ASC_VERSION}. Some commands may fail.`);
-    logger.info('Upgrade with: brew upgrade asc');
-    logger.info('Migration notes: https://docs.asccli.sh/migrate-to-1-0');
+    logger.info('Upgrade with: brew update && brew upgrade asc   (or: curl -fsSL https://asccli.sh/install | bash)');
+    logger.info('Migration notes: https://docs.asccli.sh/migrate-to-5-0');
   }
 }
 
@@ -64,8 +71,12 @@ export async function validateAscAuth(): Promise<void> {
     allowFailure: true,
   });
 
-  // Check both exit code and whether credentials actually exist
-  const hasCredentials = result.exitCode === 0 && !result.stdout.includes('"credentials":[]');
+  // Check both exit code and whether credentials actually exist. Credentials
+  // from ASC_KEY_ID/ASC_ISSUER_ID/ASC_PRIVATE_KEY_PATH env vars leave the
+  // stored list empty but report environmentCredentialsComplete (asc 5.x).
+  const hasCredentials =
+    result.exitCode === 0 &&
+    (!result.stdout.includes('"credentials":[]') || result.stdout.includes('"environmentCredentialsComplete":true'));
   if (!hasCredentials) {
     logger.warn('asc CLI is not authenticated.');
 
@@ -145,7 +156,8 @@ export async function createBundleId(bundleId: string, _name: string, platform: 
 }
 
 async function findBundleIdResourceId(identifier: string): Promise<string | null> {
-  const result = await run('asc', ['bundle-ids', 'list', '--output', 'json'], {
+  // Filter server-side: an unfiltered list returns only the first page.
+  const result = await run('asc', ['bundle-ids', 'list', '--identifier', identifier, '--output', 'json'], {
     label: 'Looking up bundle ID resource ID',
     allowFailure: true,
   });
@@ -338,6 +350,7 @@ export async function setReviewDetails(versionId: string, info: AppStoreReviewIn
     '--contact-phone', info.contact_phone,
     '--output', 'json',
   ];
+  if (info.demo_username || info.demo_password) args.push('--demo-account-required=true'); // Go bool flag: needs '='
   if (info.demo_username) args.push('--demo-account-name', info.demo_username);
   if (info.demo_password) args.push('--demo-account-password', info.demo_password);
   if (info.notes) args.push('--notes', info.notes);

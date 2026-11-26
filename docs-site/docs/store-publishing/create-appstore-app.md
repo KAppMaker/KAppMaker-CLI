@@ -7,8 +7,8 @@ title: App Store Connect Setup
 
 Creates and fully configures an app on App Store Connect using the [asc CLI](https://github.com/rorkai/App-Store-Connect-CLI).
 
-:::warning Requires asc CLI ≥ 1.4.0
-KAppMaker 1.7.0+ uses `asc subscriptions pricing prices import` (added in asc 1.4.0) to bulk-apply per-territory PPP prices in a single API call. Upgrade via `brew upgrade asc` and verify with `asc --version`.
+:::warning Requires asc CLI ≥ 5.9.0
+KAppMaker uses `asc subscriptions pricing prices import` to bulk-apply per-territory PPP prices in a single API call, and asc 5.x commands for availability and subscription-group localizations. Upgrade via `brew update && brew upgrade asc` (or `curl -fsSL https://asccli.sh/install | bash` without Homebrew) and verify with `asc --version` or `kappmaker doctor`.
 
 The asc CLI repo moved from `rudrankriyam/App-Store-Connect-CLI` → `rorkai/App-Store-Connect-CLI` in 2026. The brew formula installs the latest stable from the new repo automatically.
 :::
@@ -104,7 +104,7 @@ Subscriptions and IAPs are fanned out to **every ASC territory** (~175) with pur
 
 ## App Review screenshots (1.7.1+)
 
-Apple requires a **review screenshot** on every subscription and IAP — without one, the product remains in `MISSING_METADATA` state and per-territory pricing won't show as "resolved" in `asc subscriptions pricing prices list --resolved`. KAppMaker uploads them automatically via `asc subscriptions review screenshots create` (subs) and `asc iap images create` (IAPs).
+Apple requires a **review screenshot** on every subscription and IAP — without one, the product remains in `MISSING_METADATA` state and per-territory pricing won't show as "resolved" in `asc subscriptions pricing prices list --resolved`. KAppMaker uploads them automatically via `asc subscriptions review screenshots create` (subs) and `asc iap review-screenshots create` (IAPs).
 
 **Global default + per-product override**:
 

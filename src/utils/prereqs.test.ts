@@ -64,7 +64,7 @@ test('macOS java stub ("Unable to locate a Java Runtime", exit 1) counts as miss
 test('an old asc is reported as outdated with the upgrade line', async () => {
   const r = await checkTool(toolById('asc'), { platform: 'macos', run: says('1.2.1') });
   assert.equal(r.status, 'outdated');
-  assert.equal(r.hint, 'brew upgrade asc');
+  assert.equal(r.hint, 'brew update && brew upgrade asc');
 });
 
 test('missing tools get the platform-specific install line', async () => {

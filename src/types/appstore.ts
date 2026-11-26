@@ -167,7 +167,7 @@ export interface AppStoreInAppPurchase {
   ppp_enabled?: boolean;
   /**
    * Optional path to a PNG/JPG App Review screenshot uploaded via
-   * `asc iap images create`. Overrides the top-level `review_screenshot`
+   * `asc iap review-screenshots create`. Overrides the top-level `review_screenshot`
    * default. Missing files are silently skipped.
    */
   review_screenshot?: string;

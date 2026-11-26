@@ -17,7 +17,7 @@ description: Set up an app on App Store Connect (ASC) for iOS — the app record
 **Syntax**: `kappmaker create-appstore-app [--config <path>]`
 
 **Prerequisites**:
-- `asc` CLI installed **≥ 1.4.0** (`brew install asc` or `brew upgrade asc`; the bulk-CSV `subscriptions pricing prices import` command used by KAppMaker 1.7.0+ requires this version)
+- `asc` CLI installed **≥ 5.9.0** (macOS/Linux: `brew install asc` / `brew update && brew upgrade asc`; without Homebrew: `curl -fsSL https://asccli.sh/install | bash`). KAppMaker 1.27+ uses `pricing availability create --if-exists update`, `prices import --confirm` and group-version localizations, which older asc lacks. `kappmaker doctor` shows the installed version.
 - Repo location: https://github.com/rorkai/App-Store-Connect-CLI (renamed from rudrankriyam in 2026)
 - Config keys: `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath` (for API auth)
 - `appleId` — now required (used by both `asc web apps create` and privacy setup)
@@ -32,13 +32,13 @@ description: Set up an app on App Store Connect (ASC) for iOS — the app record
 **Tip**: Before running, you can help the user review or create the `Assets/appstore-config.json` file. Read the existing config and explain each section. The user can edit it before running.
 
 **Per-territory PPP pricing (1.7.0+ — bulk CSV import)**: subscriptions and IAPs are fanned out to **every ASC territory (~175)** with PPP-adjusted prices in ONE API call per product.
-- **Subscriptions**: `asc subscriptions pricing prices import --input <csv>` (added in asc 1.4.0). CSV columns `territory,price,price_point_id`; KAppMaker writes a temp file and pipes it in. Omits `--start-date` so rows are treated as starting prices (Apple rejects future-dated rows when the territory has no starting price yet: "Create a starting price before creating future prices").
+- **Subscriptions**: `asc subscriptions pricing prices import --input <csv>` (asc 1.4+, `--confirm` required since 3.3). CSV columns `territory,price,price_point_id`; KAppMaker writes a temp file and pipes it in. Omits `--start-date` so rows are treated as starting prices (Apple rejects future-dated rows when the territory has no starting price yet: "Create a starting price before creating future prices").
 - **IAPs**: `asc iap pricing schedules create --prices "PP_ID:DATE,…"` (already batch).
 - **Tier resolution**: Apple's price-point catalog uses globally-stable tier numbers (1..800; tier N = same USD-equivalent across all territories). Resolve each unique PPP USD target → tier ONCE via USA's catalog (USD-priced), then synthesise per-territory price-point IDs locally using Apple's base64 `{s, t, p}` format. Critical bug fix vs 1.6.x — old code numerically compared a USD target to local-currency prices (¥, ₩, ₹) and picked the FREE tier, silently landing products at $0 in JPN/IDR/INR/KRW/etc.
 - **Distinct catalogs, distinct IDs**: subscriptions = `subscriptionPricePoints` (`s` = subscription-internal ID); IAPs = `appPricePoints` (`s` = app ID). Mixing IDs returns `400 The provided entity is invalid`.
 - **Idempotent re-runs**: existing subs/IAPs now refresh pricing instead of being skipped (1.6.x silently skipped → users couldn't re-price legacy products).
 
-**App Review screenshots (1.7.1+)**: Apple requires a review screenshot on every subscription and IAP — without one, products stay in `MISSING_METADATA` state. Config field `review_screenshot` (top-level, plus optional per-product override on each sub/IAP). Required size: **1290 × 2796 px** (iPhone 6.7" Display, portrait — matches App Store listing screenshots); minimum 640 × 920 px. Uploads via `asc subscriptions review screenshots create` (subs) and `asc iap images create` (IAPs). Idempotent during `create-appstore-app` (skips when one is already attached); silently skipped when the file at the given path doesn't exist.
+**App Review screenshots (1.7.1+)**: Apple requires a review screenshot on every subscription and IAP — without one, products stay in `MISSING_METADATA` state. Config field `review_screenshot` (top-level, plus optional per-product override on each sub/IAP). Required size: **1290 × 2796 px** (iPhone 6.7" Display, portrait — matches App Store listing screenshots); minimum 640 × 920 px. Uploads via `asc subscriptions review screenshots create` (subs) and `asc iap review-screenshots create` (IAPs). Idempotent during `create-appstore-app` (skips when one is already attached); silently skipped when the file at the given path doesn't exist.
 
 **Auto-resize prompt (1.7.3+)**: when the file's dimensions don't match 1290 × 2796, KAppMaker prompts `Resize to 1290×2796 keeping aspect ratio? (Y/n)`. Y → sharp resize with `fit: 'inside'` (preserves aspect ratio, may produce 1290×726 from a 16:9 source) → temp file → upload. N → uploads as-is. Files already at 1290×2796 skip the prompt.
 

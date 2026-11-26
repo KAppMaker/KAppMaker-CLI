@@ -91,13 +91,13 @@ export const TOOLS: ToolSpec[] = [
     name: 'App Store Connect CLI (asc)',
     command: 'asc',
     versionArgs: ['--version'],
-    min: '1.4.0',
+    min: '5.9.0',
     usedBy: 'create-appstore-app, appstore-*, subscription add, iap add',
     install: {
       macos: 'brew install asc',
       linux: 'curl -fsSL https://asccli.sh/install | bash',
     },
-    upgrade: { macos: 'brew upgrade asc', linux: 'curl -fsSL https://asccli.sh/install | bash' },
+    upgrade: { macos: 'brew update && brew upgrade asc', linux: 'curl -fsSL https://asccli.sh/install | bash' },
   },
   {
     id: 'adapty',
