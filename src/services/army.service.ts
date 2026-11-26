@@ -112,6 +112,13 @@ export type FetchLike = (url: string, init?: { headers?: Record<string, string> 
 
 export class ChecksumMismatchError extends Error {}
 
+/** The download itself failed: `status` is the HTTP status, or undefined when the server was not reachable. */
+export class DownloadError extends Error {
+  constructor(message: string, readonly url: string, readonly status?: number) {
+    super(message);
+  }
+}
+
 /**
  * Downloads install.sh and install.sh.sha256 from `origin`, verifies one
  * against the other and writes the script to a private temp dir. Throws
@@ -122,8 +129,20 @@ export async function downloadVerifiedInstaller(
   fetchImpl: FetchLike = fetch as unknown as FetchLike,
 ): Promise<{ scriptPath: string; dir: string; sha256: string }> {
   const get = async (url: string): Promise<Buffer> => {
-    const res = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT } });
-    if (!res.ok) throw new Error(`GET ${url} → HTTP ${res.status}`);
+    let res: Awaited<ReturnType<FetchLike>>;
+    try {
+      res = await fetchImpl(url, { headers: { 'User-Agent': USER_AGENT } });
+    } catch (e) {
+      const cause = (e as { cause?: { code?: string } }).cause?.code;
+      throw new DownloadError(`could not reach ${new URL(url).host}${cause ? ` (${cause})` : ''}`, url);
+    }
+    if (!res.ok) {
+      // A missing checksum file is a safety failure, not a download hiccup.
+      if (url.endsWith('.sha256') && res.status === 404) {
+        throw new ChecksumMismatchError(`${url} is missing (HTTP 404), so the installer cannot be verified.`);
+      }
+      throw new DownloadError(`GET ${url} → HTTP ${res.status}`, url, res.status);
+    }
     return Buffer.from(await res.arrayBuffer());
   };
 

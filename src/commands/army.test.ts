@@ -76,8 +76,8 @@ for (const cmd of ['doctor', 'update', 'worker']) {
     const text = q.lines.join('\n');
     assert.match(text, /not installed/);
     assert.match(text, /kappmaker army install/);
-    assert.match(text, /curl -fsSL https:\/\/kappmaker\.com\/install\.sh \| bash/);
     assert.match(text, /--server/);
+    assert.match(text, /licence key/);
   });
 }
 
@@ -119,8 +119,11 @@ test('install refuses to run install.sh when the checksum does not match', async
   });
   assert.equal(code, 1);
   assert.equal(ran, false, 'install.sh must not run on a checksum mismatch');
-  assert.match(q.lines.join('\n'), /Checksum mismatch/);
-  assert.match(q.lines.join('\n'), /NOT run/);
+  const text = q.lines.join('\n');
+  assert.match(text, /could not be verified/);
+  assert.match(text, /NOT run/);
+  assert.match(text, /What to do:/);
+  assert.match(text, /Nothing on your computer was changed/);
 });
 
 test('install refuses when the checksum file is missing or malformed', async () => {
@@ -140,6 +143,8 @@ test('install runs a verified install.sh with the args, key only in env, and cle
   const key = 'KAM-ABCDE-FGHJK-MNPQR-STVWX';
   const code = await army(['install', '--server', '--key', key, '--dry-run', '--sudo', 'limited'], {
     env: { ...emptyHome },
+    platform: 'linux',
+    uid: 0,
     fetchImpl,
     run: async (command, args, env) => {
       seen = { command, args, env, script: fs.readFileSync(args[0], 'utf8') };
@@ -224,4 +229,66 @@ test('checksum parsing and --key splitting', () => {
   assert.equal(parseChecksum('abc'), null);
   assert.deepEqual(splitInstallArgs(['--key=K1', '--server']), { scriptArgs: ['--server'], key: 'K1' });
   assert.deepEqual(splitInstallArgs(['--server']), { scriptArgs: ['--server'], key: undefined });
+});
+
+// ------------------------------------------------- beginner-facing messages
+
+test('no connection: says so and what to do', async () => {
+  const fetchImpl: FetchLike = async () => {
+    throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND' } });
+  };
+  const q = quiet();
+  const code = await army(['install'], { env: { ...emptyHome }, fetchImpl, run: async () => 0, ...q });
+  assert.equal(code, 1);
+  const text = q.lines.join('\n');
+  assert.match(text, /no connection to kappmaker\.com/);
+  assert.match(text, /ENOTFOUND/);
+  assert.match(text, /What to do: check that you are online/);
+});
+
+test('server error: tells the user it is not their fault', async () => {
+  const { fetchImpl } = fakeFetch({ 'install.sh': 503, 'install.sh.sha256': 503 });
+  const q = quiet();
+  assert.equal(await army(['install'], { env: { ...emptyHome }, fetchImpl, run: async () => 0, ...q }), 1);
+  assert.match(q.lines.join('\n'), /HTTP 503[\s\S]*on our side, not yours/);
+});
+
+test('missing checksum file is a verification failure, never a hint to bypass it', async () => {
+  const { fetchImpl } = fakeFetch({ 'install.sh': SCRIPT, 'install.sh.sha256': 404 });
+  const q = quiet();
+  assert.equal(await army(['install'], { env: { ...emptyHome }, fetchImpl, run: async () => 0, ...q }), 1);
+  const text = q.lines.join('\n');
+  assert.match(text, /could not be verified/);
+  assert.doesNotMatch(text, /curl/);
+});
+
+test('--server on a Mac or as a normal user stops before downloading, with the exact fix', async () => {
+  const { fetchImpl, urls } = fakeFetch({});
+  const mac = quiet();
+  assert.equal(await army(['install', '--server'], { env: { ...emptyHome }, fetchImpl, platform: 'darwin', uid: 501, ...mac }), 2);
+  assert.match(mac.lines.join('\n'), /Linux server[\s\S]*without --server/);
+  const user = quiet();
+  assert.equal(await army(['install', '--server'], { env: { ...emptyHome }, fetchImpl, platform: 'linux', uid: 1000, ...user }), 2);
+  assert.match(user.lines.join('\n'), /sudo env "PATH=\$PATH" kappmaker army install --server/);
+  const win = quiet();
+  assert.equal(await army(['install'], { env: { ...emptyHome }, fetchImpl, platform: 'win32', ...win }), 2);
+  assert.match(win.lines.join('\n'), /WSL/);
+  assert.deepEqual(urls, [], 'nothing downloaded');
+});
+
+test('after the installer: success, failure and usage errors each say what to do next', async () => {
+  const { fetchImpl } = fakeFetch({ 'install.sh': SCRIPT, 'install.sh.sha256': sha256Hex(SCRIPT) });
+  const runWith = async (code: number, extra: string[] = []) => {
+    const q = quiet();
+    await army(['install', ...extra], { env: { ...emptyHome }, fetchImpl, platform: 'linux', uid: 0, run: async () => code, ...q });
+    return q.lines.join('\n');
+  };
+  const ok = await runWith(0);
+  assert.match(ok, /Step 1 of 2[\s\S]*Step 2 of 2/);
+  assert.match(ok, /ask for your licence key/);
+  assert.match(ok, /installed[\s\S]*NEW terminal[\s\S]*kappmaker army doctor/);
+  assert.match(await runWith(1), /stopped before finishing \(exit code 1\)[\s\S]*safe to re-run/);
+  assert.match(await runWith(2), /did not recognise one of the options[\s\S]*--help/);
+  assert.match(await runWith(130), /cancelled/);
+  assert.doesNotMatch(await runWith(0, ['--dry-run']), /is installed/, 'a dry run is not an install');
 });
