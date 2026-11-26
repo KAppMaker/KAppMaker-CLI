@@ -2,67 +2,44 @@ import { execa } from 'execa';
 import chalk from 'chalk';
 import { logger } from './logger.js';
 import { confirm } from './prompt.js';
+import { checkTool, currentPlatform, installHint, toolById, type CheckResult } from './prereqs.js';
 
-interface Dependency {
-  command: string;
-  versionArg: string;
-  name: string;
-  installCommand: string;
-  canAutoInstall: boolean;
-}
+// Tools `kappmaker create` cannot run without. Only npm-installed ones are
+// offered for automatic install: everything else needs sudo or a package
+// manager the user should choose, so we print the exact line instead.
+const REQUIRED_FOR_CREATE = ['git', 'firebase', 'bundler'] as const;
+const AUTO_INSTALL = new Set(['firebase']);
 
-const REQUIRED_DEPS: Dependency[] = [
-  {
-    command: 'git',
-    versionArg: '--version',
-    name: 'Git',
-    installCommand: 'xcode-select --install',
-    canAutoInstall: false,
-  },
-  {
-    command: 'firebase',
-    versionArg: '--version',
-    name: 'Firebase CLI',
-    installCommand: 'npm install -g firebase-tools',
-    canAutoInstall: true,
-  },
-  {
-    command: 'bundle',
-    versionArg: '--version',
-    name: 'Bundler (for Fastlane)',
-    installCommand: 'gem install bundler',
-    canAutoInstall: true,
-  },
-];
-
-async function tryInstall(dep: Dependency): Promise<boolean> {
+async function tryInstall(id: string, result: CheckResult): Promise<boolean> {
+  const tool = toolById(id);
+  const command = installHint(tool, currentPlatform());
   console.log('');
-  console.log(`    ${chalk.red('x')} ${chalk.bold(dep.name)} is not installed.`);
+  console.log(`    ${chalk.red('x')} ${chalk.bold(tool.name)} is not installed.`);
 
-  if (!dep.canAutoInstall) {
-    console.log(`      Please install it manually: ${chalk.cyan(dep.installCommand)}`);
+  if (!AUTO_INSTALL.has(id)) {
+    console.log(`      Install it: ${chalk.cyan(command)}`);
     return false;
   }
 
   console.log(`      To install, this command will be run:`);
-  console.log(`      ${chalk.cyan(dep.installCommand)}`);
+  console.log(`      ${chalk.cyan(command)}`);
   console.log('');
-
-  const shouldInstall = await confirm(`      Install ${dep.name}?`);
-  if (!shouldInstall) {
-    logger.warn(`Skipped installing ${dep.name}`);
+  if (!(await confirm(`      Install ${tool.name}?`))) {
+    logger.warn(`Skipped installing ${tool.name}`);
     return false;
   }
 
-  const [cmd, ...args] = dep.installCommand.split(' ');
+  const [cmd, ...args] = command.split(' ');
   try {
-    logger.info(`Running: ${dep.installCommand}`);
+    logger.info(`Running: ${command}`);
     await execa(cmd, args, { stdio: 'inherit' });
-    logger.success(`${dep.name} installed successfully`);
+    const recheck = await checkTool(tool);
+    if (recheck.status === 'missing') throw new Error('still not on PATH');
+    logger.success(`${tool.name} installed successfully`);
     return true;
   } catch {
-    logger.error(`Failed to install ${dep.name}`);
-    console.log(`      Try running manually: ${chalk.cyan(dep.installCommand)}`);
+    logger.error(`Failed to install ${tool.name}${result.status === 'missing' ? '' : ` (${result.status})`}`);
+    console.log(`      Try running manually: ${chalk.cyan(command)}`);
     return false;
   }
 }
@@ -70,20 +47,19 @@ async function tryInstall(dep: Dependency): Promise<boolean> {
 export async function validateDependencies(): Promise<void> {
   let hasFailure = false;
 
-  for (const dep of REQUIRED_DEPS) {
-    try {
-      await execa(dep.command, [dep.versionArg]);
-    } catch {
-      const installed = await tryInstall(dep);
-      if (!installed) {
-        hasFailure = true;
-      }
+  for (const id of REQUIRED_FOR_CREATE) {
+    const result = await checkTool(toolById(id));
+    if (result.status === 'missing') {
+      if (!(await tryInstall(id, result))) hasFailure = true;
+    } else if (result.status === 'outdated') {
+      logger.warn(`${result.name} ${result.version} is older than ${result.min}; some steps may fail.`);
+      if (result.hint) console.log(`      Upgrade: ${chalk.cyan(result.hint)}`);
     }
   }
 
   if (hasFailure) {
     console.log('');
-    logger.fatal('Some dependencies are missing. Please install them and try again.');
+    logger.fatal('Some dependencies are missing. Please install them and try again (kappmaker doctor lists everything).');
     process.exit(1);
   }
 

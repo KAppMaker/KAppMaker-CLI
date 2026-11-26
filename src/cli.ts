@@ -49,6 +49,7 @@ import { mascotAddState } from './commands/mascot-add-state.js';
 import { mascotAnimate } from './commands/mascot-animate.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
 import { army } from './commands/army.js';
+import { doctor } from './commands/doctor.js';
 import {
   firebaseLoginCommand,
   firebaseProjectCommand,
@@ -73,6 +74,15 @@ export function createCli(): Command {
     .version(version)
     // Lets `kappmaker army …` hand every flag (even --help/--version) to the kit.
     .enablePositionalOptions();
+
+  program
+    .command('doctor')
+    .description('Check the external tools the CLI uses (versions + exact install lines for macOS/Linux)')
+    .option('--json', 'Machine-readable output', false)
+    .option('--strict', 'Exit 1 when a required tool is missing or too old', false)
+    .action(async (options) => {
+      process.exit(await doctor(options));
+    });
 
   program
     .command('army')

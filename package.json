@@ -45,8 +45,9 @@
     "test:ppp": "tsx src/services/ppp-pricing.service.test.ts",
     "test:ios-ci": "tsx src/commands/ios-ci.test.ts",
     "lint": "tsc --noEmit",
-    "test": "npm run test:ppp && npm run test:ios-ci && npm run test:army",
-    "test:army": "tsx --test src/commands/army.test.ts"
+    "test": "npm run test:ppp && npm run test:ios-ci && npm run test:army && npm run test:prereqs",
+    "test:army": "tsx --test src/commands/army.test.ts",
+    "test:prereqs": "tsx --test src/utils/prereqs.test.ts"
   },
   "dependencies": {
     "chalk": "^6.0.1",
