@@ -3,6 +3,11 @@
   "version": "1.26.1",
   "description": "CLI the KAppMaker AI agent drives to create, configure, build and ship Kotlin Multiplatform apps for Android and iOS. Part of KAppMaker AI, the always on machine that builds your app while you sleep.",
   "homepage": "https://kappmaker.com",
+  "license": "MIT",
+  "author": "KAppMaker (https://kappmaker.com)",
+  "bugs": {
+    "url": "https://github.com/KAppMaker/KAppMaker-CLI/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/KAppMaker/KAppMaker-CLI.git"
@@ -27,7 +32,9 @@
     "kappmaker": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "NOTICE.md"
   ],
   "scripts": {
     "build": "tsc && cp src/templates/Fastfile.txt src/templates/ios-ci-workflow.yml src/templates/ios-ci-lane.rb dist/templates/",
