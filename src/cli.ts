@@ -48,6 +48,7 @@ import { createMascot } from './commands/create-mascot.js';
 import { mascotAddState } from './commands/mascot-add-state.js';
 import { mascotAnimate } from './commands/mascot-animate.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
+import { army } from './commands/army.js';
 import {
   firebaseLoginCommand,
   firebaseProjectCommand,
@@ -66,8 +67,24 @@ export function createCli(): Command {
 
   program
     .name('kappmaker')
-    .description('CLI tool for bootstrapping KAppMaker mobile apps')
-    .version(version);
+    .description(
+      'The CLI behind KAppMaker AI: create, configure, build and ship Kotlin Multiplatform apps for Android and iOS',
+    )
+    .version(version)
+    // Lets `kappmaker army …` hand every flag (even --help/--version) to the kit.
+    .enablePositionalOptions();
+
+  program
+    .command('army')
+    .description('Run the App Army kit (kappmaker-army <cmd>), or install it: kappmaker army install [--server]')
+    .argument('[args...]', 'Command and arguments for kappmaker-army')
+    .helpOption(false)
+    .allowUnknownOption()
+    .allowExcessArguments()
+    .passThroughOptions()
+    .action(async (args: string[]) => {
+      process.exit(await army(args));
+    });
 
   program
     .command('create')
