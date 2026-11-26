@@ -156,6 +156,8 @@ kappmaker army worker add app2         # any other kappmaker-army command, args 
 
 | Command | Description |
 |---------|-------------|
+| `doctor` | Check the external tools the CLI uses: versions + exact install lines (macOS/Linux) |
+| `army <cmd>` / `army install` | Run the App Army kit (`kappmaker-army`), or download, verify and run its installer |
 | [`kappmaker create <app-name>`](#create-app-name) | Full end-to-end app setup (Firebase, logo, App Store Connect, Google Play Console, Adapty, release build) |
 | [`kappmaker clone <app-name>`](#clone-app-name) | Clone the template into `<AppName>-All` (step 1 of `create` as a standalone) |
 | [`kappmaker git setup-upstream`](#git-setup-upstream) | Rename `origin` to `upstream` (step 10 of `create` as a standalone) |
@@ -229,14 +231,18 @@ The `create` command runs the full end-to-end setup. Some steps assume the [KApp
 
 ## Prerequisites
 
-- **Node.js** >= 20
-- **Git**
+- **Node.js** >= 22.12 — macOS: `brew install node@22`; Linux: `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs`
+- **Git** — macOS: `xcode-select --install`; Linux: `sudo apt-get install -y git`
 - **Firebase CLI** — `npm install -g firebase-tools`
-- **Fastlane** — via Bundler in the template repo
-- **Android SDK** — installed at `~/Library/Android/sdk` (configurable)
-- **asc CLI** (optional, for App Store Connect) — `brew install asc` (requires **≥ 1.4.0** as of KAppMaker 1.7.0 for the bulk CSV subscription-pricing path)
+- **Fastlane** — via Bundler in the template repo (Ruby 3 + `gem install bundler`; Linux: `sudo apt-get install -y ruby-full build-essential`)
+- **JDK 17+** (Gradle, keytool) — macOS: `brew install --cask temurin@17`; Linux: `sudo apt-get install -y openjdk-17-jdk`
+- **Android SDK** — `ANDROID_HOME`, else `~/Library/Android/sdk` (macOS) or `~/Android/Sdk` (Linux); configurable via `androidSdkPath`
+- **asc CLI** (optional, for App Store Connect) — **≥ 5.9.0**: `brew install asc` (macOS/Linux) or `curl -fsSL https://asccli.sh/install | bash`
 - **Adapty CLI** (optional, for Adapty setup) — `npm install -g adapty`
-- **No extra CLI for Google Play Console** — `kappmaker gpc` talks to the Play Publisher API directly via Node's built-in `fetch` and `crypto`; all it needs is the service-account JSON path set in `googleServiceAccountPath`
+- **GitHub CLI** (optional, for `ios-ci`) — macOS: `brew install gh`; Linux: `sudo apt-get install -y gh`
+- **No extra CLI for Google Play Console** — `kappmaker gpc` talks to the Play Publisher API directly
+
+Run **`kappmaker doctor`** to see which of these are installed, at what version, and the exact install line for anything missing on your platform.
 
 ## External Services & API Keys
 
