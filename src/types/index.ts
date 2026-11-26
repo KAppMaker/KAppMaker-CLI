@@ -30,6 +30,8 @@ export interface KAppMakerConfig {
   falApiKey: string;
   imgbbApiKey: string;
   openaiApiKey: string;
+  /** OpenAI model for spec authoring; '' = built-in default. */
+  openaiModel: string;
   ascAuthName: string;
   ascKeyId: string;
   ascIssuerId: string;

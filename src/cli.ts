@@ -256,7 +256,7 @@ export function createCli(): Command {
     .option('--state <name>', 'Existing state to animate (uses Assets/mascot/states/<state>.png)')
     .option('--image <path>', 'Explicit source image (overrides --state lookup)')
     .option('--motion <text>', 'Motion description (default: per-state preset, e.g. happy → gentle bounce)')
-    .option('--model <id>', 'Video model: seedance-mini (~$0.07/s, default), ltx (~$0.04/s @1080p, outage-prone), seedance (~$0.24/s premium)', 'seedance-mini')
+    .option('--model <id>', 'Video model: seedance-mini (~$0.07/s, default), ltx (LTX 2.3, ~$0.04/s @1080p), seedance (~$0.24/s premium)', 'seedance-mini')
     .option('--duration <seconds>', 'Clip length in seconds (ltx: 6-20 even, seedance: 4-15; seedance-mini picks automatically)')
     .option('--resolution <res>', 'Video resolution (seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p-1080p)')
     .option('--spec <path>', 'Pre-authored animation spec JSON (see `kappmaker spec-template mascot-animation`)')

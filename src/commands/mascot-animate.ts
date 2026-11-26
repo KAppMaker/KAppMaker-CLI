@@ -22,7 +22,7 @@ export async function mascotAnimate(options: MascotAnimateOptions): Promise<void
 
   const model = options.model ?? 'seedance-mini';
   if (!COST_PER_SECOND[model]) {
-    logger.fatal(`Unknown model: ${model}. Available: seedance-mini (cheap default), ltx (cheapest 1080p, outage-prone), seedance (premium).`);
+    logger.fatal(`Unknown model: ${model}. Available: seedance-mini (cheap default), ltx (LTX 2.3, cheapest 1080p), seedance (premium).`);
     process.exit(1);
   }
 

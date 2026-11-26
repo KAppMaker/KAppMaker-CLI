@@ -24,6 +24,7 @@ const DEFAULT_CONFIG: KAppMakerConfig = {
   falApiKey: '',
   imgbbApiKey: '',
   openaiApiKey: '',
+  openaiModel: '',
   ascAuthName: 'KAppMaker',
   ascKeyId: '',
   ascIssuerId: '',

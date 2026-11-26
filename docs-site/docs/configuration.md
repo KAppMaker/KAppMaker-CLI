@@ -46,6 +46,7 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 | `falApiKey` | fal.ai API key | — |
 | `imgbbApiKey` | imgbb API key | — |
 | `openaiApiKey` | OpenAI API key (only for `--prompt` flows without `--spec`) | — |
+| `openaiModel` | OpenAI model for those flows (also `KAPPMAKER_OPENAI_MODEL`). `gpt-4.1` is deprecated by OpenAI and shuts down 2027-01-14 — set a current model here, or use `--spec` | `gpt-4.1` |
 | `ascAuthName` | ASC keychain credential name | `KAppMaker` |
 | `ascKeyId` | App Store Connect API Key ID | — |
 | `ascIssuerId` | App Store Connect Issuer ID | — |

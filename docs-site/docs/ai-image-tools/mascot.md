@@ -82,7 +82,7 @@ The command prints a cost estimate and asks for confirmation before generating (
 | `--state <name>` | Existing state to animate (`Assets/mascot/states/<state>.png`) | — |
 | `--image <path>` | Explicit source image | — |
 | `--motion <text>` | Motion description | Per-state preset |
-| `--model <id>` | `seedance-mini` (~$0.07/s), `ltx` (~$0.04/s @1080p, outage-prone), `seedance` (~$0.24/s) | `seedance-mini` |
+| `--model <id>` | `seedance-mini` (~$0.07/s), `ltx` (LTX 2.3, ~$0.04/s @1080p), `seedance` (~$0.24/s) | `seedance-mini` |
 | `--duration <seconds>` | ltx: 6–20 (even), seedance: 4–15; seedance-mini picks automatically | auto / 6 / 4 |
 | `--resolution <res>` | seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p–1080p | 480p / 1080p / 720p |
 | `--spec <path>` | Pre-authored animation spec (`spec-template mascot-animation`) | — |
