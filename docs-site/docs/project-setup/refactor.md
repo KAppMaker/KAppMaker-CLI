@@ -3,6 +3,10 @@ sidebar_position: 12
 title: Package & App Name Refactoring
 ---
 
+
+:::info Names with spaces (2.2.0+)
+`--app-name "Lab Rat"` keeps "Lab Rat" as the display name (Android label, iOS CFBundleDisplayName) and writes the Gradle-safe `LabRat` to `rootProject.name`, Xcode `PRODUCT_NAME` and the iOS publish workflow's `app_name` (rewritten whatever it held, it used to stay "Koko").
+:::
 # Package & App Name Refactoring
 
 Refactor package names, application ID, bundle ID, and app name across the entire project. Implemented in TypeScript — no Gradle build system required.

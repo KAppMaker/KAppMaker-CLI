@@ -14,13 +14,33 @@ description: Set up an app on App Store Connect (ASC) for iOS — the app record
 
 ### create-appstore-app — App Store Connect Setup
 
-**Syntax**: `kappmaker create-appstore-app [--config <path>]`
+**Syntax**: `kappmaker create-appstore-app [--config <path>] [--yes]`
 
 **Prerequisites**:
 - `asc` CLI installed **≥ 5.9.0** (macOS/Linux: `brew install asc` / `brew update && brew upgrade asc`; without Homebrew: `curl -fsSL https://asccli.sh/install | bash`). KAppMaker 2.0+ uses `pricing availability create --if-exists update`, `prices import --confirm` and group-version localizations, which older asc lacks. `kappmaker doctor` shows the installed version.
 - Repo location: https://github.com/rorkai/App-Store-Connect-CLI (renamed from rudrankriyam in 2026)
 - Config keys: `ascKeyId`, `ascIssuerId`, `ascPrivateKeyPath` (for API auth)
 - `appleId` — now required (used by both `asc web apps create` and privacy setup)
+
+**asc version gate (CLI 2.2.0+)**: an asc older than 5.9.0, or one whose version cannot be read,
+stops the command at step 1 with the exact upgrade line. Older CLIs warned and then skipped steps
+silently while printing OK.
+
+**Every step reads back** and the run ends with a summary listing each FAILED step (exit 1):
+- Version: created or updated (`--if-exists update`) with the copyright; copyright defaults to
+  `"<year> <organization or app name>"` when the config leaves it empty.
+- Availability: every territory (`--all-territories`), new territories included, counted back.
+- Age rating: every answer sent explicitly, including the newer social media / user-generated
+  content / messaging questions (default false; set `age_rating.social_media` etc. to change).
+- App Review detail: created or updated, `demoAccountRequired=false` unless `demo_username`/
+  `demo_password` are set (or `review_info.demo_account_required` is true). Needs contact first
+  name, last name, email and phone.
+- Subscriptions: group localizations ensured on the group version; `ppp_enabled: false` runs
+  `asc subscriptions pricing equalize --workers 2` (more workers hit HTTP 429); final read-back is
+  `asc validate subscriptions` (a MISSING_METADATA subscription fails the step and says why).
+
+**Non-interactive**: `--yes` or `--config <file>` answers "Continue?" and "Create the app?". It never
+answers an interactive login or an install question (those still need a human or the saved key).
 
 **Config file**: Looks for `./Assets/appstore-config.json`. If not found, prompts interactively.
 - Global defaults at `~/.config/kappmaker/appstore-defaults.json` are used as base layer.

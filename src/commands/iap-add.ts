@@ -2,6 +2,8 @@ import path from 'node:path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
+import { StepReport } from '../utils/step-report.js';
+import { resolveRegionsVersion, resetMonetizationReport, assertPlayCoverage } from '../services/gpc-regions.js';
 import { loadConfig } from '../utils/config.js';
 import * as asc from '../services/asc.service.js';
 import * as ascMoney from '../services/asc-monetization.service.js';
@@ -164,18 +166,20 @@ export async function iapAdd(options: IapAddOptions): Promise<void> {
   console.log('');
 
   let pushed = 0;
+  const report = new StepReport('iap add');
 
   if (platform === 'all' || platform === 'android') {
-    if (await pushToPlay(ctx, ids, credits, price)) pushed++;
+    if (await report.run('Google Play', () => pushToPlay(ctx, ids, credits, price), { detail: (v) => (v ? undefined : 'skipped: prerequisites missing, see above') })) pushed++;
   }
   if (platform === 'all' || platform === 'ios') {
-    if (await pushToAsc(ctx, ids, price, reviewScreenshot)) pushed++;
+    if (await report.run('App Store Connect', () => pushToAsc(ctx, ids, price, reviewScreenshot), { detail: (v) => (v ? undefined : 'skipped: prerequisites missing, see above') })) pushed++;
   }
   if (platform === 'all') {
-    if (await pushToAdapty(ctx, ids, credits, price)) pushed++;
+    if (await report.run('Adapty', () => pushToAdapty(ctx, ids, credits, price), { detail: (v) => (v ? undefined : 'skipped: prerequisites missing, see above') })) pushed++;
   }
 
   console.log('');
+  if (!report.print()) return;
   if (pushed === 0) {
     logger.fatal('No IAPs were pushed (all platforms skipped).');
     process.exit(1);
@@ -223,7 +227,10 @@ async function pushToPlay(
     credits,
   };
 
+  await resolveRegionsVersion();
+  resetMonetizationReport();
   await gpcMoney.setupInAppProducts(ctx.packageName, [iap], { recreateStuck: false });
+  assertPlayCoverage(`IAP ${iap.sku}`);
   return true;
 }
 

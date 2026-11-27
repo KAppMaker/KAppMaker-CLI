@@ -199,3 +199,101 @@ export function countUnansweredRequired(declaration: GooglePlayDataSafety): numb
   }
   return missing;
 }
+
+// ── Verification (`gpc data-safety push --verify`) ──────────────────
+//
+// The Play Developer API has no read endpoint for the Data safety form
+// (`applications.dataSafety` is POST-only in the v3 discovery document), so
+// there is nothing on Google's side to read back. --verify therefore checks
+// the declaration we sent row by row against Google's canonical question set,
+// fails on anything Play would reject or silently ignore, and prints what Play
+// now holds (the push only succeeds on a 2xx, which is checked separately).
+
+/** Minimal RFC 4180 CSV parser (quotes, doubled quotes, newlines in quotes). */
+export function parseCsv(text: string): string[][] {
+  const out: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+      continue;
+    }
+    if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); out.push(row); row = []; cell = '';
+    } else cell += ch;
+  }
+  if (cell !== '' || row.length > 0) { row.push(cell); out.push(row); }
+  return out;
+}
+
+export interface DataSafetyCheck {
+  /** Rows with a value: "QID[/RID] = VALUE". */
+  answered: string[];
+  /** Data types declared as collected, with their purposes. */
+  collected: Array<{ type: string; purposes: string[] }>;
+  /** Problems that make the declaration wrong or rejectable. */
+  problems: string[];
+}
+
+const TEMPLATE_KEYS = new Set(rows.slice(1).map(([q, r]) => rowLookupKey(q, r)));
+
+export function checkDataSafetyCsv(csv: string, declaration?: GooglePlayDataSafety): DataSafetyCheck {
+  const problems: string[] = [];
+  const parsed = parseCsv(csv).filter((r) => r.some((c) => c.trim() !== ''));
+  if (parsed.length < 2) problems.push('the CSV has no answer rows');
+  const header = parsed[0] ?? [];
+  if (!/question id/i.test(header[0] ?? '')) problems.push('the first row is not the Play header ("Question ID (machine readable)", ...)');
+
+  const answered: string[] = [];
+  const values = new Map<string, string>();
+  parsed.slice(1).forEach((r, i) => {
+    const [qid = '', rid = '', value = ''] = r;
+    if (r.length < 3) { problems.push(`row ${i + 2}: ${r.length} columns, expected 5`); return; }
+    const key = rowLookupKey(qid, rid || null);
+    if (!TEMPLATE_KEYS.has(key)) problems.push(`row ${i + 2}: unknown question ${key}`);
+    if (value !== '') {
+      if (!/^(TRUE|FALSE)$/.test(value) && !/^https?:\/\//.test(value)) {
+        problems.push(`row ${i + 2}: ${key} has value "${value}" (expected TRUE, FALSE or a URL)`);
+      }
+      values.set(key, value);
+      answered.push(`${key} = ${value}`);
+    }
+  });
+
+  // Every REQUIRED question needs an answer.
+  for (const [qid, rid, , requirement] of rows.slice(1)) {
+    if (requirement === 'REQUIRED' && !values.has(rowLookupKey(qid, rid))) {
+      problems.push(`required question ${rowLookupKey(qid, rid)} has no answer`);
+    }
+  }
+
+  // Answers in the config that match no Play question are dropped silently by
+  // the CSV builder: a typo would mean the declaration Play holds differs.
+  if (declaration?.answers) {
+    for (const key of Object.keys(declaration.answers)) {
+      if (!TEMPLATE_KEYS.has(key)) problems.push(`config answer "${key}" matches no Play question (typo?), so it was not sent`);
+    }
+  }
+
+  // Collected data types and their purposes, for the summary.
+  const collected: DataSafetyCheck['collected'] = [];
+  for (const [key, value] of values) {
+    const m = /^PSL_DATA_TYPES_[A-Z_]+\/(PSL_[A-Z_]+)$/.exec(key);
+    if (!m || value !== 'TRUE') continue;
+    const type = m[1];
+    const purposes = [...values.entries()]
+      .filter(([k, v]) => v === 'TRUE' && k.startsWith(`PSL_DATA_USAGE_RESPONSES:${type}:DATA_USAGE_COLLECTION_PURPOSE/`))
+      .map(([k]) => k.split('/').pop() as string);
+    if (purposes.length === 0) problems.push(`${type} is declared as collected but has no collection purpose`);
+    collected.push({ type, purposes });
+  }
+  return { answered, collected, problems };
+}

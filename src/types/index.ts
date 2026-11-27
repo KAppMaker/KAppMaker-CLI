@@ -45,6 +45,8 @@ export interface KAppMakerConfig {
   iosCertsRepo: string;
   /** PAT with read access to that repo. GITHUB_TOKEN cannot reach another repo. */
   iosCertsRepoToken: string;
+  /** Google Play regionsVersion for monetization writes. Empty = built-in default (2026/01). */
+  playRegionsVersion: string;
 }
 
 export interface CreateLogoOptions {

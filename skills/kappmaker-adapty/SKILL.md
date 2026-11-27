@@ -14,7 +14,11 @@ description: Configure Adapty for a KAppMaker app — the subscription provider 
 
 ### adapty setup — Subscription Management
 
-**Syntax**: `kappmaker adapty setup [--config <path>]`
+**Syntax**: `kappmaker adapty setup [--config <path>] [--yes]`
+
+`--config <file>` or `--yes` means no "Continue?" question (no more piping `y`). The run ends by
+reading every access level, product, paywall and placement back from Adapty; anything missing is
+a FAILED step and exit 1.
 
 **Prerequisites**:
 - `adapty` CLI installed (`which adapty`; auto-installs via npm if missing)

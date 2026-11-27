@@ -18,7 +18,10 @@ description: Rename a KAppMaker app's package name, bundle ID or display name ac
 
 **Options**:
 - `--app-id <id>` (required) — New applicationId / bundleId (e.g., `com.example.myapp`)
-- `--app-name <name>` (required) — New display name (e.g., `MyApp`)
+- `--app-name <name>` (required) — New display name (e.g., `MyApp` or `Lab Rat`). Spaces are fine:
+  the display name keeps them (Android label, iOS CFBundleDisplayName), while `rootProject.name`,
+  Xcode `PRODUCT_NAME` and the iOS publish workflow's `app_name` get the Gradle-safe form (`LabRat`).
+  The workflow's `app_name` is rewritten whatever it held before (it used to stay "Koko").
 - `--old-app-id <id>` — Current applicationId to replace (default: `com.measify.kappmaker`)
 - `--old-app-name <name>` — Current app name to replace (default: `KAppMakerAllModules`)
 - `--skip-package-rename` — Only update IDs and app name, keep Kotlin package directories intact

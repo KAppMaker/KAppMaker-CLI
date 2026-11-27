@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import { execa } from 'execa';
 import { run, runStreaming } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
+import { ToolError } from '../utils/errors.js';
 import { confirm } from '../utils/prompt.js';
 import { checkTool, toolById, versionAtLeast } from '../utils/prereqs.js';
 import type { AdaptyProduct } from '../types/adapty.js';
@@ -44,7 +45,7 @@ export async function validateAdaptyInstalled(): Promise<void> {
   } catch {
     logger.warn('adapty CLI is not installed.');
     console.log('');
-    const shouldInstall = await confirm('  Would you like to install it? (npm install -g adapty)');
+    const shouldInstall = await confirm('  Would you like to install it? (npm install -g adapty)', { yesAnswer: false });
     if (shouldInstall) {
       await runStreaming('npm', ['install', '-g', 'adapty'], { label: 'Installing adapty CLI...' });
     } else {
@@ -63,7 +64,7 @@ export async function validateAdaptyAuth(): Promise<void> {
   if (result.exitCode !== 0) {
     logger.warn('adapty CLI is not authenticated.');
     console.log('');
-    const shouldLogin = await confirm('  Would you like to log in? (opens browser)');
+    const shouldLogin = await confirm('  Would you like to log in? (opens browser)', { yesAnswer: false });
     if (shouldLogin) {
       await runStreaming('adapty', ['auth', 'login'], { label: 'Logging in to Adapty...' });
       const recheck = await run('adapty', ['auth', 'whoami'], {
@@ -152,7 +153,8 @@ export async function listProducts(appId: string): Promise<Array<{ id: string; t
     label: 'Listing existing products',
     allowFailure: true,
   });
-  if (result.exitCode !== 0) return [];
+  // A failed list must not read as "nothing exists": that recreated everything.
+  if (result.exitCode !== 0) throw new ToolError('Listing existing products', 'adapty', result.exitCode, result.stderr || result.stdout);
   try {
     const data = JSON.parse(result.stdout);
     const products = data?.data ?? data ?? [];
@@ -170,7 +172,8 @@ export async function listPaywalls(appId: string): Promise<Array<{ id: string; t
     label: 'Listing existing paywalls',
     allowFailure: true,
   });
-  if (result.exitCode !== 0) return [];
+  // A failed list must not read as "nothing exists": that recreated everything.
+  if (result.exitCode !== 0) throw new ToolError('Listing existing paywalls', 'adapty', result.exitCode, result.stderr || result.stdout);
   try {
     const data = JSON.parse(result.stdout);
     const paywalls = data?.data ?? data ?? [];
@@ -188,7 +191,8 @@ export async function listPlacements(appId: string): Promise<Array<{ developer_i
     label: 'Listing existing placements',
     allowFailure: true,
   });
-  if (result.exitCode !== 0) return [];
+  // A failed list must not read as "nothing exists": that recreated everything.
+  if (result.exitCode !== 0) throw new ToolError('Listing existing placements', 'adapty', result.exitCode, result.stderr || result.stdout);
   try {
     const data = JSON.parse(result.stdout);
     const placements = data?.data ?? data ?? [];
@@ -205,6 +209,7 @@ export async function listAccessLevels(appId: string): Promise<Array<{ id: strin
     label: 'Listing access levels',
     allowFailure: true,
   });
+  if (result.exitCode !== 0) throw new ToolError('Listing access levels', 'adapty', result.exitCode, result.stderr || result.stdout);
 
   if (result.exitCode === 0) {
     try {

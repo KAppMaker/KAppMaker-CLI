@@ -245,7 +245,7 @@ kappmaker army worker add app2         # any other kappmaker-army command, args 
 | [`kappmaker generate-keystore`](#generate-keystore) | Generate an Android signing keystore for Play Store releases |
 | [`kappmaker android-release-build`](#android-release-build) | Build a signed Android release AAB |
 | [`kappmaker refactor`](#refactor) | Refactor package names, application ID, bundle ID, and app name |
-| [`kappmaker update-version`](#update-version) | Bump Android and iOS version codes and version name |
+| [`kappmaker update-version`](#update-version) | Bump Android and iOS build numbers (`--version-name` to set the name) |
 | [`kappmaker config`](#config) | Manage CLI settings, API keys, and global defaults |
 
 ## Features
@@ -615,7 +615,9 @@ Requires a fal.ai API key (prompted on first use if not set).
 
 ## `create-appstore-app`
 
-Creates and fully configures an app on App Store Connect using the [asc CLI](https://github.com/rorkai/App-Store-Connect-CLI). Requires asc ≥ 1.4.0.
+Creates and fully configures an app on App Store Connect using the [asc CLI](https://github.com/rorkai/App-Store-Connect-CLI). Requires asc ≥ 5.9.0 (an older or unreadable asc stops the command with the upgrade line).
+
+> **2.2.0:** every step reads its result back and the run ends with a summary of FAILED steps (exit 1). Copyright defaults to `"<year> <organization>"`, availability is every territory, the age rating answers social media / UGC / messaging explicitly, the App Review detail is created with `demoAccountRequired=false` for no-login apps, group localizations are ensured, and `asc validate subscriptions` is the final check. `--yes` or `--config` answers the confirmations.
 
 ```bash
 kappmaker create-appstore-app
@@ -822,6 +824,8 @@ Google Play Console management — a tight wrapper around the official Google Pl
 
 > **Note:** Google Play does not allow creating new apps via any public API. Create the app manually once in [Play Console](https://play.google.com/console/u/0/developers), then use these commands to configure it.
 
+> **2.2.0:** every Play API error stops the command with Google's error body (exit 1); `gpc setup` ends with a step summary of FAILED steps. Listings are merged with the live listing (empty fields never clear Play, `--allow-empty` to clear) and read back before commit. Monetization uses `regionsVersion` 2026/01 (`--regions-version`, config `playRegionsVersion`) and reports `N of M regions priced` per product. `--yes`, or `--config`, answers confirmations.
+
 ### `gpc setup`
 
 Full end-to-end configuration (11 steps) — the Google Play parallel to `create-appstore-app`.
@@ -839,7 +843,7 @@ kappmaker gpc setup --config ./my-config.json
 4. Verify app exists on Play Console (fails fast with a deep link if not — Google does not allow app creation via the public API)
 5. Start a Play Console edit (only if the default-language listing has a title — otherwise steps 5-7 are skipped cleanly)
 6. Update app details (default language + contact website/email/phone)
-7. Update store listings per locale (title, short/full description, video); commits the edit. Empty listing titles are auto-filled from the app name
+7. Update store listings per locale, merged with the live listing (empty config fields never clear Play; `--allow-empty` to clear), diffed, read back, then commit. The app name fills a title only where Play has none
 8. **Pre-flight build check**, then create subscriptions via the new monetization API (`POST /subscriptions` with `productId` + `regionsVersion.version` as query params, base plans in body in DRAFT state, then `basePlans:activate` each one). **Base plans are available to all ~175 Play regions** — regions without explicit prices get auto-converted pricing from Google. Idempotent — existing product IDs are skipped. **Subscription listings are auto-cloned into Play's default language if missing.** Skipped with a clear message if no build is uploaded to any track (Google rejects monetization writes in that case).
 9. Create one-time in-app products via the **new** monetization API (`PATCH /onetimeproducts/{id}?allowMissing=true` + `purchaseOptions:batchUpdateStates` to activate). Idempotent via `GET /oneTimeProducts`. Replaces the legacy `/inappproducts` endpoint that returns 403 on migrated apps.
 10. Update the data safety declaration: converts `data_safety` JSON → Google's CSV format using a bundled canonical template + KAppMaker defaults (USER_ID for app functionality + account management; DEVICE_ID for app functionality + advertising + account management; crash/performance/diagnostics/interactions for analytics), then posts it via `POST /dataSafety` with `{ safetyLabels: "<csv>" }`. Respects `data_safety_csv_path` as an escape hatch for pre-exported CSVs.
@@ -852,9 +856,10 @@ Push just the store listings section from the config file (useful after editing 
 ```bash
 kappmaker gpc listings push
 kappmaker gpc listings push --config ./my-config.json
+kappmaker gpc listings push --allow-empty   # let empty config fields clear live Play fields
 ```
 
-Runs a single edit transaction: updates app details → updates every listing locale → commits.
+Runs a single edit transaction: reads the live listings, shows the diff, updates app details and only the fields the config fills in, reads the listings back, then commits. Any mismatch or error drops the edit.
 
 ### `gpc subscriptions list`
 
@@ -953,7 +958,10 @@ Push only the data safety declaration. Faster than running the full `setup` when
 
 ```bash
 kappmaker gpc data-safety push
+kappmaker gpc data-safety push --verify   # check every answer against Play's question set, print what Play now declares
 ```
+
+A non-2xx from Play exits 1 with Google's error body (older versions printed OK on an HTTP 400). Play has no read endpoint for the form, so `--verify` checks what was sent and tells you to glance at Play Console once.
 
 **How it works under the hood:** Google's `POST /applications/{pkg}/dataSafety` does not take structured JSON — it takes a CSV file (the same one Play Console exports from Policy → App content → Data safety → Export to CSV), wrapped in `{ safetyLabels: "<csv>" }`. KAppMaker lets you stay in JSON and converts internally.
 
@@ -1197,6 +1205,8 @@ kappmaker iap add \
 ---
 
 ## `adapty setup`
+
+> **2.2.0:** `--config <file>` or `--yes` skips the "Continue?" question, and the run ends by reading every access level, product, paywall and placement back from Adapty (missing = FAILED, exit 1).
 
 Sets up Adapty subscription products, paywalls, and placements using the [Adapty CLI](https://github.com/adaptyteam/adapty-cli).
 
@@ -1512,6 +1522,8 @@ Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (recommended when passi
 
 ## `generate-ios-icons`
 
+> **2.2.0:** also writes the launch screen logo (`Assets.xcassets/ic_logo.imageset`, 1x/2x/3x); `--splash-background <hex>` / `--splash-background-dark <hex>` set `SplashBackground`; `--no-splash` skips it.
+
 Generate the full iOS `AppIcon.appiconset` (all 11 PNG sizes Apple needs + `Contents.json`) from a single source logo. **Sharp-only — no AI, no API keys, no network calls.** Same output as appicon.co, but local and instant.
 
 ```bash
@@ -1548,6 +1560,8 @@ kappmaker generate-ios-icons --background "#000000"
 ---
 
 ## `generate-android-icons`
+
+> **2.2.0:** also points the Android 12+ splash (`windowSplashScreenAnimatedIcon`) at the new icon, sets `windowBackgroundColor` with `--splash-background`, and writes a themed monochrome icon when the logo is transparent. `--no-splash` skips the splash.
 
 Generate the full Android launcher icon set — all five mipmap density buckets, both legacy and adaptive variants, plus the adaptive icon XML files and the `ic_launcher_background` color entry in `values/colors.xml` — from a single source logo. **Sharp-only — no AI, no API keys.** Same output as Android Studio's Asset Studio, but local and instant.
 
@@ -1824,6 +1838,8 @@ Run from the project root (containing `MobileApp/`) or inside `MobileApp/` direc
 
 ## `refactor`
 
+> **2.2.0:** an app name with spaces (`--app-name "Lab Rat"`) keeps its spaces as the display name, while `rootProject.name`, Xcode `PRODUCT_NAME` and the iOS publish workflow's `app_name` get the Gradle-safe `LabRat`.
+
 Refactors package names, application ID, bundle ID, and app name across the entire project. Implemented in TypeScript — no Gradle build system required.
 
 ```bash
@@ -1854,12 +1870,15 @@ Only updates `applicationId` / bundle ID, Firebase configs, iOS files, GitHub wo
 
 ## `update-version`
 
-Bumps Android and iOS version codes and optionally sets a new version name. Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` directly.
+Bumps the Android versionCode and the iOS build number; the version name changes only with `--version-name`. Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` directly.
 
 ```bash
-kappmaker update-version              # Increment patch: 1.2.3 → 1.2.4, versionCode +1
-kappmaker update-version -v 2.0.0     # Set explicit version name, versionCode +1
+kappmaker update-version                         # Build number only: versionCode +1, iOS build +1, name unchanged
+kappmaker update-version --version-name 2.0.0    # Also set the version name on both platforms
 ```
+
+Since 2.2.0 a plain bump never changes the version name (it used to turn 1.0.0 into 1.0.1, and iOS
+1.0 into 1.1). `-v` / `--version` still work as the old spelling of `--version-name`.
 
 **What it updates:**
 

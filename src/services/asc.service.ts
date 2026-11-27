@@ -3,6 +3,7 @@ import { run, runStreaming } from '../utils/exec.js';
 import { logger } from '../utils/logger.js';
 import { confirm } from '../utils/prompt.js';
 import { loadConfig } from '../utils/config.js';
+import { CliError, ToolError } from '../utils/errors.js';
 import type {
   AppStoreAppConfig,
   AppStoreVersionConfig,
@@ -20,7 +21,13 @@ import type {
 // See https://docs.asccli.sh/migrate-to-5-0
 export const MIN_ASC_VERSION = '5.9.0';
 
-export async function validateAscInstalled(): Promise<void> {
+/**
+ * Check `asc` is installed and new enough, before any step runs. An older asc
+ * used to be a warning, after which every step ran with allowFailure and was
+ * silently skipped while the command still finished "OK". Now an old or
+ * unreadable version stops the command with the exact upgrade line.
+ */
+export async function validateAscInstalled(): Promise<string> {
   let versionOutput: string | null = null;
   try {
     const result = await execa('asc', ['--version']);
@@ -32,28 +39,43 @@ export async function validateAscInstalled(): Promise<void> {
     // script (it verifies checksums) is the documented route.
     const hasBrew = (await execa('brew', ['--version'], { reject: false })).exitCode === 0;
     const hint = hasBrew ? 'brew install asc' : 'curl -fsSL https://asccli.sh/install | bash';
-    const shouldInstall = await confirm(`  Would you like to install it? (${hint})`);
-    if (shouldInstall) {
-      if (hasBrew) await runStreaming('brew', ['install', 'asc'], { label: 'Installing asc CLI...' });
-      else await runStreaming('bash', ['-c', hint], { label: 'Installing asc CLI...' });
-    } else {
-      logger.fatal(`asc CLI is required. Install manually: ${hint}`);
-      process.exit(1);
+    const shouldInstall = await confirm(`  Would you like to install it? (${hint})`, { yesAnswer: false });
+    if (!shouldInstall) {
+      throw new CliError(`asc CLI ${MIN_ASC_VERSION} or newer is required. Install it with: ${hint}`);
     }
-    return;
+    if (hasBrew) await runStreaming('brew', ['install', 'asc'], { label: 'Installing asc CLI...' });
+    else await runStreaming('bash', ['-c', hint], { label: 'Installing asc CLI...' });
+    versionOutput = (await execa('asc', ['--version'], { reject: false })).stdout;
   }
+  return checkAscVersion(versionOutput ?? '');
+}
 
-  if (versionOutput && !meetsMinimumVersion(versionOutput, MIN_ASC_VERSION)) {
-    const found = versionOutput.match(/\d+\.\d+\.\d+/)?.[0] ?? versionOutput.trim();
-    logger.warn(`asc CLI ${found} is older than ${MIN_ASC_VERSION}. Some commands may fail.`);
-    logger.info('Upgrade with: brew update && brew upgrade asc   (or: curl -fsSL https://asccli.sh/install | bash)');
-    logger.info('Migration notes: https://docs.asccli.sh/migrate-to-5-0');
+/** Pure version gate, exported for tests. Returns the parsed version. */
+export function checkAscVersion(versionOutput: string): string {
+  const found = versionOutput.match(/\d+\.\d+\.\d+/)?.[0];
+  if (!found) {
+    throw new CliError(
+      `Could not read the asc version from "asc --version" (got: ${versionOutput.trim().slice(0, 80) || 'nothing'}). ` +
+        `kappmaker needs asc ${MIN_ASC_VERSION} or newer: brew update && brew upgrade asc   (or: curl -fsSL https://asccli.sh/install | bash)`,
+    );
   }
+  if (!meetsMinimumVersion(found, MIN_ASC_VERSION)) {
+    throw new CliError(
+      `asc ${found} is too old: kappmaker needs asc ${MIN_ASC_VERSION} or newer (the 5.x command surface).\n` +
+        '  Upgrade: brew update && brew upgrade asc   (or: curl -fsSL https://asccli.sh/install | bash)\n' +
+        '  Migration notes: https://docs.asccli.sh/migrate-to-5-0',
+    );
+  }
+  const major = Number(found.split('.')[0]);
+  if (major > Number(MIN_ASC_VERSION.split('.')[0])) {
+    logger.warn(`asc ${found} is a newer major version than kappmaker was tested with (${MIN_ASC_VERSION.split('.')[0]}.x). Every step still reads its result back and fails loudly if a command changed.`);
+  }
+  return found;
 }
 
 function meetsMinimumVersion(versionString: string, minimum: string): boolean {
   const match = versionString.match(/(\d+)\.(\d+)\.(\d+)/);
-  if (!match) return true; // Unknown format — don't block
+  if (!match) return false;
   const [, maj, min, patch] = match;
   const [minMaj, minMin, minPatch] = minimum.split('.').map(Number);
   const current: [number, number, number] = [Number(maj), Number(min), Number(patch)];
@@ -63,6 +85,56 @@ function meetsMinimumVersion(versionString: string, minimum: string): boolean {
     if (current[i] < required[i]) return false;
   }
   return true;
+}
+
+// ── Strict runner + read-back helpers ───────────────────────────────
+
+/**
+ * Run an asc command that a step depends on. Non-zero exit throws a ToolError
+ * carrying asc's output, so the step is reported FAILED (never OK). `okIf`
+ * lists outputs that mean "already in the wanted state".
+ */
+export async function ascRun(
+  args: string[],
+  label: string,
+  opts: { okIf?: RegExp; timeout?: number; env?: Record<string, string> } = {},
+): Promise<{ stdout: string; json: any }> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const r = await run('asc', args, { label, allowFailure: true, timeout: opts.timeout, env: opts.env });
+  const out = `${r.stderr}\n${r.stdout}`.trim();
+  if (r.exitCode !== 0 && !(opts.okIf && opts.okIf.test(out))) {
+    throw new ToolError(label, 'asc', r.exitCode, out);
+  }
+  return { stdout: r.stdout, json: parseJsonSafe(r.stdout) };
+}
+
+function parseJsonSafe(text: string): any { // eslint-disable-line @typescript-eslint/no-explicit-any
+  try {
+    return JSON.parse(text);
+  } catch {
+    const start = text.indexOf('{');
+    if (start >= 0) {
+      try { return JSON.parse(text.slice(start)); } catch { /* fall through */ }
+    }
+    return null;
+  }
+}
+
+/** Attributes of `data` (or of the first element when `data` is a list). */
+export function attrsOf(json: any): Record<string, unknown> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const d = Array.isArray(json?.data) ? json.data[0] : json?.data ?? json;
+  return (d?.attributes ?? d ?? {}) as Record<string, unknown>;
+}
+
+/** Throw when a read-back field differs from what was set. */
+export function expectFields(what: string, got: Record<string, unknown>, want: Record<string, unknown>): void {
+  const bad = Object.entries(want)
+    .filter(([k, v]) => v !== undefined && String(got[k] ?? '') !== String(v))
+    .map(([k, v]) => `${k}: wanted ${JSON.stringify(v)}, App Store Connect has ${JSON.stringify(got[k] ?? null)}`);
+  if (bad.length > 0) throw new CliError(`${what} read-back does not match:\n  - ${bad.join('\n  - ')}`);
+}
+
+export function defaultCopyright(organization: string | undefined, appName: string, now = new Date()): string {
+  return `${now.getFullYear()} ${(organization || appName).trim()}`;
 }
 
 export async function validateAscAuth(): Promise<void> {
@@ -95,7 +167,7 @@ export async function validateAscAuth(): Promise<void> {
     }
 
     console.log('');
-    const shouldLogin = await confirm('  Would you like to log in interactively? (asc auth login)');
+    const shouldLogin = await confirm('  Would you like to log in interactively? (asc auth login)', { yesAnswer: false });
     if (shouldLogin) {
       await runStreaming('asc', ['auth', 'login'], { label: 'Logging in to App Store Connect...' });
       // Re-validate after login
@@ -216,39 +288,35 @@ export async function createApp(config: AppStoreAppConfig): Promise<string> {
 }
 
 export async function updateContentRights(appId: string, contentRights: string): Promise<void> {
-  await run('asc', [
-    'apps', 'update',
-    '--id', appId,
-    '--content-rights', contentRights,
-    '--output', 'json',
-  ], {
-    label: 'Updating content rights',
-    allowFailure: true,
-  });
+  await ascRun(['apps', 'update', '--id', appId, '--content-rights', contentRights, '--output', 'json'], 'Updating content rights');
+  const back = await ascRun(['apps', 'view', '--id', appId, '--fields', 'contentRightsDeclaration', '--output', 'json'], 'Reading content rights back');
+  expectFields('Content rights', attrsOf(back.json), { contentRightsDeclaration: contentRights });
 }
 
+/**
+ * Create the version, or update the existing one (copyright and release type),
+ * then read the copyright back. It used to create with allowFailure and, when
+ * the version existed, only look its id up: the copyright never reached it.
+ */
 export async function createVersion(appId: string, version: AppStoreVersionConfig, platform: string): Promise<string> {
-  const result = await run(
-    'asc',
-    [
-      'versions', 'create',
-      '--app', appId,
-      '--platform', platform,
-      '--version', version.version_string,
-      '--copyright', version.copyright,
-      '--release-type', version.release_type,
-      '--output', 'json',
-    ],
-    { label: `Creating version ${version.version_string}`, allowFailure: true },
-  );
-
-  if (result.exitCode === 0) {
-    const versionId = parseVersionId(result.stdout);
-    if (versionId) return versionId;
-  }
-
-  logger.info('Version may already exist, looking up...');
-  return findVersionId(appId, platform);
+  const args = [
+    'versions', 'create',
+    '--app', appId,
+    '--platform', platform,
+    '--version', version.version_string,
+    '--release-type', version.release_type,
+    '--if-exists', 'update',
+    '--output', 'json',
+  ];
+  if (version.copyright) args.push('--copyright', version.copyright);
+  const created = await ascRun(args, `Creating or updating version ${version.version_string}`);
+  const versionId = parseVersionId(created.stdout) ?? (await findVersionId(appId, platform, version.version_string));
+  const back = await ascRun(['versions', 'view', '--version-id', versionId, '--include', 'appStoreReviewDetail', '--output', 'json'], 'Reading version back');
+  expectFields(`Version ${version.version_string}`, attrsOf(back.json), {
+    versionString: version.version_string,
+    copyright: version.copyright || undefined,
+  });
+  return versionId;
 }
 
 export async function setCategories(appId: string, categories: AppStoreCategoriesConfig): Promise<void> {
@@ -258,7 +326,7 @@ export async function setCategories(appId: string, categories: AppStoreCategorie
   if (categories.primary_subcategory_two) args.push('--primary-subcategory-two', categories.primary_subcategory_two);
   if (categories.secondary_subcategory_one) args.push('--secondary-subcategory-one', categories.secondary_subcategory_one);
   if (categories.secondary_subcategory_two) args.push('--secondary-subcategory-two', categories.secondary_subcategory_two);
-  await run('asc', args, { label: 'Setting categories', allowFailure: true });
+  await ascRun(args, 'Setting categories');
 }
 
 // Map config keys to asc CLI flag names (they differ significantly)
@@ -285,22 +353,53 @@ const AGE_RATING_FLAG_MAP: Record<string, string> = {
   parental_controls: 'parental-controls',
   unrestricted_web_access: 'unrestricted-web-access',
   user_generated_content: 'user-generated-content',
+  social_media: 'social-media',
+  social_media_age_restricted: 'social-media-age-restricted',
 };
 
-export async function setAgeRating(appId: string, ageRating: AppStoreAgeRatingConfig): Promise<void> {
-  // v1.0 renamed `asc age-rating set` → `asc age-rating edit`.
-  // Start with --all-none to set safe defaults, then override any non-default values.
+/** camelCase attribute name Apple returns for each config key. */
+function ageRatingAttr(key: string): string {
+  const special: Record<string, string> = {
+    alcohol_tobacco_or_drug_use_or_references: 'alcoholTobaccoOrDrugUseOrReferences',
+    violence_cartoon_or_fantasy: 'violenceCartoonOrFantasy',
+    violence_realistic_prolonged_graphic_or_sadistic: 'violenceRealisticProlongedGraphicOrSadistic',
+    gambling: 'gambling',
+  };
+  return special[key] ?? key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
+/** asc args for the age rating: --all-none, then every answer explicitly (booleans included). */
+export function ageRatingArgs(appId: string, ageRating: AppStoreAgeRatingConfig): string[] {
   const args = ['age-rating', 'edit', '--app', appId, '--all-none'];
-
   for (const [key, value] of Object.entries(ageRating)) {
-    if (value === undefined || value === '' || value === 'NONE' || value === false) continue;
+    if (value === undefined || value === '') continue;
     const flag = AGE_RATING_FLAG_MAP[key];
-    if (flag) {
-      args.push(`--${flag}`, String(value));
-    }
+    if (!flag) continue;
+    // Send false and NONE too: the newer questionnaire fields (social media,
+    // UGC, messaging) stay unanswered on Apple's side unless set explicitly.
+    args.push(`--${flag}`, String(value));
   }
+  return args;
+}
 
-  await run('asc', args, { label: 'Setting age rating', allowFailure: true });
+export async function setAgeRating(appId: string, ageRating: AppStoreAgeRatingConfig): Promise<void> {
+  const rating: AppStoreAgeRatingConfig = {
+    // New questionnaire answers default to "no" so the declaration is complete.
+    social_media: false,
+    messaging_and_chat: false,
+    user_generated_content: false,
+    ...ageRating,
+  };
+  await ascRun(ageRatingArgs(appId, rating), 'Setting age rating');
+  const back = await ascRun(['age-rating', 'view', '--app', appId, '--output', 'json'], 'Reading age rating back');
+  const got = attrsOf(back.json);
+  const want: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rating)) {
+    if (value === undefined || value === '' || !AGE_RATING_FLAG_MAP[key]) continue;
+    // Only compare fields Apple returns (older declarations lack some).
+    if (ageRatingAttr(key) in got) want[ageRatingAttr(key)] = value;
+  }
+  expectFields('Age rating', got, want);
 }
 
 export async function updateLocalization(
@@ -315,13 +414,13 @@ export async function updateLocalization(
   if (loc.promotional_text) versionArgs.push('--promotional-text', loc.promotional_text);
   if (loc.support_url) versionArgs.push('--support-url', loc.support_url);
   if (loc.marketing_url) versionArgs.push('--marketing-url', loc.marketing_url);
-  await run('asc', versionArgs, { label: `Updating version localization (${loc.locale})`, allowFailure: true });
+  if (versionArgs.length > 6) await ascRun(versionArgs, `Updating version localization (${loc.locale})`);
 
   if (loc.subtitle || loc.privacy_policy_url) {
     const appArgs = ['localizations', 'update', '--app', appId, '--type', 'app-info', '--locale', loc.locale];
     if (loc.subtitle) appArgs.push('--subtitle', loc.subtitle);
     if (loc.privacy_policy_url) appArgs.push('--privacy-policy-url', loc.privacy_policy_url);
-    await run('asc', appArgs, { label: `Updating app-info localization (${loc.locale})`, allowFailure: true });
+    await ascRun(appArgs, `Updating app-info localization (${loc.locale})`);
   }
 }
 
@@ -339,9 +438,21 @@ export async function setEncryption(appId: string, encryption: AppStoreEncryptio
     ],
     { label: 'Setting encryption declarations', allowFailure: true },
   );
+  // Read back: at least one declaration must exist (a re-run may be refused
+  // as a duplicate, which is fine as long as one is there).
+  const back = await ascRun(['encryption', 'declarations', 'list', '--app', appId, '--output', 'json'], 'Reading encryption declarations back');
+  const list = Array.isArray(back.json?.data) ? back.json.data : [];
+  if (list.length === 0) throw new CliError('No encryption declaration exists on App Store Connect after creating one.');
 }
 
-export async function setReviewDetails(versionId: string, info: AppStoreReviewInfoConfig): Promise<void> {
+/** Whether App Review needs demo credentials: explicit config wins, else only when credentials are set. */
+export function demoAccountRequired(info: AppStoreReviewInfoConfig): boolean {
+  if (typeof info.demo_account_required === 'boolean') return info.demo_account_required;
+  return Boolean(info.demo_username || info.demo_password);
+}
+
+export function reviewDetailArgs(versionId: string, info: AppStoreReviewInfoConfig): string[] {
+  const required = demoAccountRequired(info);
   const args = [
     'review', 'details-create',
     '--version-id', versionId,
@@ -349,22 +460,41 @@ export async function setReviewDetails(versionId: string, info: AppStoreReviewIn
     '--contact-first-name', info.contact_first_name,
     '--contact-last-name', info.contact_last_name,
     '--contact-phone', info.contact_phone,
+    // Go bool flag: needs '='. Always explicit: a no-login app must say false.
+    `--demo-account-required=${required}`,
+    '--if-exists', 'update',
     '--output', 'json',
   ];
-  if (info.demo_username || info.demo_password) args.push('--demo-account-required=true'); // Go bool flag: needs '='
-  if (info.demo_username) args.push('--demo-account-name', info.demo_username);
-  if (info.demo_password) args.push('--demo-account-password', info.demo_password);
+  if (required && info.demo_username) args.push('--demo-account-name', info.demo_username);
+  if (required && info.demo_password) args.push('--demo-account-password', info.demo_password);
   if (info.notes) args.push('--notes', info.notes);
-  await run('asc', args, { label: 'Setting review details', allowFailure: true });
+  return args;
+}
+
+/**
+ * Create (or update) the App Review detail and read it back. It used to run
+ * with allowFailure: a missing phone or an existing detail meant no detail at
+ * all while the step printed OK, and `deliver` later crashed with "No data".
+ */
+export async function setReviewDetails(versionId: string, info: AppStoreReviewInfoConfig): Promise<void> {
+  const missing = (['contact_first_name', 'contact_last_name', 'contact_email', 'contact_phone'] as const).filter((k) => !info[k]?.trim());
+  if (missing.length > 0) {
+    throw new CliError(`review_info is missing ${missing.join(', ')}; App Store Connect rejects a review detail without them.`);
+  }
+  await ascRun(reviewDetailArgs(versionId, info), 'Setting review details');
+  const back = await ascRun(['review', 'details-for-version', '--version-id', versionId, '--output', 'json'], 'Reading review details back');
+  if (!back.json?.data) throw new CliError('App Store Connect has no review detail for this version after creating one.');
+  expectFields('Review details', attrsOf(back.json), {
+    contactEmail: info.contact_email,
+    demoAccountRequired: demoAccountRequired(info),
+  });
 }
 
 export async function setPrivacy(appId: string, privacyFilePath: string): Promise<void> {
   // Privacy requires Apple ID auth (asc web privacy is experimental)
   const config = await loadConfig();
   if (!config.appleId) {
-    logger.warn('Apple ID not configured. Privacy setup requires Apple ID.');
-    logger.info('Set it with: kappmaker config appstore-defaults --init');
-    return;
+    throw new CliError('Apple ID not configured; privacy setup needs it. Set it with: kappmaker config appstore-defaults --init');
   }
 
   logger.info('Applying privacy data usages...');
@@ -377,7 +507,8 @@ export async function setPrivacy(appId: string, privacyFilePath: string): Promis
     '--confirm',
     '--output', 'json',
   ];
-  await runStreaming('asc', applyArgs, { label: 'Applying privacy data usages', allowFailure: true });
+  const applied = await runStreaming('asc', applyArgs, { label: 'Applying privacy data usages', allowFailure: true });
+  if (applied !== 0) throw new CliError(`asc web privacy apply exited ${applied} (see its output above).`);
 
   const publishArgs = [
     'web', 'privacy', 'publish',
@@ -386,7 +517,8 @@ export async function setPrivacy(appId: string, privacyFilePath: string): Promis
     '--confirm',
     '--output', 'json',
   ];
-  await runStreaming('asc', publishArgs, { label: 'Publishing privacy data usages', allowFailure: true });
+  const published = await runStreaming('asc', publishArgs, { label: 'Publishing privacy data usages', allowFailure: true });
+  if (published !== 0) throw new CliError(`asc web privacy publish exited ${published} (see its output above).`);
 }
 
 // ── Internal helpers ────────────────────────────────────────────────
@@ -412,7 +544,8 @@ function parseVersionId(output: string): string | null {
 }
 
 export async function findAppByBundleId(bundleId: string): Promise<string | null> {
-  const result = await run('asc', ['apps', 'list', '--output', 'json'], {
+  // Filter server-side: an unfiltered list is only the first page.
+  const result = await run('asc', ['apps', 'list', '--bundle-id', bundleId, '--output', 'json'], {
     label: 'Looking up existing app',
     allowFailure: true,
   });
@@ -435,22 +568,11 @@ export async function findAppByBundleId(bundleId: string): Promise<string | null
   return null;
 }
 
-async function findVersionId(appId: string, platform: string): Promise<string> {
-  const result = await run('asc', ['versions', 'list', '--app', appId, '--output', 'json'], {
-    label: 'Looking up existing version',
-    allowFailure: true,
-  });
-
-  if (result.exitCode === 0) {
-    try {
-      const data = JSON.parse(result.stdout);
-      const versions = data?.data ?? data ?? [];
-      if (versions.length > 0) return versions[0].id;
-    } catch {
-      // Fall through to error
-    }
-  }
-
-  logger.fatal(`Could not find version for app "${appId}".`);
-  process.exit(1);
+async function findVersionId(appId: string, platform: string, versionString?: string): Promise<string> {
+  const args = ['versions', 'list', '--app', appId, '--platform', platform, '--output', 'json'];
+  if (versionString) args.push('--version', versionString);
+  const result = await ascRun(args, 'Looking up existing version');
+  const versions = result.json?.data ?? [];
+  if (Array.isArray(versions) && versions.length > 0 && versions[0].id) return versions[0].id;
+  throw new CliError(`Could not find version ${versionString ?? ''} for app "${appId}".`);
 }

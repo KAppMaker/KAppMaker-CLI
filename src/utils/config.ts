@@ -36,6 +36,7 @@ const DEFAULT_CONFIG: KAppMakerConfig = {
   revenuecatProjectId: '',
   iosCertsRepo: '',
   iosCertsRepoToken: '',
+  playRegionsVersion: '',
 };
 
 export function getConfigDir(): string {

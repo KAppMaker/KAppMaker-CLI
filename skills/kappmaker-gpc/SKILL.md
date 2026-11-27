@@ -15,20 +15,38 @@ description: Manage an app on Google Play Console (GPC) for Android — store li
 ### gpc — Google Play Console Management
 
 **Syntax**:
-- `kappmaker gpc setup [--config <path>]` — full 11-step flow (alias: `kappmaker create-play-app`)
-- `kappmaker gpc listings push [--config <path>]` — push store listings only
+- `kappmaker gpc setup [--config <path>] [--yes] [--allow-empty] [--regions-version <v>]` — full 11-step flow (alias: `kappmaker create-play-app`)
+- `kappmaker gpc listings push [--config <path>] [--yes] [--allow-empty]` — push store listings only (merged with the live listing, diff shown, read back)
 - `kappmaker gpc subscriptions list [--package <pkg>] [--config <path>]`
-- `kappmaker gpc subscriptions push [--config <path>]`
+- `kappmaker gpc subscriptions push [--config <path>] [--regions-version <v>]`
 - `kappmaker gpc iap list [--package <pkg>] [--config <path>]`
-- `kappmaker gpc iap push [--config <path>] [--recreate-stuck]`
-- `kappmaker gpc monetization push [--config <path>] [--subscriptions-only] [--iap-only] [--recreate-stuck]` — push subscriptions + IAPs together (monetization steps of `gpc setup` as a standalone; idempotent PPP refresh)
-- `kappmaker gpc data-safety push [--config <path>]`
+- `kappmaker gpc iap push [--config <path>] [--recreate-stuck] [--regions-version <v>]`
+- `kappmaker gpc monetization push [--config <path>] [--subscriptions-only] [--iap-only] [--recreate-stuck] [--regions-version <v>]` — push subscriptions + IAPs together (monetization steps of `gpc setup` as a standalone; idempotent PPP refresh)
+- `kappmaker gpc data-safety push [--config <path>] [--verify]`
 - `kappmaker gpc app-check --package <pkg>`
 
 **Prerequisites**:
 - `googleServiceAccountPath` set in config (Google Play Developer API service account JSON)
 - App MUST already exist in [Play Console](https://play.google.com/console/u/0/developers) — Google does not allow API-based app creation. If `gpc setup` gets a 404 at step 4, tell the user to create the app manually first, then rerun.
 - No external CLI required — gpc talks directly to `androidpublisher.googleapis.com/v3` via Node's built-in `fetch` + `crypto` (service account → JWT → access token).
+
+**Fails loudly (CLI 2.2.0+)**: every Play API error stops the command with the HTTP status and
+Google's error body (exit 1). Older versions printed OK on a data safety HTTP 400. `gpc setup` ends
+with a step summary that lists each FAILED step. Never report a step as done from the output alone:
+read the summary.
+
+**Non-interactive**: `--yes`, or `--config <file>` (the file holds the answers), answers every
+confirmation that does not clear data. Piped answers (`printf 'y\n' | ...`) are read in order.
+
+**Listings never get blanked**: Play's listing PUT replaces the whole listing, so the CLI starts from
+the live listing and overlays only the fields the config fills in. Empty config fields are skipped.
+Clearing a live field needs `--allow-empty` (and a yes at a terminal). The listing is read back
+inside the edit before commit; a mismatch drops the edit. The app name is used as a title only where
+Play has no title yet.
+
+**Data safety**: `--verify` checks the declaration row by row against Play's question set (typos in
+answer keys fail before anything is sent) and prints the data types Play now declares. Play has no
+API to read the form back, so the CLI says so and the user should glance at Play Console once.
 
 **Config file**: Looks for `./Assets/googleplay-config.json`. If not found, `gpc setup` prompts interactively; other subcommands fail and tell the user to run `gpc setup` first.
 
@@ -59,8 +77,14 @@ All three systems (ASC, Play, Adapty) use the same generator so the IDs align au
 **Per-region PPP pricing**: subscriptions and one-time products fan out to every billable Play
 region with purchasing-power-parity prices in each region's native currency (India ≈ 0.35x,
 Argentina ≈ 0.30x, US/EU 1.00x, charm-rounded). User-listed regions in `regional_configs` win;
-PPP fills the rest; per-product opt-out via `"ppp_enabled": false` (falls back to Google's own
-USD+EUR-anchor fan-out — uniform pricing, no PPP discounts). Re-runs PATCH existing products, so
+PPP fills the rest; per-product opt-out via `"ppp_enabled": false` (every billable region still gets
+an explicit price, by plain currency conversion of the USD price: no PPP discount). Every product is
+read back and reported as `N of M regions priced`; a product short of M makes the command exit 1.
+
+**regionsVersion**: default `2026/01` (CLI 2.2.0+; it was hardcoded `2022/02`, which made ET
+unbillable and left one app priced in 3 regions). Override with `--regions-version` or
+`kappmaker config set playRegionsVersion <v>`. The 2022/02 currency workarounds below apply only when
+someone asks for 2022/02. Re-runs PATCH existing products, so
 running setup again back-fills regional pricing onto products created by older CLI versions.
 
 **Pricing/region errors — quick map.** These all have known causes and fixed versions; the full

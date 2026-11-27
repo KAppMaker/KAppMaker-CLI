@@ -99,7 +99,37 @@ test('read and write tools run straight away; multi-step tools run every command
   await call({ name: 'generate_icons', args: { platform: 'both', background: '#112233' } });
   assert.deepEqual(calls.slice(1).map((c) => c.args[0]), ['generate-ios-icons', 'generate-android-icons']);
   await call({ name: 'version_bump', args: { version: '2.0.0' } });
-  assert.deepEqual(calls[3].args, ['update-version', '--version', '2.0.0']);
+  assert.deepEqual(calls[3].args, ['update-version', '--version-name', '2.0.0']);
+});
+
+test('new 2.2.0 inputs turn into the right flags', async () => {
+  const { calls, call } = await connect();
+  await call({ name: 'google_play_push', args: { section: 'listings', allow_empty: true, verify: true, regions_version: '2026/01', confirm: true } });
+  assert.deepEqual(calls[0].args, ['gpc', 'listings', 'push', '--allow-empty']);
+  await call({ name: 'google_play_push', args: { section: 'data-safety', verify: true, allow_empty: true, confirm: true } });
+  assert.deepEqual(calls[1].args, ['gpc', 'data-safety', 'push', '--verify']);
+  await call({ name: 'google_play_push', args: { section: 'monetization', regions_version: '2026/01', confirm: true } });
+  assert.deepEqual(calls[2].args, ['gpc', 'monetization', 'push', '--regions-version', '2026/01']);
+  await call({ name: 'google_play_setup', args: { regions_version: '2025/03', confirm: true } });
+  assert.deepEqual(calls[3].args, ['gpc', 'setup', '--regions-version', '2025/03']);
+  await call({ name: 'generate_icons', args: { platform: 'ios', splash_background: '#112233', splash_background_dark: '#000000' } });
+  assert.deepEqual(calls[4].args, ['generate-ios-icons', '--splash-background', '#112233', '--splash-background-dark', '#000000']);
+  await call({ name: 'generate_icons', args: { platform: 'android', no_splash: true } });
+  assert.deepEqual(calls[5].args, ['generate-android-icons', '--no-splash']);
+  const bad = await call({ name: 'google_play_push', args: { section: 'iap', regions_version: '2026-01', confirm: true } });
+  assert.equal(bad.isError, true);
+  assert.equal(calls.length, 6);
+});
+
+test('Play HTTP errors, asc failures and FAILED step summaries come back in plain words', async () => {
+  const { explainFailure } = await import('./errors.js');
+  const play = explainFailure('  ERROR Updating data safety declaration: HTTP 400\n{\n  "error": {\n    "code": 400,\n    "message": "Row 12: invalid response value"\n  }\n}');
+  assert.match(play ?? '', /Google Play rejected "Updating data safety declaration" \(HTTP 400\): Row 12: invalid response value\. Fix:/);
+  const asc = explainFailure('  ERROR Setting review details: asc exited 1\nHTTP 409 conflict');
+  assert.match(asc ?? '', /asc\) failed at "Setting review details": HTTP 409 conflict\. Fix:/);
+  const sum = explainFailure('  2 step(s) FAILED: Age rating, App Review detail\n');
+  assert.match(sum ?? '', /2 step\(s\) failed: Age rating, App Review detail\./);
+  assert.match(explainFailure('asc 1.4.1 is too old: kappmaker needs') ?? '', /brew upgrade asc/);
 });
 
 test('invalid input is rejected before anything runs', async () => {

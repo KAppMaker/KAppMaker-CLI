@@ -246,12 +246,55 @@ async function cleanUpOldDirectories(
   }
 }
 
+/**
+ * Gradle-safe project name: letters, digits, "_" and "-" only. "Lab Rat" made
+ * `rootProject.name = "Lab Rat"` and Gradle refused to configure the build;
+ * the display name keeps its spaces everywhere users see it.
+ */
+export function gradleSafeName(name: string): string {
+  const safe = name.normalize('NFKD').replace(/[^A-Za-z0-9_-]/g, '');
+  return safe || 'App';
+}
+
+/** A pbxproj value: bare when it is a plain token, quoted otherwise. */
+export function pbxValue(value: string): string {
+  return /^[A-Za-z0-9_./-]+$/.test(value) ? value : `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+async function rewrite(file: string, fn: (s: string) => string): Promise<boolean> {
+  if (!(await fs.pathExists(file))) return false;
+  const before = await fs.readFile(file, 'utf8');
+  const after = fn(before);
+  if (after === before) return false;
+  await fs.writeFile(file, after, 'utf8');
+  return true;
+}
+
+/** The app's current display name: the literal android:label, else rootProject.name. */
+async function detectDisplayName(mobileDir: string, fallback: string): Promise<string> {
+  for (const f of ['androidApp/src/main/AndroidManifest.xml', 'composeApp/src/androidMain/AndroidManifest.xml']) {
+    const file = path.join(mobileDir, f);
+    if (!(await fs.pathExists(file))) continue;
+    const m = (await fs.readFile(file, 'utf8')).match(/android:label="([^"@][^"]*)"/);
+    if (m) return m[1].replace(/&amp;/g, '&');
+  }
+  return fallback;
+}
+
 async function updateAppName(
   mobileDir: string, oldName: string, newName: string, currentPkgId: string,
 ): Promise<void> {
+  // oldName comes from rootProject.name (already Gradle-safe). The display name
+  // may differ ("Lab Rat" vs "LabRat"), so detect it separately.
+  const oldSafe = oldName;
+  const oldDisplay = await detectDisplayName(mobileDir, oldName);
+  const newSafe = gradleSafeName(newName);
+  const newDisplay = newName.trim();
+  if (newSafe !== newDisplay) logger.info(`Project/product name "${newSafe}" (Gradle and Xcode need it without spaces); display name "${newDisplay}".`);
+
   // currentPkgId reflects the package id on disk: newAppId after a rename, oldAppId in skip-rename mode.
   const pkgPath = currentPkgId.replace(/\./g, '/');
-  const mobileFiles = [
+  const displayFiles = [
     'androidApp/src/main/AndroidManifest.xml',
     `desktopApp/src/main/kotlin/${pkgPath}/Main.kt`,
     'webApp/src/webMain/resources/index.html',
@@ -265,22 +308,39 @@ async function updateAppName(
     `composeApp/src/jvmMain/kotlin/${pkgPath}/Main.kt`,
     `composeApp/src/jvmMain/kotlin/${pkgPath}/main.kt`,
     `composeApp/src/jvmMain/kotlin/${pkgPath}/util/AppUtilImpl.jvm.kt`,
-    'settings.gradle.kts',
-    'iosApp/iosApp.xcodeproj/project.pbxproj',
   ];
-  for (const f of mobileFiles) {
-    if (await replaceInFile(path.join(mobileDir, f), oldName, newName)) {
-      logger.info('Updated app name in: ' + f);
-    }
+  const xmlDisplay = newDisplay.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  for (const f of displayFiles) {
+    const changed = await rewrite(path.join(mobileDir, f), (c) =>
+      f.endsWith('.xml')
+        ? c.replace(/android:label="[^"@][^"]*"/, `android:label="${xmlDisplay}"`)
+        : c.replaceAll(oldDisplay, newDisplay));
+    if (changed) logger.info('Updated app name in: ' + f);
   }
 
+  // settings.gradle.kts: the Gradle-safe name, whatever it was before.
+  if (await rewrite(path.join(mobileDir, 'settings.gradle.kts'), (c) =>
+    c.replace(/(rootProject\.name\s*=\s*)["'][^"']*["']/, `$1"${newSafe}"`))) {
+    logger.info(`Updated rootProject.name to "${newSafe}"`);
+  }
+
+  // pbxproj: display name (quoted when it has spaces) + product name (safe).
+  if (await rewrite(path.join(mobileDir, 'iosApp/iosApp.xcodeproj/project.pbxproj'), (c) =>
+    c
+      .replace(/(INFOPLIST_KEY_CFBundleDisplayName\s*=\s*)(?:"[^"]*"|[^;]*);/g, `$1${pbxValue(newDisplay)};`)
+      .replace(/(PRODUCT_NAME\s*=\s*)(?:"[^"]*"|[^;$]*);/g, `$1${pbxValue(newSafe)};`)
+      .replaceAll(`${oldSafe}.app`, `${newSafe}.app`))) {
+    logger.info('Updated app name in: iosApp/iosApp.xcodeproj/project.pbxproj');
+  }
+
+  // iOS publish workflow: app_name names the .ipa (= Xcode PRODUCT_NAME). It was
+  // only string-replaced, so a template value that did not match the detected
+  // old name ("Koko") stayed behind in every app.
   const repoRoot = path.dirname(mobileDir);
-  const repoFiles = ['.github/workflows/publish_ios_appstore.yml'];
-  for (const f of repoFiles) {
-    for (const root of [repoRoot, mobileDir]) {
-      if (await replaceInFile(path.join(root, f), oldName, newName)) {
-        logger.info('Updated app name in: ' + path.relative(mobileDir, path.join(root, f)));
-      }
+  for (const root of [repoRoot, mobileDir]) {
+    const wf = path.join(root, '.github/workflows/publish_ios_appstore.yml');
+    if (await rewrite(wf, (c) => c.replace(/^(\s*app_name:\s*).*$/m, `$1${newSafe}`))) {
+      logger.info(`Updated app_name to "${newSafe}" in: ${path.relative(repoRoot, wf)}`);
     }
   }
 }

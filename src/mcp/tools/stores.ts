@@ -3,6 +3,8 @@ import { cli, flags, type ToolDef } from '../define.js';
 
 const config = z.string().optional().describe('Config JSON path (default: the one under Assets/ in project_dir)');
 const only = z.enum(['subscriptions', 'iap']).optional().describe('Push only subscriptions or only in-app purchases');
+const regionsVersion = z.string().regex(/^\d{4}\/\d{2}$/).optional()
+  .describe('Google Play regionsVersion, e.g. "2026/01" (default: config playRegionsVersion, else 2026/01)');
 
 export const storeTools: ToolDef[] = [
   cli({
@@ -54,8 +56,8 @@ export const storeTools: ToolDef[] = [
       'no API creation) and have one AAB uploaded for subscriptions. Needs googleServiceAccountPath in kappmaker config.',
     kind: 'long',
     network: true,
-    shape: { config },
-    commands: (i) => [['gpc', 'setup', ...flags({ '--config': i.config })]],
+    shape: { config, regions_version: regionsVersion },
+    commands: (i) => [['gpc', 'setup', ...flags({ '--config': i.config, '--regions-version': i.regions_version })]],
   }),
   cli({
     name: 'google_play_push',
@@ -68,12 +70,19 @@ export const storeTools: ToolDef[] = [
       config,
       only: only.describe('With section=monetization: push only subscriptions or only IAPs'),
       recreate_stuck: z.boolean().optional().describe('iap/monetization: delete + recreate products Google rejects as stuck (they disappear for a while)'),
+      allow_empty: z.boolean().optional().describe(
+        'listings only: CLEARS live Play listing fields that are empty in the config. Off by default: empty fields are skipped and the live text stays.'),
+      verify: z.boolean().optional().describe('data-safety only: check every answer against Play\'s question set and list what Play now declares'),
+      regions_version: regionsVersion.describe('subscriptions/iap/monetization: Google Play regionsVersion, e.g. "2026/01"'),
     },
     commands: (i) => [['gpc', i.section, 'push', ...flags({
       '--config': i.config,
       '--subscriptions-only': i.section === 'monetization' && i.only === 'subscriptions',
       '--iap-only': i.section === 'monetization' && i.only === 'iap',
       '--recreate-stuck': (i.section === 'iap' || i.section === 'monetization') && i.recreate_stuck,
+      '--allow-empty': i.section === 'listings' && i.allow_empty,
+      '--verify': i.section === 'data-safety' && i.verify,
+      '--regions-version': ['subscriptions', 'iap', 'monetization'].includes(i.section) ? i.regions_version : undefined,
     })]],
   }),
   cli({

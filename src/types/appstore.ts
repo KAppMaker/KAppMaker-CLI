@@ -93,6 +93,9 @@ export interface AppStoreAgeRatingConfig {
   parental_controls?: boolean;
   unrestricted_web_access?: boolean;
   user_generated_content?: boolean;
+  /** Newer questionnaire fields (Apple 2025+). Social media needs user_generated_content. */
+  social_media?: boolean;
+  social_media_age_restricted?: boolean;
 }
 
 export interface AppStorePricingConfig {
@@ -187,9 +190,12 @@ export interface AppStoreReviewInfoConfig {
   contact_email: string;
   demo_username?: string;
   demo_password?: string;
+  /** Default: true only when demo_username/demo_password are set. A no-login app must send false. */
+  demo_account_required?: boolean;
   notes?: string;
 }
 
 export interface CreateAppStoreOptions {
   config?: string;
+  yes?: boolean;
 }

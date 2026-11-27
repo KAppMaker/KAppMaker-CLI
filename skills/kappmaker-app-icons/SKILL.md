@@ -14,7 +14,11 @@ description: Generate platform app-icon sets for a KAppMaker app — iOS AppIcon
 
 ### generate-ios-icons — iOS AppIcon.appiconset Generator
 
-**Syntax**: `kappmaker generate-ios-icons [--source <logo>] [--output <dir>] [--background <hex>]`
+**Syntax**: `kappmaker generate-ios-icons [--source <logo>] [--output <dir>] [--background <hex>] [--splash-background <hex>] [--splash-background-dark <hex>] [--no-splash]`
+
+Also writes the **launch screen**: `Assets.xcassets/ic_logo.imageset` (1x/2x/3x, logo transparency
+kept) and, with `--splash-background`, the `SplashBackground` color. Without this the app shipped
+with the template's Kotlin splash.
 
 **Options**:
 - `--source <path>` — Path to source logo PNG. **Default**: auto-detect in `Assets/` (`logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png`). If none found, prompts interactively.
@@ -36,7 +40,12 @@ description: Generate platform app-icon sets for a KAppMaker app — iOS AppIcon
 
 ### generate-android-icons — Android Launcher Icon Generator
 
-**Syntax**: `kappmaker generate-android-icons [--source <logo>] [--output <res-dir>] [--background <hex>] [--foreground-padding <ratio>]`
+**Syntax**: `kappmaker generate-android-icons [--source <logo>] [--output <res-dir>] [--background <hex>] [--foreground-padding <ratio>] [--splash-background <hex>] [--splash-background-dark <hex>] [--no-splash]`
+
+Also points the Android 12+ splash (`windowSplashScreenAnimatedIcon` in `res/values/styles.xml`)
+at the new padded foreground, sets `windowBackgroundColor` with `--splash-background`, and writes a
+themed **monochrome** icon (Android 13) when the logo has a transparent background (use
+`logo_no_bg.png`). Default res dir is `MobileApp/androidApp/src/main/res`.
 
 **Options**:
 - `--source <path>` — Path to source logo PNG. **Default**: auto-detect in `Assets/` (`logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png`). If none found, prompts interactively.

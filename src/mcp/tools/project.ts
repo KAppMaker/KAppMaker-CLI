@@ -92,9 +92,9 @@ export const projectTools: ToolDef[] = [
   cli({
     name: 'version_bump',
     title: 'Bump the app version',
-    description: 'Raises the Android versionCode and iOS build number by one, and sets the version name when given (else bumps the patch).',
+    description: 'Raises the Android versionCode and iOS build number by one; sets the version name only when given (omit it to bump the build only).',
     kind: 'write',
     shape: { version: z.string().regex(/^\d+\.\d+\.\d+$/).optional().describe('Explicit version name, e.g. "2.0.0"') },
-    commands: (i) => [['update-version', ...flags({ '--version': i.version })]],
+    commands: (i) => [['update-version', ...flags({ '--version-name': i.version })]],
   }),
 ];

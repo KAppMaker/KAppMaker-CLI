@@ -88,7 +88,7 @@ export async function initSetupProgress(projectPath: string, vars: SetupVars): P
 export async function markSetupStep(
   projectPath: string,
   stepId: number,
-  status: 'done' | 'skipped' = 'done',
+  status: 'done' | 'skipped' | 'failed' = 'done',
 ): Promise<void> {
   try {
     const file = progressPath(projectPath);
@@ -97,7 +97,12 @@ export async function markSetupStep(
     const pattern = new RegExp(`^- \\[[ x]\\] (\\*\\*Step ${stepId} — .*)$`, 'm');
     const match = content.match(pattern);
     if (!match) return;
-    const base = match[1].replace(/ \*\(skipped[^)]*\)\*$/, '');
+    const base = match[1].replace(/ \*\((skipped|FAILED)[^)]*\)\*$/, '');
+    // A FAILED step stays unchecked so the next agent/human picks it up.
+    if (status === 'failed') {
+      await fs.writeFile(file, content.replace(pattern, `- [ ] ${base} *(FAILED: fix and re-run the standalone command)*`), 'utf8');
+      return;
+    }
     const suffix = status === 'skipped' ? ' *(skipped — run the standalone command when ready)*' : '';
     await fs.writeFile(file, content.replace(pattern, `- [x] ${base}${suffix}`), 'utf8');
   } catch {

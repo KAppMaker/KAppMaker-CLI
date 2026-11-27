@@ -4,10 +4,8 @@ import { createSign } from 'node:crypto';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { loadConfig } from '../utils/config.js';
-import type {
-  GooglePlayAppDetails,
-  GooglePlayListing,
-} from '../types/googleplay.js';
+import { ApiError, CliError } from '../utils/errors.js';
+import type { GooglePlayAppDetails } from '../types/googleplay.js';
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -128,8 +126,10 @@ export async function apiRequest<T = unknown>(options: ApiRequestOptions): Promi
     }
   }
 
+  let response: Response;
+  let text: string;
   try {
-    const response = await fetch(url.toString(), {
+    response = await fetch(url.toString(), {
       method: options.method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -137,30 +137,7 @@ export async function apiRequest<T = unknown>(options: ApiRequestOptions): Promi
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
-
-    const text = await response.text();
-    let data: T | null = null;
-    if (text) {
-      try {
-        data = JSON.parse(text) as T;
-      } catch {
-        data = null;
-      }
-    }
-
-    if (!response.ok) {
-      spinner.fail(label);
-      const message = (data as { error?: { message?: string } } | null)?.error?.message ?? text ?? response.statusText;
-      if (options.allowFailure) {
-        logger.warn(`${label}: ${response.status} ${message}`);
-        return { ok: false, status: response.status, data, error: message };
-      }
-      logger.error(`${label}: ${response.status} ${message}`);
-      process.exit(1);
-    }
-
-    spinner.succeed(label);
-    return { ok: true, status: response.status, data };
+    text = await response.text();
   } catch (error) {
     spinner.fail(label);
     const message = error instanceof Error ? error.message : String(error);
@@ -168,9 +145,32 @@ export async function apiRequest<T = unknown>(options: ApiRequestOptions): Promi
       logger.warn(`${label}: ${message}`);
       return { ok: false, status: 0, data: null, error: message };
     }
-    logger.error(message);
-    process.exit(1);
+    throw new CliError(`${label}: ${message}`);
   }
+
+  let data: T | null = null;
+  if (text) {
+    try {
+      data = JSON.parse(text) as T;
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!response.ok) {
+    spinner.fail(label);
+    const message = (data as { error?: { message?: string } } | null)?.error?.message ?? text ?? response.statusText;
+    if (options.allowFailure) {
+      logger.warn(`${label}: ${response.status} ${message}`);
+      return { ok: false, status: response.status, data, error: message };
+    }
+    // Every non-2xx on a required call stops the command with the full error
+    // body (Google puts the reason, e.g. which CSV row is wrong, in there).
+    throw new ApiError(label, response.status, text || response.statusText);
+  }
+
+  spinner.succeed(label);
+  return { ok: true, status: response.status, data };
 }
 
 // ── App existence probe (side-effect-free) ──────────────────────────
@@ -250,7 +250,6 @@ export async function commitEdit(packageName: string, editId: string): Promise<v
     method: 'POST',
     path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}:commit`,
     label: 'Committing Play Console edit',
-    allowFailure: true,
   });
 }
 
@@ -276,12 +275,16 @@ export interface PlayAppDetails {
  * subscriptions — Play rejects subscriptions that don't have a listing in that
  * language, so the caller needs to ensure one exists.
  */
-export async function getEditDetails(packageName: string, editId: string): Promise<PlayAppDetails | null> {
+export async function getEditDetails(
+  packageName: string,
+  editId: string,
+  opts: { strict?: boolean } = {},
+): Promise<PlayAppDetails | null> {
   const result = await apiRequest<PlayAppDetails>({
     method: 'GET',
     path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}/details`,
     label: 'Fetching current app details',
-    allowFailure: true,
+    allowFailure: !opts.strict,
   });
   return result.ok ? (result.data ?? null) : null;
 }
@@ -359,7 +362,14 @@ export async function withEdit<T>(
   fn: (editId: string) => Promise<T>,
 ): Promise<T> {
   const editId = await insertEdit(packageName);
-  const result = await fn(editId);
+  let result: T;
+  try {
+    result = await fn(editId);
+  } catch (error) {
+    // Leave nothing half-written on Play: drop the edit, then report the error.
+    await deleteEdit(packageName, editId);
+    throw error;
+  }
   await commitEdit(packageName, editId);
   return result;
 }
@@ -372,39 +382,21 @@ export async function updateAppDetails(
   defaultLanguage: string,
   details: GooglePlayAppDetails,
 ): Promise<void> {
-  const body: Record<string, unknown> = { defaultLanguage };
-  if (details.contact_website) body.contactWebsite = details.contact_website;
-  if (details.contact_email) body.contactEmail = details.contact_email;
-  if (details.contact_phone) body.contactPhone = details.contact_phone;
+  // PUT replaces the whole resource: a field left out is CLEARED on Play. Start
+  // from the live details and overlay only the non-empty config values, so an
+  // empty contact_phone in the config never wipes the phone on Play.
+  // Strict: without the live details the PUT would clear them.
+  const live = (await getEditDetails(packageName, editId, { strict: true })) ?? {};
+  const body: Record<string, unknown> = { ...live, defaultLanguage };
+  if (details.contact_website?.trim()) body.contactWebsite = details.contact_website.trim();
+  if (details.contact_email?.trim()) body.contactEmail = details.contact_email.trim();
+  if (details.contact_phone?.trim()) body.contactPhone = details.contact_phone.trim();
 
   await apiRequest({
     method: 'PUT',
     path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}/details`,
     body,
     label: 'Updating app details (default language + contact)',
-    allowFailure: true,
-  });
-}
-
-// ── Store listings ───────────────────────────────────────────────────
-
-export async function updateListing(
-  packageName: string,
-  editId: string,
-  listing: GooglePlayListing,
-): Promise<void> {
-  const body: Record<string, unknown> = { language: listing.locale };
-  if (listing.title) body.title = listing.title;
-  if (listing.short_description) body.shortDescription = listing.short_description;
-  if (listing.full_description) body.fullDescription = listing.full_description;
-  if (listing.video) body.video = listing.video;
-
-  await apiRequest({
-    method: 'PUT',
-    path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}/listings/${encodeURIComponent(listing.locale)}`,
-    body,
-    label: `Updating listing (${listing.locale})`,
-    allowFailure: true,
   });
 }
 
@@ -431,6 +423,5 @@ export async function updateDataSafety(
     path: `/applications/${encodeURIComponent(packageName)}/dataSafety`,
     body: { safetyLabels: csvContents },
     label: 'Updating data safety declaration',
-    allowFailure: true,
   });
 }

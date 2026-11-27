@@ -41,7 +41,7 @@ export async function cloneCommand(
       logger.fatal(`"${targetDir}" already exists and there is no terminal to confirm deleting it. Remove it yourself or pass --target-dir <new-dir>.`);
       process.exit(2);
     }
-    const shouldOverwrite = await confirm('Delete it and start fresh?');
+    const shouldOverwrite = await confirm('Delete it and start fresh?', { destructive: true });
     if (!shouldOverwrite) {
       logger.info('Aborted.');
       process.exit(0);

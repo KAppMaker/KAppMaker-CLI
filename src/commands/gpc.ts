@@ -5,7 +5,10 @@ import { logger } from '../utils/logger.js';
 import { loadConfig } from '../utils/config.js';
 import * as gpc from '../services/gpc.service.js';
 import * as gpcMoney from '../services/gpc-monetization.service.js';
-import { buildDataSafetyCsv } from '../services/gpc-data-safety.service.js';
+import { pushDataSafetyFromConfig } from '../services/gpc-data-safety-push.service.js';
+import { pushListings } from '../services/gpc-listings.service.js';
+import { resolveRegionsVersion, printCoverageReport, resetMonetizationReport } from '../services/gpc-regions.js';
+import { CliError } from '../utils/errors.js';
 import { createPlayApp } from './create-play-app.js';
 import type { GooglePlayConfig, CreatePlayAppOptions } from '../types/googleplay.js';
 
@@ -58,7 +61,7 @@ export async function gpcAppCheck(options: { package: string }): Promise<void> {
   }
 }
 
-/** Push just the listings section (start edit → listings → commit). */
+/** Push just the listings section (start edit, merge + diff, read back, commit). */
 export async function gpcListingsPush(options: CreatePlayAppOptions): Promise<void> {
   await ensureAuth();
   const { config } = await loadPlayConfigStrict(options.config);
@@ -66,14 +69,16 @@ export async function gpcListingsPush(options: CreatePlayAppOptions): Promise<vo
     logger.warn('No listings in config, nothing to push.');
     return;
   }
-  await gpc.withEdit(config.app.package_name, async (editId) => {
+  const result = await gpc.withEdit(config.app.package_name, async (editId) => {
     // Details are required to set default language; push them alongside listings.
     await gpc.updateAppDetails(config.app.package_name, editId, config.app.default_language, config.details);
-    for (const listing of config.listings) {
-      await gpc.updateListing(config.app.package_name, editId, listing);
-    }
+    return pushListings(config.app.package_name, editId, config.listings, { allowEmpty: options.allowEmpty === true, fallbackTitle: config.app.name });
   });
-  logger.success(`Pushed ${config.listings.length} listing(s).`);
+  if (result.pushed.length === 0) {
+    logger.success('Listings already match Play: nothing to change.');
+  } else {
+    logger.success(`Pushed and verified ${result.pushed.length} listing(s): ${result.pushed.join(', ')}.`);
+  }
 }
 
 /** List subscriptions currently on Play Console (package from --package or config). */
@@ -97,6 +102,8 @@ export async function gpcSubscriptionsList(options: { package?: string; config?:
 export async function gpcSubscriptionsPush(options: CreatePlayAppOptions): Promise<void> {
   await ensureAuth();
   const { config } = await loadPlayConfigStrict(options.config);
+  await resolveRegionsVersion(options.regionsVersion);
+  resetMonetizationReport();
 
   // One-shot probe: default language + whether the app has an uploaded build.
   // Google Play rejects monetization writes unless at least one build has been
@@ -112,7 +119,7 @@ export async function gpcSubscriptionsPush(options: CreatePlayAppOptions): Promi
 
   const playDefaultLanguage = state?.defaultLanguage ?? config.app.default_language;
   await gpcMoney.setupSubscriptions(config.app.package_name, config.subscriptions, playDefaultLanguage);
-  logger.success(`Processed ${config.subscriptions.length} subscription(s).`);
+  finishMonetization(`${config.subscriptions.length} subscription(s)`);
 }
 
 /** List one-time in-app products currently on Play Console. */
@@ -136,6 +143,8 @@ export async function gpcIapList(options: { package?: string; config?: string })
 export async function gpcIapPush(options: CreatePlayAppOptions): Promise<void> {
   await ensureAuth();
   const { config } = await loadPlayConfigStrict(options.config);
+  await resolveRegionsVersion(options.regionsVersion);
+  resetMonetizationReport();
 
   const state = await gpc.fetchAppState(config.app.package_name);
   if (state && !state.hasUploadedBuild) {
@@ -149,7 +158,7 @@ export async function gpcIapPush(options: CreatePlayAppOptions): Promise<void> {
   await gpcMoney.setupInAppProducts(config.app.package_name, config.in_app_products, {
     recreateStuck: options.recreateStuck === true,
   });
-  logger.success(`Processed ${config.in_app_products.length} in-app product(s).`);
+  finishMonetization(`${config.in_app_products.length} in-app product(s)`);
 }
 
 export interface GpcMonetizationPushOptions {
@@ -157,12 +166,27 @@ export interface GpcMonetizationPushOptions {
   subscriptionsOnly?: boolean;
   iapOnly?: boolean;
   recreateStuck?: boolean;
+  regionsVersion?: string;
+}
+
+/**
+ * Coverage report + exit code for the monetization pushes. Every product must
+ * be priced in every billable region; a product left short (BeMainStar went
+ * live priced in 3 regions) or a failed write makes the command exit 1.
+ */
+function finishMonetization(what: string): void {
+  if (!printCoverageReport()) {
+    throw new CliError(`Google Play monetization push incomplete for ${what}: see the FAILED lines above.`);
+  }
+  logger.success(`Processed ${what}; every product is priced in every billable region.`);
 }
 
 /** Push subscriptions + IAPs from config in one shot (idempotent). */
 export async function gpcMonetizationPush(options: GpcMonetizationPushOptions): Promise<void> {
   await ensureAuth();
   const { config } = await loadPlayConfigStrict(options.config);
+  await resolveRegionsVersion(options.regionsVersion);
+  resetMonetizationReport();
 
   const state = await gpc.fetchAppState(config.app.package_name);
   if (state && !state.hasUploadedBuild) {
@@ -197,45 +221,19 @@ export async function gpcMonetizationPush(options: GpcMonetizationPushOptions): 
     }
   }
 
-  logger.success('Google Play monetization push complete.');
+  finishMonetization('subscriptions and in-app products');
 }
 
 /**
- * Push only the data safety declaration. Priority:
- *   1. `data_safety_csv_path` — uploaded verbatim (escape hatch).
- *   2. `data_safety` JSON block — converted via buildDataSafetyCsv().
+ * Push only the data safety declaration. Exits non-zero with Play's error body
+ * on any non-2xx (it used to print OK on an HTTP 400). `--verify` checks the
+ * sent declaration answer by answer and prints what Play now holds.
  */
 export async function gpcDataSafetyPush(options: CreatePlayAppOptions): Promise<void> {
   await ensureAuth();
   const { config } = await loadPlayConfigStrict(options.config);
-
-  // (1) Raw CSV escape hatch
-  if (config.data_safety_csv_path) {
-    const csvPath = path.isAbsolute(config.data_safety_csv_path)
-      ? config.data_safety_csv_path
-      : path.resolve(config.data_safety_csv_path);
-    if (!(await fs.pathExists(csvPath))) {
-      logger.fatal(`data_safety_csv_path is set to ${csvPath} but the file does not exist.`);
-      process.exit(1);
-    }
-    const csvContents = await fs.readFile(csvPath, 'utf8');
-    if (!csvContents.trim()) {
-      logger.fatal(`Data safety CSV at ${csvPath} is empty.`);
-      process.exit(1);
-    }
-    await gpc.updateDataSafety(config.app.package_name, csvContents);
-    logger.success(`Pushed data safety CSV from ${csvPath}`);
-    return;
+  const outcome = await pushDataSafetyFromConfig(config, { verify: options.verify === true });
+  if (outcome === 'not-configured') {
+    throw new CliError('Config has no `data_safety` block or `data_safety_csv_path`. Add `"data_safety": { "apply_defaults": true }` to the config and rerun.');
   }
-
-  // (2) Structured JSON
-  if (!config.data_safety) {
-    logger.fatal('Config has no `data_safety` block or `data_safety_csv_path`.');
-    logger.info('Add a `data_safety: { apply_defaults: true }` block to your config and rerun.');
-    process.exit(1);
-  }
-
-  const csv = buildDataSafetyCsv(config.data_safety);
-  await gpc.updateDataSafety(config.app.package_name, csv);
-  logger.success('Pushed data safety declaration (built from data_safety JSON).');
 }

@@ -25,7 +25,8 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 - Use `async/await` everywhere
 - Use `run()` from `src/utils/exec.ts` for commands with spinner output
 - Use `runStreaming()` for interactive commands (e.g., `firebase login`)
-- Graceful degradation — steps that fail or detect missing dependencies warn and skip instead of aborting the entire flow
+- Graceful degradation: steps that detect missing OPTIONAL dependencies warn and skip instead of aborting the entire flow. Required steps never use `allowFailure` silently: they throw `CliError` / `ApiError` (Play, with the HTTP body) / `ToolError` (asc, adapty) from `src/utils/errors.ts`, read their result back, and orchestrators record them in a `StepReport` (`src/utils/step-report.ts`) that prints a summary of FAILED steps and sets exit 1. Never print OK without a read-back.
+- `--yes` is added to every leaf command by `applyYesOption` (`src/utils/yes-option.ts`); it and `--config <file>` set `KAPPMAKER_YES=1`, which answers every `confirm()` except `{ destructive: true }` ones (and answers `{ yesAnswer: false }` ones with no). Piped stdin is read by one shared line reader, in order.
 - Prompts: `confirm()` / `promptInput()` throw `NeedsAnswerError` under `KAPPMAKER_NONINTERACTIVE=1` (the MCP server's children) instead of hanging; `confirm(msg, { assumable: true })` answers yes when `KAPPMAKER_ASSUME_YES=1` — mark ONLY re-asks of something the caller already agreed to (never deletes, never first-time questions). EOF on stdin = empty answer.
 - MCP tools never accept secrets as arguments and never print them; new tools go in `src/mcp/tools/*` and must keep the "no api_key/token/password inputs" test passing.
 - Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline and saved to config on first use — no fatal exits for missing keys
@@ -112,8 +113,8 @@ npx tsx src/index.ts generate-keystore --organization "MyCompany"          # Gen
 npx tsx src/index.ts android-release-build                                # Build signed Android AAB
 npx tsx src/index.ts refactor --app-id com.example.myapp --app-name MyApp  # Full package refactor
 npx tsx src/index.ts refactor --app-id com.example.myapp --app-name MyApp --skip-package-rename  # IDs only
-npx tsx src/index.ts update-version                # Bump patch version + versionCode on both platforms
-npx tsx src/index.ts update-version -v 2.0.0       # Set explicit version name
+npx tsx src/index.ts update-version                # Bump build numbers only (versionCode / iOS build); name unchanged
+npx tsx src/index.ts update-version --version-name 2.0.0  # Also set the version name
 npx tsx src/index.ts convert-webp <image-or-dir>                           # Convert PNG/JPG/BMP/TIFF/GIF to WebP
 npx tsx src/index.ts convert-webp <dir> --recursive --quality 90           # Batch convert recursively
 ```
@@ -478,6 +479,8 @@ Options:
 The default is the right pick for most apps; `ppp_enabled: false` is for users who explicitly want uniform USD-anchor pricing without PPP discounts.
 
 **Proto3 partial-Money gotcha (1.6.6+)**: Google's JSON response omits Money fields with default values — i.e. `units` is missing when the price is `< 1 unit` (e.g. `convertRegionPrices` returns `{ currencyCode: "USD", nanos: 990000000 }` for $0.99, no `units` field). `parseInt(undefined, 10) === NaN`, and once `NaN` enters the multiplication pipeline it becomes the string `"NaN"` in the request body → HTTP 400 _"Invalid value at '...price.units' (TYPE_INT64), 'NaN'"_. 1.6.6 adds `normalizeMoney()` at the convertRegionPrices boundary (defaults missing `units` to `"0"` and missing `nanos` to `0`), hardens `moneyToFloat` to coerce non-numeric inputs to 0, and adds a non-finite guard inside `applyPppCharmRound` that falls back to the source Money rather than emitting NaN.
+
+**regionsVersion (2.2.0+)**: default `2026/01` (`DEFAULT_REGIONS_VERSION` in `src/services/gpc-regions.ts`), resolved per run: `--regions-version` > config `playRegionsVersion` > default. The 2022/02 drift tables below apply only when 2022/02 is chosen. `ppp_enabled: false` still prices every billable region (plain conversion). Every product is read back and reported as `N of M regions priced` (`printCoverageReport`); short = exit 1.
 
 **regionsVersion=2022/02 drift handling (1.6.8+)**: `convertRegionPrices` returns "today's" currencies + billable set, but the subscription / one-time-product PATCH uses `regionsVersion=2022/02` (matches what AndroidPoet's `playconsole-cli` hardcodes — no documented newer version). The two surfaces disagree for a handful of regions. Five known drift cases as of 2026-05:
 - **BG (Bulgaria, Eurozone 2025)**, **HR (Croatia, Eurozone 2023)** — `convertRegionPrices` → EUR, `2022/02` expects BGN/HRK.

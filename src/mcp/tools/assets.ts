@@ -48,15 +48,21 @@ export const assetTools: ToolDef[] = [
   cli({
     name: 'generate_icons',
     title: 'Make app icons from the logo',
-    description: 'Writes every iOS AppIcon size and/or Android launcher icon (all densities + adaptive icon) from one logo. No AI, free.',
+    description: 'Writes every iOS AppIcon size and/or Android launcher icon (all densities + adaptive icon) from one logo, plus the splash screens (iOS launch logo, Android 12+ splash icon) and the Android themed icon. No AI, free.',
     kind: 'write',
     shape: {
       platform: z.enum(['both', 'ios', 'android']).default('both'),
       source: z.string().optional().describe('Logo PNG (default: auto-detect under Assets/)'),
       background: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe('Background hex, e.g. "#FFFFFF"'),
+      splash_background: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe('Splash background hex (light mode)'),
+      splash_background_dark: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe('Splash background hex (dark mode)'),
+      no_splash: z.boolean().optional().describe('Leave the splash screens as they are'),
     },
     commands: (i) => {
-      const common = flags({ '--source': i.source, '--background': i.background });
+      const common = flags({
+        '--source': i.source, '--background': i.background,
+        '--splash-background': i.splash_background, '--splash-background-dark': i.splash_background_dark, '--no-splash': i.no_splash,
+      });
       const out: string[][] = [];
       if (i.platform !== 'android') out.push(['generate-ios-icons', ...common]);
       if (i.platform !== 'ios') out.push(['generate-android-icons', ...common]);

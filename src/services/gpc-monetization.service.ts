@@ -1,5 +1,12 @@
 import { logger } from '../utils/logger.js';
 import { apiRequest } from './gpc.service.js';
+import {
+  getRegionsVersion,
+  isLegacy2022Catalog,
+  recordCoverage,
+  recordMonetizationFailure,
+  coverageFor,
+} from './gpc-regions.js';
 import { charmRound, getMultiplier, logPppFanOut } from './ppp-pricing.service.js';
 import type {
   GooglePlaySubscription,
@@ -32,7 +39,6 @@ async function fetchConvertedRegionPrices(
     path: `/applications/${encodeURIComponent(packageName)}/pricing:convertRegionPrices`,
     body: { price: baseUsd },
     label: `Converting $${moneyToPriceString(baseUsd)} USD to all billable Play regions`,
-    allowFailure: true,
   });
 
   const out = new Map<string, Money>();
@@ -43,8 +49,11 @@ async function fetchConvertedRegionPrices(
       const money = val?.price ?? val?.regionPrice;
       if (money) out.set(region, normalizeMoney(money));
     }
-  } else {
-    logger.warn('Could not fetch convertRegionPrices; PPP fan-out will skip and only your user-listed regions go live.');
+  }
+  if (out.size === 0) {
+    // Without the billable set every product would go live in the user-listed
+    // regions only (the BeMainStar case). Stop instead.
+    throw new Error('Google returned no billable regions from convertRegionPrices; refusing to price products in the listed regions only.');
   }
   conversionCache.set(cacheKey, out);
   return out;
@@ -115,6 +124,9 @@ function applyCurrencyOverrideFor2022_02(
   livePrice: Money,
   usdAnchor: Money,
 ): Money | null {
+  // The overrides exist only for the old 2022/02 catalog. With a current
+  // regionsVersion the live currency from convertRegionPrices is the right one.
+  if (!isLegacy2022Catalog()) return livePrice;
   if (NEVER_BILLABLE_AT_2022_02.has(region)) return null;
   const expected = EXPECTED_2022_02_CURRENCY[region];
   if (!expected || livePrice.currencyCode === expected) return livePrice;
@@ -135,6 +147,17 @@ function applyCurrencyOverrideFor2022_02(
     };
   }
   return null;
+}
+
+/** Legacy-catalog checks; all false for a current regionsVersion. */
+function neverBillable(region: string): boolean {
+  return isLegacy2022Catalog() && NEVER_BILLABLE_AT_2022_02.has(region);
+}
+function isKnownDrift(region: string): boolean {
+  return isLegacy2022Catalog() && KNOWN_2022_02_DRIFT_REGIONS.has(region);
+}
+function expectedCurrencyFor(region: string): string {
+  return (isLegacy2022Catalog() ? EXPECTED_2022_02_CURRENCY[region] : undefined) ?? 'USD';
 }
 
 /** Module-level cache: regions Google rejected during this CLI run, per package. */
@@ -311,10 +334,10 @@ async function expandPlayRegionsLocal(
     });
   }
   if (overriddenRegions.length > 0) {
-    logger.info(`Currency overrides for regionsVersion 2022/02: ${overriddenRegions.join(', ')}.`);
+    logger.info(`Currency overrides for regionsVersion ${getRegionsVersion()}: ${overriddenRegions.join(', ')}.`);
   }
   if (skippedRegions.length > 0) {
-    logger.info(`Skipped ${skippedRegions.join(', ')} from PPP fan-out (no 2022/02-compatible currency — region was removed from the catalog).`);
+    logger.info(`Skipped ${skippedRegions.join(', ')} from PPP fan-out (no currency Play accepts at regionsVersion ${getRegionsVersion()}).`);
   }
   return out;
 }
@@ -400,9 +423,9 @@ export async function listSubscriptions(packageName: string): Promise<Set<string
     method: 'GET',
     path: `/applications/${encodeURIComponent(packageName)}/subscriptions`,
     label: 'Looking up existing subscriptions',
-    allowFailure: true,
   });
-  if (!result.ok || !result.data?.subscriptions) return new Set();
+  // Strict: a failed list read as "none exist" made every subscription a create.
+  if (!result.data?.subscriptions) return new Set();
   return new Set(result.data.subscriptions.map((s) => s.productId));
 }
 
@@ -445,9 +468,8 @@ function printRegionAvailabilityHint(): void {
   logger.info('  4. If the app is still in DRAFT (never published), per-region pricing only takes effect after the first production rollout.');
 }
 
-// Google Play's new monetization API ties pricing regions to a "regionsVersion"
-// — bump this constant if Google publishes a newer region catalog.
-const REGIONS_VERSION = '2022/02';
+// Google Play's new monetization API ties pricing regions to a "regionsVersion".
+// It is resolved per run (flag > config > default) in gpc-regions.ts.
 
 // One-time products surface drifted regions ONE AT A TIME per error response,
 // so a legacy product with many drift regions needs many retries. Bail early
@@ -476,7 +498,7 @@ function handleSubscriptionRetry(
   if (bad.size === 0 && removed.size === 0) return true;
   const deadlocked = [...bad].filter((r) => forceUnavailable.has(r));
   if (deadlocked.length > 0) {
-    logger.warn(`Deadlock on ${productId}: region${deadlocked.length === 1 ? '' : 's'} ${deadlocked.join(', ')} can't be removed and can't be kept under regionsVersion ${REGIONS_VERSION}.`);
+    logger.warn(`Deadlock on ${productId}: region${deadlocked.length === 1 ? '' : 's'} ${deadlocked.join(', ')} can't be removed and can't be kept under regionsVersion ${getRegionsVersion()}.`);
     stuckSubscriptions.add(productId);
     return true;
   }
@@ -512,7 +534,7 @@ function handleOneTimeProductRetry(
   if (bad.size === 0 && removed.size === 0) return true;
   const deadlocked = [...bad].filter((r) => forceUnavailable.has(r));
   if (deadlocked.length > 0) {
-    logger.warn(`Deadlock on ${sku}: region${deadlocked.length === 1 ? '' : 's'} ${deadlocked.join(', ')} can't be removed and can't be kept under regionsVersion ${REGIONS_VERSION}.`);
+    logger.warn(`Deadlock on ${sku}: region${deadlocked.length === 1 ? '' : 's'} ${deadlocked.join(', ')} can't be removed and can't be kept under regionsVersion ${getRegionsVersion()}.`);
     stuckOneTimeProducts.add(sku);
     return true;
   }
@@ -645,7 +667,7 @@ async function createSubscriptionWithBasePlans(
     const result = await apiRequest({
       method: 'POST',
       path: `/applications/${encodeURIComponent(packageName)}/subscriptions`,
-      query: { productId: sub.product_id, 'regionsVersion.version': REGIONS_VERSION },
+      query: { productId: sub.product_id, 'regionsVersion.version': getRegionsVersion() },
       body,
       label: attempt === 0
         ? `Creating subscription: ${sub.product_id}`
@@ -657,14 +679,15 @@ async function createSubscriptionWithBasePlans(
   }
 
   if (!lastResult?.ok) {
-    logger.warn(`Could not create subscription ${sub.product_id}. Skipping its base plans.`);
+    logger.error(`Could not create subscription ${sub.product_id}: ${lastResult?.error ?? 'unknown error'}`);
+    recordMonetizationFailure(sub.product_id, `create failed: ${lastResult?.error ?? 'unknown error'}`);
     return;
   }
 
   for (const basePlan of sub.base_plans) {
     await activateBasePlan(packageName, sub.product_id, basePlan.base_plan_id);
   }
-  await verifySubscriptionRegions(packageName, sub.product_id);
+  await verifySubscriptionRegions(packageName, sub);
 }
 
 /**
@@ -698,7 +721,7 @@ async function updateSubscriptionWithBasePlans(
     const result = await apiRequest({
       method: 'PATCH',
       path: `/applications/${encodeURIComponent(packageName)}/subscriptions/${encodeURIComponent(sub.product_id)}`,
-      query: { 'regionsVersion.version': REGIONS_VERSION, updateMask: 'basePlans,listings' },
+      query: { 'regionsVersion.version': getRegionsVersion(), updateMask: 'basePlans,listings' },
       body,
       label: attempt === 0
         ? `Updating subscription regional pricing: ${sub.product_id}`
@@ -710,7 +733,8 @@ async function updateSubscriptionWithBasePlans(
   }
 
   if (!lastResult?.ok) {
-    logger.warn(`Could not update subscription ${sub.product_id}. Existing pricing left as-is.`);
+    logger.error(`Could not update subscription ${sub.product_id}: ${lastResult?.error ?? 'unknown error'}. Existing pricing left as-is.`);
+    recordMonetizationFailure(sub.product_id, `update failed: ${lastResult?.error ?? 'unknown error'}`);
     logger.info('Tip: Google may reject region-removal or price-decrease changes on active base plans. Consider creating a new product_id (e.g., bump v1 → v2) for new pricing.');
   } else if (extraExclude.size > 0) {
     logger.success(`Subscription ${sub.product_id} updated (dropped ${extraExclude.size} drift region${extraExclude.size === 1 ? '' : 's'}: ${[...extraExclude].join(', ')}).`);
@@ -720,7 +744,7 @@ async function updateSubscriptionWithBasePlans(
   for (const basePlan of sub.base_plans) {
     await activateBasePlan(packageName, sub.product_id, basePlan.base_plan_id);
   }
-  if (lastResult?.ok) await verifySubscriptionRegions(packageName, sub.product_id);
+  if (lastResult?.ok) await verifySubscriptionRegions(packageName, sub);
 }
 
 /**
@@ -749,15 +773,18 @@ async function buildBasePlanBody(
   const pppEnabled = basePlan.ppp_enabled !== false;
 
   let allConfigs: GooglePlayRegionalPrice[] = userConfigs;
-  if (pppEnabled && usdAnchor) {
+  if (usdAnchor) {
+    // Every billable region gets an explicit price: PPP-adjusted by default,
+    // plain currency conversion with ppp_enabled=false. (ppp_enabled=false used
+    // to send only the listed regions, so apps went live priced in the US only.)
     const userRegions = new Set(userConfigs.map((p) => p.region_code));
-    const expanded = await expandPlayRegionsLocal(packageName, usdAnchor.price, userRegions, true, extraExclude);
+    const expanded = await expandPlayRegionsLocal(packageName, usdAnchor.price, userRegions, pppEnabled, extraExclude);
     // User-listed entries that happen to be in the retry-exclude set should also drop out.
     const filteredUser = userConfigs.filter((p) => !extraExclude.has(p.region_code));
     allConfigs = [...expanded, ...filteredUser];
     logPppFanOut(`base plan ${basePlan.base_plan_id}`, usdAnchor.price, expanded.length, filteredUser.length);
-  } else if (pppEnabled && !usdAnchor) {
-    logger.warn(`No USD anchor in regional_configs for "${basePlan.base_plan_id}" — falling back to user-listed regions only.`);
+  } else {
+    throw new Error(`Base plan "${basePlan.base_plan_id}" has no USD price in regional_configs; it is needed to price every billable region.`);
   }
 
   // Build the regional config map from the fresh PPP + user fan-out.
@@ -774,7 +801,7 @@ async function buildBasePlanBody(
     if (merged[region]) continue; // fresh fan-out already covers it
     if (!cfg.price) continue; // can't echo without a price
     const isDrift =
-      KNOWN_2022_02_DRIFT_REGIONS.has(region) ||
+      isKnownDrift(region) ||
       sessionDriftSet.has(region) ||
       extraExclude.has(region);
     if (isDrift) {
@@ -791,7 +818,7 @@ async function buildBasePlanBody(
     logger.info(`Echoed ${echoedCount} previously-stored region${echoedCount === 1 ? '' : 's'} on ${basePlan.base_plan_id} (Google rejects PATCH bodies that drop existing regions).`);
   }
   if (skippedDriftCount > 0) {
-    logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${basePlan.base_plan_id}'s existing config — their stored currency no longer matches regionsVersion 2022/02. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
+    logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${basePlan.base_plan_id}'s existing config: their stored currency no longer matches regionsVersion ${getRegionsVersion()}. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
   }
 
   // Re-inject `forceUnavailable` regions using the 2022/02-expected currency
@@ -801,11 +828,11 @@ async function buildBasePlanBody(
   const neverBillableSubRegions: string[] = [];
   for (const region of forceUnavailable) {
     if (merged[region]?.newSubscriberAvailability === false) continue; // already handled
-    if (NEVER_BILLABLE_AT_2022_02.has(region)) {
+    if (neverBillable(region)) {
       neverBillableSubRegions.push(region);
       continue;
     }
-    const expectedCurrency = EXPECTED_2022_02_CURRENCY[region] ?? 'USD';
+    const expectedCurrency = expectedCurrencyFor(region);
     merged[region] = {
       newSubscriberAvailability: false,
       price: { currencyCode: expectedCurrency, units: '0', nanos: 990000000 },
@@ -813,10 +840,10 @@ async function buildBasePlanBody(
     forceUnavailableCount++;
   }
   if (forceUnavailableCount > 0) {
-    logger.info(`Re-injected ${forceUnavailableCount} region${forceUnavailableCount === 1 ? '' : 's'} on ${basePlan.base_plan_id} as newSubscriberAvailability=false with expected 2022/02 currency.`);
+    logger.info(`Re-injected ${forceUnavailableCount} region${forceUnavailableCount === 1 ? '' : 's'} on ${basePlan.base_plan_id} as newSubscriberAvailability=false with the currency regionsVersion ${getRegionsVersion()} expects.`);
   }
   if (neverBillableSubRegions.length > 0) {
-    logger.warn(`Cannot fix ${neverBillableSubRegions.join(', ')} on subscription base plan ${basePlan.base_plan_id} — these regions were removed from Google's 2022/02 billable catalog. The subscription is "stuck"; PATCH will fail.`);
+    logger.warn(`Cannot fix ${neverBillableSubRegions.join(', ')} on subscription base plan ${basePlan.base_plan_id}: these regions were removed from Google's ${getRegionsVersion()} billable catalog. The subscription is "stuck"; PATCH will fail.`);
   }
 
   const body: Record<string, unknown> = {
@@ -847,10 +874,8 @@ async function buildBasePlanBody(
       eurPrice: anchors.eurPrice,
     };
     if (!pppEnabled) {
-      logger.info(`Base plan "${basePlan.base_plan_id}": ppp_enabled=false → Google auto-fan-out via otherRegionsConfig (USD ${usdAnchor?.price} anchor).`);
+      logger.info(`Base plan "${basePlan.base_plan_id}": ppp_enabled=false: every billable region priced by plain conversion of USD ${usdAnchor?.price}.`);
     }
-  } else if (!pppEnabled) {
-    logger.warn(`Base plan "${basePlan.base_plan_id}": ppp_enabled=false but no USD anchor — pricing will be limited to user-listed regions only.`);
   }
   return body;
 }
@@ -860,7 +885,7 @@ async function activateBasePlan(
   productId: string,
   basePlanId: string,
 ): Promise<void> {
-  await apiRequest({
+  const result = await apiRequest({
     method: 'POST',
     path: `/applications/${encodeURIComponent(packageName)}/subscriptions/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}:activate`,
     // Per discovery doc `ActivateBasePlanRequest` requires these fields in the
@@ -875,6 +900,10 @@ async function activateBasePlan(
     label: `Activating base plan ${productId}/${basePlanId}`,
     allowFailure: true,
   });
+  // Already-active plans answer 400 "already active"; that is fine. Anything else is a failure.
+  if (!result.ok && !/already active|ACTIVE state/i.test(result.error ?? '')) {
+    recordMonetizationFailure(`${productId}/${basePlanId}`, `activation failed: ${result.error ?? `HTTP ${result.status}`}`);
+  }
 }
 
 /**
@@ -883,10 +912,12 @@ async function activateBasePlan(
  * the user verify "did the PATCH actually write what we sent?" — Play Console's
  * UI lags by a few minutes after a successful API call.
  */
-async function verifySubscriptionRegions(packageName: string, productId: string): Promise<void> {
+async function verifySubscriptionRegions(packageName: string, sub: GooglePlaySubscription): Promise<void> {
+  const productId = sub.product_id;
   const result = await apiRequest<{
     basePlans?: Array<{
       basePlanId: string;
+      state?: string;
       regionalConfigs?: Array<{ regionCode: string; newSubscriberAvailability?: boolean }>;
       otherRegionsConfig?: { newSubscriberAvailability?: boolean };
     }>;
@@ -894,22 +925,32 @@ async function verifySubscriptionRegions(packageName: string, productId: string)
     method: 'GET',
     path: `/applications/${encodeURIComponent(packageName)}/subscriptions/${encodeURIComponent(productId)}`,
     label: `Verifying subscription ${productId}`,
-    allowFailure: true,
   });
-  if (!result.ok || !result.data?.basePlans) return;
-  for (const bp of result.data.basePlans) {
-    const total = bp.regionalConfigs?.length ?? 0;
-    const available = bp.regionalConfigs?.filter((c) => c.newSubscriberAvailability !== false).length ?? 0;
-    const other = bp.otherRegionsConfig ? ` + otherRegions(${bp.otherRegionsConfig.newSubscriberAvailability ? 'available' : 'unavailable'})` : '';
-    logger.info(`  Stored on Google: ${productId}/${bp.basePlanId} → ${available}/${total} regions available${other}`);
+  for (const bp of result.data?.basePlans ?? []) {
+    const cfg = sub.base_plans.find((b) => b.base_plan_id === bp.basePlanId);
+    const usd = cfg?.regional_configs.find((p) => p.currency_code === 'USD');
+    if (!usd) continue;
+    const stored = new Map((bp.regionalConfigs ?? []).map((c) => [c.regionCode, c.newSubscriberAvailability !== false]));
+    const billable = await billableRegions(packageName, usd.price);
+    const row = coverageFor(`${productId}/${bp.basePlanId}`, stored, billable);
+    recordCoverage(row);
+    logger.info(`  Stored on Google: ${row.product} -> ${row.priced} of ${row.billable} billable regions priced${bp.state ? ` state=${bp.state}` : ''}`);
   }
 }
 
 /**
- * GET an existing one-time product and log how many regions are configured per
- * purchase option, plus how many are flagged AVAILABLE.
+ * Billable regions for a USD base price, as Google reports them, minus the
+ * regions Google itself rejected as unbillable during this run.
  */
-async function verifyOneTimeProductRegions(packageName: string, sku: string): Promise<void> {
+async function billableRegions(packageName: string, usdPrice: string): Promise<string[]> {
+  const conv = await fetchConvertedRegionPrices(packageName, priceToMoney(usdPrice, 'USD'));
+  const rejected = getSessionDrift(packageName);
+  return [...conv.keys()].filter((r) => !rejected.has(r) && !neverBillable(r));
+}
+
+/** GET a one-time product back and record "N of M regions priced". */
+async function verifyOneTimeProductRegions(packageName: string, product: GooglePlayInAppProduct): Promise<void> {
+  const sku = product.sku;
   const result = await apiRequest<{
     purchaseOptions?: Array<{
       purchaseOptionId?: string;
@@ -920,14 +961,14 @@ async function verifyOneTimeProductRegions(packageName: string, sku: string): Pr
     method: 'GET',
     path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts/${encodeURIComponent(sku)}`,
     label: `Verifying one-time product ${sku}`,
-    allowFailure: true,
   });
-  if (!result.ok || !result.data?.purchaseOptions) return;
-  for (const po of result.data.purchaseOptions) {
-    const total = po.regionalPricingAndAvailabilityConfigs?.length ?? 0;
-    const available = po.regionalPricingAndAvailabilityConfigs?.filter((c) => c.availability === 'AVAILABLE').length ?? 0;
-    const state = po.state ? ` state=${po.state}` : '';
-    logger.info(`  Stored on Google: ${sku}/${po.purchaseOptionId ?? '?'} → ${available}/${total} regions AVAILABLE${state}`);
+  const usd = [product.default_price, ...(product.prices ?? [])].find((p) => p.currency_code === 'USD');
+  for (const po of result.data?.purchaseOptions ?? []) {
+    if (!usd) continue;
+    const stored = new Map((po.regionalPricingAndAvailabilityConfigs ?? []).map((c) => [c.regionCode, c.availability === 'AVAILABLE']));
+    const row = coverageFor(`${sku}/${po.purchaseOptionId ?? '?'}`, stored, await billableRegions(packageName, usd.price));
+    recordCoverage(row);
+    logger.info(`  Stored on Google: ${row.product} -> ${row.priced} of ${row.billable} billable regions priced${po.state ? ` state=${po.state}` : ''}`);
   }
 }
 
@@ -960,9 +1001,7 @@ export async function listInAppProducts(packageName: string): Promise<Set<string
       path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts`,
       query: pageToken ? { pageToken } : undefined,
       label: 'Looking up existing one-time products',
-      allowFailure: true,
     });
-    if (!result.ok) return existing;
     for (const p of result.data?.oneTimeProducts ?? []) {
       existing.add(p.productId);
     }
@@ -988,7 +1027,7 @@ export async function setupInAppProducts(
     if (existing.has(product.sku)) {
       existingState = await fetchExistingOneTimeProductState(packageName, product.sku);
       const stuckRegions = [...(existingState?.regionalConfigs.keys() ?? [])].filter((r) =>
-        NEVER_BILLABLE_AT_2022_02.has(r),
+        neverBillable(r),
       );
       if (stuckRegions.length > 0 && options.recreateStuck) {
         // User opted in via --recreate-stuck. Delete the product so the PATCH
@@ -1022,7 +1061,6 @@ async function deleteOneTimeProduct(packageName: string, sku: string): Promise<v
     method: 'DELETE',
     path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts/${encodeURIComponent(sku)}`,
     label: `Deleting stuck one-time product ${sku}`,
-    allowFailure: true,
   });
   logger.warn(`Deleted ${sku}. Google soft-deletes — the productId remains reserved for a few minutes to a few hours.`);
   logger.warn(`If the recreate below fails with "Product ID already in use", wait 30+ min and re-run \`kappmaker gpc iap push\` (without --recreate-stuck).`);
@@ -1039,7 +1077,7 @@ function printStuckProductsHint(recreateStuckWasOn: boolean): void {
   if (stuckOneTimeProducts.size === 0 && stuckSubscriptions.size === 0) return;
   stuckHintPrinted = true;
   logger.info('');
-  logger.warn(`${stuckOneTimeProducts.size + stuckSubscriptions.size} product(s) could not be updated due to regions removed from Google's 2022/02 catalog:`);
+  logger.warn(`${stuckOneTimeProducts.size + stuckSubscriptions.size} product(s) could not be updated due to regions removed from Google's ${getRegionsVersion()} catalog:`);
   for (const sku of stuckOneTimeProducts) logger.warn(`  • one-time product: ${sku}`);
   for (const id of stuckSubscriptions) logger.warn(`  • subscription: ${id}`);
   if (recreateStuckWasOn) {
@@ -1132,15 +1170,16 @@ async function createInAppProduct(
 
   for (let attempt = 0; attempt < ONE_TIME_PRODUCT_MAX_RETRIES; attempt++) {
     let allPrices: GooglePlayRegionalPrice[] = userPrices.filter((p) => !extraExclude.has(p.region_code));
-    if (pppEnabled && usdAnchor) {
+    if (usdAnchor) {
+      // PPP by default, plain conversion with ppp_enabled=false: either way every billable region.
       const userRegions = new Set(userPrices.map((p) => p.region_code));
-      const expanded = await expandPlayRegionsLocal(packageName, usdAnchor.price, userRegions, true, extraExclude);
+      const expanded = await expandPlayRegionsLocal(packageName, usdAnchor.price, userRegions, pppEnabled, extraExclude);
       allPrices = [...expanded, ...allPrices];
       if (attempt === 0) {
         logPppFanOut(`one-time product ${product.sku}`, usdAnchor.price, expanded.length, allPrices.length - expanded.length);
       }
-    } else if (pppEnabled && !usdAnchor && attempt === 0) {
-      logger.warn(`No USD anchor in default_price/prices for "${product.sku}" — falling back to user-listed regions only.`);
+    } else {
+      throw new Error(`One-time product "${product.sku}" has no USD price in default_price/prices; it is needed to price every billable region.`);
     }
 
     // Dedupe by region — last wins, so user entries override PPP entries.
@@ -1168,7 +1207,7 @@ async function createInAppProduct(
       if (freshRegions.has(region)) continue; // fresh fan-out wins for overlap
       if (!cfg.price) continue;
       const isDrift =
-        KNOWN_2022_02_DRIFT_REGIONS.has(region) ||
+        isKnownDrift(region) ||
         sessionDriftSet.has(region) ||
         extraExclude.has(region);
       if (isDrift) {
@@ -1186,7 +1225,7 @@ async function createInAppProduct(
       logger.info(`Echoed ${echoedCount} previously-stored region${echoedCount === 1 ? '' : 's'} on ${product.sku} (Google rejects PATCH bodies that drop existing regions).`);
     }
     if (skippedDriftCount > 0 && attempt === 0) {
-      logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${product.sku}'s existing config — their stored currency no longer matches regionsVersion 2022/02. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
+      logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${product.sku}'s existing config: their stored currency no longer matches regionsVersion ${getRegionsVersion()}. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
     }
 
     // Re-inject `forceUnavailable` regions with availability=NO_LONGER_AVAILABLE
@@ -1197,11 +1236,11 @@ async function createInAppProduct(
     type RpaConfig = { regionCode: string; price?: Money; availability: string };
     const rpa = regionalPricingAndAvailabilityConfigs as RpaConfig[];
     for (const region of forceUnavailable) {
-      if (NEVER_BILLABLE_AT_2022_02.has(region)) {
+      if (neverBillable(region)) {
         neverBillableSkipped.push(region);
         continue;
       }
-      const expectedCurrency = EXPECTED_2022_02_CURRENCY[region] ?? 'USD';
+      const expectedCurrency = expectedCurrencyFor(region);
       const nominalPrice: Money = {
         currencyCode: expectedCurrency,
         units: '0',
@@ -1218,11 +1257,11 @@ async function createInAppProduct(
       forceUnavailableInjected++;
     }
     if (forceUnavailableInjected > 0) {
-      logger.info(`Re-injected ${forceUnavailableInjected} region${forceUnavailableInjected === 1 ? '' : 's'} on ${product.sku} as NO_LONGER_AVAILABLE with expected 2022/02 currency.`);
+      logger.info(`Re-injected ${forceUnavailableInjected} region${forceUnavailableInjected === 1 ? '' : 's'} on ${product.sku} as NO_LONGER_AVAILABLE with the currency regionsVersion ${getRegionsVersion()} expects.`);
     }
     if (neverBillableSkipped.length > 0) {
       stuckOneTimeProducts.add(product.sku);
-      logger.warn(`Cannot fix ${neverBillableSkipped.join(', ')} on ${product.sku} — these regions were removed from Google's 2022/02 billable catalog entirely. The product is "stuck": Google refuses to remove them AND refuses to keep them. Skipping this product.`);
+      logger.warn(`Cannot fix ${neverBillableSkipped.join(', ')} on ${product.sku}: these regions were removed from Google's ${getRegionsVersion()} billable catalog entirely. The product is "stuck": Google refuses to remove them AND refuses to keep them. Skipping this product.`);
     }
 
     const purchaseOption: Record<string, unknown> = {
@@ -1246,10 +1285,8 @@ async function createInAppProduct(
         eurPrice: newRegionsAnchors.eurPrice,
       };
       if (attempt === 0 && !pppEnabled) {
-        logger.info(`One-time product "${product.sku}": ppp_enabled=false → Google auto-fan-out via newRegionsConfig (USD ${usdAnchor?.price} anchor).`);
+        logger.info(`One-time product "${product.sku}": ppp_enabled=false: every billable region priced by plain conversion of USD ${usdAnchor?.price}.`);
       }
-    } else if (attempt === 0 && !pppEnabled) {
-      logger.warn(`One-time product "${product.sku}": ppp_enabled=false but no USD anchor — pricing will be limited to user-listed regions only.`);
     }
 
     const body: Record<string, unknown> = {
@@ -1266,7 +1303,7 @@ async function createInAppProduct(
       path: `/applications/${encodeURIComponent(packageName)}/onetimeproducts/${encodeURIComponent(product.sku)}`,
       query: {
         allowMissing: 'true',
-        'regionsVersion.version': REGIONS_VERSION,
+        'regionsVersion.version': getRegionsVersion(),
         updateMask: 'listings,purchaseOptions',
       },
       body,
@@ -1280,7 +1317,8 @@ async function createInAppProduct(
   }
 
   if (!lastResult?.ok) {
-    logger.warn(`Could not create one-time product ${product.sku}.`);
+    logger.error(`Could not create one-time product ${product.sku}: ${lastResult?.error ?? 'unknown error'}`);
+    recordMonetizationFailure(product.sku, `create/update failed: ${lastResult?.error ?? 'unknown error'}`);
     return;
   }
   if (extraExclude.size > 0) {
@@ -1293,7 +1331,7 @@ async function createInAppProduct(
 
   // Verify what's actually stored on Google — useful when Play Console UI still
   // looks like "USA only" but our PATCH succeeded (UI lag vs. real state).
-  await verifyOneTimeProductRegions(packageName, product.sku);
+  await verifyOneTimeProductRegions(packageName, product);
 }
 
 async function activatePurchaseOption(
@@ -1301,7 +1339,7 @@ async function activatePurchaseOption(
   productId: string,
   purchaseOptionId: string,
 ): Promise<void> {
-  await apiRequest({
+  const result = await apiRequest({
     method: 'POST',
     path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts/${encodeURIComponent(productId)}/purchaseOptions:batchUpdateStates`,
     body: {
@@ -1319,4 +1357,7 @@ async function activatePurchaseOption(
     label: `Activating purchase option ${productId}/${purchaseOptionId}`,
     allowFailure: true,
   });
+  if (!result.ok && !/already active|ACTIVE state/i.test(result.error ?? '')) {
+    recordMonetizationFailure(`${productId}/${purchaseOptionId}`, `activation failed: ${result.error ?? `HTTP ${result.status}`}`);
+  }
 }

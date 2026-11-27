@@ -9,6 +9,8 @@ import * as asc from '../services/asc.service.js';
 import * as ascMoney from '../services/asc-monetization.service.js';
 import { creditPackProductId } from '../services/credit-pack.defaults.js';
 import type { AppStoreConfig, CreateAppStoreOptions } from '../types/appstore.js';
+import { StepReport } from '../utils/step-report.js';
+import { CliError } from '../utils/errors.js';
 
 const CONFIG_FILENAME = 'Assets/appstore-config.json';
 const TOTAL_STEPS = 13;
@@ -23,7 +25,7 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
   let userConfig = await loadConfig();
   if (!userConfig.appleId || !userConfig.ascKeyId || !userConfig.ascIssuerId || !userConfig.ascPrivateKeyPath) {
     logger.warn('App Store Connect configuration is incomplete.');
-    const shouldSetup = await confirm('  Run interactive setup now? (API key, Apple ID, review contact)');
+    const shouldSetup = await confirm('  Run interactive setup now? (API key, Apple ID, review contact)', { yesAnswer: false });
     if (shouldSetup) {
       await configAppStoreDefaults({ init: true });
       userConfig = await loadConfig();
@@ -84,100 +86,114 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
   // Re-read config from file in case user edited it during confirmation
   const finalConfig: AppStoreConfig = await fs.readJson(configPath);
   Object.assign(config, finalConfig);
+  applyRequiredDefaults(config, userConfig.organization);
+
+  // Every step below reads its result back and throws when App Store Connect
+  // does not hold what was sent. A failed step is listed in the summary and
+  // the command exits 1; steps that need its output are skipped, the others run.
+  const report = new StepReport('App Store Connect setup');
 
   // Step 3: Register Bundle ID
   logger.step(3, TOTAL_STEPS, 'Registering Bundle ID');
-  await asc.createBundleId(config.app.bundle_id, config.app.name, config.app.platform);
+  await report.run('Bundle ID + capabilities', () => asc.createBundleId(config.app.bundle_id, config.app.name, config.app.platform));
 
-  // Step 4: Find or create app
+  // Step 4: Find or create app (nothing else can run without it)
   logger.step(4, TOTAL_STEPS, 'Looking up app on App Store Connect');
   let appId: string | null = config.app.id || null;
-  if (!appId) {
-    appId = await asc.findAppByBundleId(config.app.bundle_id);
-  }
-  if (!appId) {
-    appId = await asc.createApp(config.app);
-  }
+  if (!appId) appId = await asc.findAppByBundleId(config.app.bundle_id);
+  if (!appId) appId = await asc.createApp(config.app);
   config.app.id = appId;
+  report.ok('App record', appId);
   logger.info(`App ID: ${appId}`);
 
-  // Step 5: Update Content Rights
   logger.step(5, TOTAL_STEPS, 'Updating content rights');
-  await asc.updateContentRights(appId, config.app.content_rights);
+  await report.run('Content rights', () => asc.updateContentRights(appId, config.app.content_rights));
 
-  // Step 6: Create Version
-  logger.step(6, TOTAL_STEPS, 'Creating app version');
-  const versionId = await asc.createVersion(appId, config.version, config.app.platform);
-  logger.info(`Version ID: ${versionId}`);
+  logger.step(6, TOTAL_STEPS, 'Creating app version (with copyright)');
+  const versionId = await report.run('Version + copyright', () => asc.createVersion(appId, config.version, config.app.platform), {
+    detail: () => `${config.version.version_string}, copyright "${config.version.copyright}"`,
+  });
+  if (versionId) logger.info(`Version ID: ${versionId}`);
 
-  // Step 7: Set Categories
   logger.step(7, TOTAL_STEPS, 'Setting categories');
-  if (config.categories.primary) {
-    await asc.setCategories(appId, config.categories);
-  } else {
-    logger.info('No categories configured, skipping.');
-  }
+  if (!config.categories.primary) report.skip('Categories', 'no primary category in config');
+  else if (!versionId) report.skip('Categories', 'needs the editable version (failed above)');
+  else await report.run('Categories', () => asc.setCategories(appId, config.categories));
 
-  // Step 8: Set Age Rating
-  logger.step(8, TOTAL_STEPS, 'Setting age rating');
-  await asc.setAgeRating(appId, config.age_rating);
+  logger.step(8, TOTAL_STEPS, 'Setting age rating (incl. social media, UGC, messaging answers)');
+  await report.run('Age rating', () => asc.setAgeRating(appId, config.age_rating));
 
-  // Step 9: Update Localizations
   logger.step(9, TOTAL_STEPS, 'Updating localizations');
-  for (const loc of config.localizations) {
-    await asc.updateLocalization(versionId, appId, loc);
+  if (!versionId) report.skip('Localizations', 'needs the version (failed above)');
+  else {
+    await report.run('Localizations', async () => {
+      for (const loc of config.localizations) await asc.updateLocalization(versionId, appId, loc);
+    }, { detail: () => config.localizations.map((l) => l.locale).join(', ') });
   }
 
-  // Step 10: Set Pricing & Subscriptions & In-App Purchases
-  logger.step(10, TOTAL_STEPS, 'Setting pricing, subscriptions, and in-app purchases');
-  await ascMoney.createPricing(appId, config.pricing);
+  logger.step(10, TOTAL_STEPS, 'Setting pricing, availability, subscriptions, and in-app purchases');
+  await report.run('Price + availability (all territories)', () => ascMoney.createPricing(appId, config.pricing));
   const reviewOpts = { defaultReviewScreenshot: config.review_screenshot };
   if (config.subscriptions.groups.length > 0) {
     for (const group of config.subscriptions.groups) {
-      await ascMoney.setupSubscriptions(appId, group, config.subscriptions.availability, reviewOpts);
+      await report.run(`Subscriptions: ${group.reference_name}`, () =>
+        ascMoney.setupSubscriptions(appId, group, config.subscriptions.availability, reviewOpts));
     }
+    await report.run('Subscriptions read-back (asc validate subscriptions)', () => ascMoney.validateSubscriptions(appId));
   } else {
-    logger.info('No subscriptions configured, skipping.');
+    report.skip('Subscriptions', 'none in config');
   }
-  await ascMoney.setupInAppPurchases(appId, config.in_app_purchases ?? [], reviewOpts, config.pricing?.availability);
+  if ((config.in_app_purchases ?? []).length > 0) {
+    await report.run('In-app purchases', () =>
+      ascMoney.setupInAppPurchases(appId, config.in_app_purchases ?? [], reviewOpts, config.pricing?.availability));
+  } else {
+    report.skip('In-app purchases', 'none in config');
+  }
 
-  // Step 11: Set Privacy
   logger.step(11, TOTAL_STEPS, 'Setting privacy data usages');
   if (config.privacy?.enabled && config.privacy?.data_usages?.length > 0) {
     // asc web privacy expects { schemaVersion: 1, dataUsages: [...] }
     const privacyFile = path.resolve('.kappmaker-privacy-temp.json');
-    await fs.writeJson(privacyFile, {
-      schemaVersion: 1,
-      dataUsages: config.privacy.data_usages,
-    }, { spaces: 2 });
-    try {
-      await asc.setPrivacy(appId, privacyFile);
-    } catch {
-      logger.warn('Privacy setup failed. You may need to set this manually in App Store Connect.');
-      logger.info('Privacy uses "asc web privacy" which requires Apple ID authentication.');
-    }
+    await fs.writeJson(privacyFile, { schemaVersion: 1, dataUsages: config.privacy.data_usages }, { spaces: 2 });
+    await report.run('Privacy data usages (web session)', () => asc.setPrivacy(appId, privacyFile));
     await fs.remove(privacyFile).catch(() => {});
   } else {
-    logger.info('No privacy data usages configured, skipping.');
+    report.skip('Privacy data usages', 'none configured');
   }
 
-  // Step 12: Set Encryption
   logger.step(12, TOTAL_STEPS, 'Setting encryption declarations');
-  await asc.setEncryption(appId, config.encryption);
+  await report.run('Encryption declaration', () => asc.setEncryption(appId, config.encryption));
 
-  // Step 13: Set Review Details
-  logger.step(13, TOTAL_STEPS, 'Setting review details');
-  if (config.review_info.contact_email) {
-    await asc.setReviewDetails(versionId, config.review_info);
-  } else {
-    logger.info('No review contact info configured, skipping.');
+  logger.step(13, TOTAL_STEPS, 'Creating the App Review detail');
+  if (!versionId) report.skip('App Review detail', 'needs the version (failed above)');
+  else {
+    await report.run('App Review detail', () => asc.setReviewDetails(versionId, config.review_info), {
+      detail: () => `demoAccountRequired=${asc.demoAccountRequired(config.review_info)}`,
+    });
   }
 
   // Save updated config with app.id
   await fs.writeJson(configPath, config, { spaces: 2 });
   logger.info(`Config saved to ${configPath}`);
 
-  logger.done();
+  if (report.print()) logger.done();
+}
+
+/**
+ * Fill the fields App Store Connect needs but configs often leave empty:
+ * copyright ("<year> <company>") and the availability block (every
+ * territory, new territories included). demoAccountRequired is derived in
+ * asc.demoAccountRequired (false unless demo credentials are set).
+ */
+export function applyRequiredDefaults(config: AppStoreConfig, organization?: string): void {
+  if (!config.version.copyright?.trim()) {
+    config.version.copyright = asc.defaultCopyright(organization, config.app.name);
+    logger.info(`Copyright not set in config: using "${config.version.copyright}".`);
+  }
+  config.pricing ??= { base_territory: 'USA', price_tier: '0', price: '0', availability: { include_all: true, territories: [], available_in_new_territories: true } };
+  config.pricing.availability ??= { include_all: true, territories: [], available_in_new_territories: true };
+  config.subscriptions.availability ??= { include_all: true, territories: [], available_in_new_territories: true };
+  if (!config.app.name) throw new CliError('app.name is empty in the App Store config.');
 }
 
 async function loadAppStoreConfig(configPath?: string): Promise<{ config: AppStoreConfig; configPath: string }> {
@@ -211,7 +227,8 @@ async function loadAppStoreConfig(configPath?: string): Promise<{ config: AppSto
 
   // Only prompt for fields not already filled from global defaults
   if (!config.version.copyright) {
-    config.version.copyright = await promptInput('  Copyright (e.g., "2026 Your Company"): ');
+    const fallback = asc.defaultCopyright(userConfig.organization, config.app.name);
+    config.version.copyright = (await promptInput(`  Copyright (${fallback}): `, { defaultValue: fallback })) || fallback;
   }
   if (!config.review_info.contact_email) {
     config.review_info.contact_first_name = await promptInput('  Review contact first name: ');
@@ -221,7 +238,7 @@ async function loadAppStoreConfig(configPath?: string): Promise<{ config: AppSto
   }
 
   // Ask about user content access (AI image/video wrapper apps)
-  const accessesUserContent = await confirm('  Does this app access user content like photos/videos (e.g., AI image/video wrapper)?');
+  const accessesUserContent = await confirm('  Does this app access user content like photos/videos (e.g., AI image/video wrapper)?', { yesAnswer: false });
   if (accessesUserContent) {
     const contentUsages = [
       {

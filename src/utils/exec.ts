@@ -46,7 +46,10 @@ export async function run(
       process.exit(1);
     }
 
-    spinner.succeed(label);
+    // A tolerated failure must not show a green tick: callers decide what it
+    // means, but the screen should never say a failed command succeeded.
+    if (result.exitCode !== 0) spinner.warn(`${label} (exit ${result.exitCode})`);
+    else spinner.succeed(label);
     return {
       stdout: result.stdout,
       stderr: result.stderr,

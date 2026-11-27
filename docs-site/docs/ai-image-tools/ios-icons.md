@@ -3,6 +3,10 @@ sidebar_position: 9
 title: iOS Icon Generation
 ---
 
+
+:::info Launch screen too (2.2.0+)
+Also writes `Assets.xcassets/ic_logo.imageset` (1x/2x/3x, logo transparency kept), the image iOS shows on start. `--splash-background <hex>` / `--splash-background-dark <hex>` set the `SplashBackground` color. `--no-splash` skips it.
+:::
 # iOS Icon Generation
 
 Generate the full `AppIcon.appiconset` directory (all PNG sizes Apple needs + `Contents.json`) from a single source logo. **Sharp-only — no AI, no API keys, no network calls.** Same output as [appicon.co](https://appicon.co), but local and instant.

@@ -28,6 +28,11 @@ program.parseAsync(process.argv).catch((error) => {
     console.error(error.message);
     process.exit(2);
   }
+  // CliError / ApiError / ToolError: a plain message (with the API's error body), no stack.
+  if (error instanceof Error && ['CliError', 'ApiError', 'ToolError'].includes(error.name)) {
+    console.error(`  ERROR ${error.message}`);
+    process.exit((error as { exitCode?: number }).exitCode ?? 1);
+  }
   console.error(error);
   process.exit(1);
 });

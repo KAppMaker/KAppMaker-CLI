@@ -52,6 +52,8 @@ import { army } from './commands/army.js';
 import { doctor } from './commands/doctor.js';
 import { mcpCommand } from './commands/mcp.js';
 import { connectAgent } from './commands/mcp-connect.js';
+import { setAssumeYes } from './utils/prompt.js';
+import { applyYesOption } from './utils/yes-option.js';
 import {
   firebaseLoginCommand,
   firebaseProjectCommand,
@@ -482,11 +484,17 @@ export function createCli(): Command {
     .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
     .option('--output <dir>', 'Output AppIcon.appiconset directory (default: auto-detect MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset)')
     .option('--background <hex>', 'Background color used to flatten alpha (App Store rejects transparent icons)', '#FFFFFF')
+    .option('--no-splash', 'Do not update the launch screen (Assets.xcassets/ic_logo.imageset)')
+    .option('--splash-background <hex>', 'Launch screen background (SplashBackground color, light mode)')
+    .option('--splash-background-dark <hex>', 'Launch screen background in dark mode')
     .action(async (options) => {
       await generateIosIcons({
         source: options.source,
         output: options.output,
         background: options.background,
+        splash: options.splash,
+        splashBackground: options.splashBackground,
+        splashBackgroundDark: options.splashBackgroundDark,
       });
     });
 
@@ -494,15 +502,21 @@ export function createCli(): Command {
     .command('generate-android-icons')
     .description('Make every Android app icon size from one logo (no AI)')
     .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
-    .option('--output <dir>', 'Output Android res/ directory (default: auto-detect MobileApp/composeApp/src/androidMain/res)')
+    .option('--output <dir>', 'Output Android res/ directory (default: auto-detect MobileApp/androidApp/src/main/res)')
     .option('--background <hex>', 'Adaptive icon background color', '#FFFFFF')
     .option('--foreground-padding <ratio>', 'Padding each side of the adaptive foreground (0 = no padding, 0.25 = matches Android Asset Studio default)', '0.25')
+    .option('--no-splash', 'Do not point the Android 12+ splash (styles.xml) at the new icon')
+    .option('--splash-background <hex>', 'Splash background (windowBackgroundColor in values/colors.xml)')
+    .option('--splash-background-dark <hex>', 'Splash background in dark mode (values-night/colors.xml)')
     .action(async (options) => {
       await generateAndroidIcons({
         source: options.source,
         output: options.output,
         background: options.background,
         foregroundPadding: parseFloat(options.foregroundPadding),
+        splash: options.splash,
+        splashBackground: options.splashBackground,
+        splashBackgroundDark: options.splashBackgroundDark,
       });
     });
 
@@ -569,6 +583,8 @@ export function createCli(): Command {
     .command('create-play-app')
     .description('Set up your app on Google Play, start to finish (same as kappmaker gpc setup)')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--allow-empty', 'Let empty listing fields clear live Play fields')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await createPlayApp(options);
     });
@@ -581,6 +597,8 @@ export function createCli(): Command {
     .command('setup')
     .description('Full end-to-end Google Play Console setup (11 steps)')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--allow-empty', 'Let empty listing fields clear live Play fields')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcSetup(options);
     });
@@ -596,8 +614,9 @@ export function createCli(): Command {
   const gpcListings = gpcCmd.command('listings').description('Manage store listings');
   gpcListings
     .command('push')
-    .description('Push listings from the Google Play config file (title, short/full description, video)')
+    .description('Push listings from the Google Play config file (title, short/full description, video). Empty fields are never sent; a diff against the live listing is shown first.')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--allow-empty', 'Let empty config fields clear the matching live Play fields (asks first unless --yes)')
     .action(async (options) => {
       await gpcListingsPush(options);
     });
@@ -615,6 +634,7 @@ export function createCli(): Command {
     .command('push')
     .description('Create/reuse subscriptions from the Google Play config file (idempotent)')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcSubscriptionsPush(options);
     });
@@ -632,7 +652,8 @@ export function createCli(): Command {
     .command('push')
     .description('Create/reuse in-app products from the Google Play config file (idempotent)')
     .option('--config <path>', 'Path to Google Play JSON config file')
-    .option('--recreate-stuck', 'Delete + recreate products whose existing regions are incompatible with regionsVersion 2022/02 (e.g. legacy products with MN stored)')
+    .option('--recreate-stuck', 'Delete + recreate products whose existing regions are incompatible with the regionsVersion (e.g. legacy products with MN stored)')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcIapPush(options);
     });
@@ -642,6 +663,7 @@ export function createCli(): Command {
     .command('push')
     .description('Push data safety declaration from the Google Play config file')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--verify', 'After the push, check the sent declaration answer by answer and print what Play now holds')
     .action(async (options) => {
       await gpcDataSafetyPush(options);
     });
@@ -653,7 +675,8 @@ export function createCli(): Command {
     .option('--config <path>', 'Path to Google Play JSON config file')
     .option('--subscriptions-only', 'Push subscriptions only, skip IAPs')
     .option('--iap-only', 'Push IAPs only, skip subscriptions')
-    .option('--recreate-stuck', 'Delete + recreate products stuck due to regionsVersion 2022/02 incompatibility')
+    .option('--recreate-stuck', 'Delete + recreate products stuck due to a regionsVersion incompatibility')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcMonetizationPush(options);
     });
@@ -838,8 +861,9 @@ export function createCli(): Command {
 
   program
     .command('update-version')
-    .description('Raise the app version on Android and iOS')
-    .option('-v, --version <name>', 'Set explicit version name (e.g., "2.0.0")')
+    .description('Raise the build number on Android and iOS; the version name changes only with --version-name')
+    .option('--version-name <name>', 'Also set the version name (e.g. "2.0.0") on both platforms')
+    .option('-v, --version <name>', 'Same as --version-name (kept for older scripts)')
     .action(async (options) => {
       await updateVersion(options);
     });
@@ -911,6 +935,16 @@ export function createCli(): Command {
     .action(async (options) => {
       await configAdaptyDefaults(options);
     });
+
+  // Every command that can ask a question gets `-y, --yes`, and `--config <file>`
+  // on a setup command means the file holds the answers: both answer every
+  // confirmation that does not delete or clear data. See utils/yes-option.ts.
+  applyYesOption(program);
+  program.hook('preAction', (_root, action) => {
+    const opts = action.opts() as { yes?: boolean; config?: unknown };
+    if (opts.yes) setAssumeYes();
+    if (typeof opts.config === 'string' && opts.config) setAssumeYes();
+  });
 
   return program;
 }

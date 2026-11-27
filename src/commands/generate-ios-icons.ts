@@ -3,11 +3,16 @@ import fs from 'fs-extra';
 import sharp from 'sharp';
 import { logger } from '../utils/logger.js';
 import { promptInput } from '../utils/prompt.js';
+import { writeIosSplash, xcassetsDirFor } from '../services/splash.service.js';
 
 export interface GenerateIosIconsOptions {
   source?: string;
   output?: string;
   background?: string;
+  /** Also write the launch screen (ic_logo.imageset). Default true. */
+  splash?: boolean;
+  splashBackground?: string;
+  splashBackgroundDark?: string;
 }
 
 interface IconEntry {
@@ -112,6 +117,18 @@ export async function generateIosIcons(options: GenerateIosIconsOptions): Promis
   };
   await fs.writeJson(contentsPath, contents, { spaces: 2 });
   logger.success('Generated Contents.json');
+
+  // Launch screen: the template's ic_logo.imageset (Kotlin logo) is what iOS
+  // shows on start. Keep the logo's transparency (the splash has its own background).
+  if (options.splash !== false) {
+    const xcassets = xcassetsDirFor(outputDir);
+    if (xcassets) {
+      const logo = await sharp(sourcePath).resize({ width: squareSize, height: squareSize, fit: 'cover', position: 'center' }).png().toBuffer();
+      await writeIosSplash(xcassets, logo, { background: options.splashBackground, backgroundDark: options.splashBackgroundDark });
+    } else {
+      logger.warn('Output is not inside an Assets.xcassets folder: launch screen (ic_logo.imageset) not updated.');
+    }
+  }
 
   logger.success(`iOS app icons written to: ${outputDir}`);
   logger.done();
