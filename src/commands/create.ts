@@ -2,6 +2,7 @@ import path from 'node:path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
+import { StepReport } from '../utils/step-report.js';
 import { validateDependencies, validateAppName } from '../utils/validator.js';
 import { confirm, promptInput, isInteractive, CONFIG_INIT_HINT } from '../utils/prompt.js';
 import * as gradle from '../services/gradle.service.js';
@@ -105,6 +106,32 @@ export async function createApp(
   await initSetupProgress(targetPath, progressVars);
   await markSetupStep(targetPath, 1);
 
+  // What really happened, for the end-of-run summary (exit 1 when a step failed).
+  const report = new StepReport('kappmaker create');
+  report.ok('Clone template');
+
+  /** Run a sub-orchestrator that prints its own summary and sets process.exitCode. */
+  const subStep = async (id: number, name: string, fn: () => Promise<void>): Promise<void> => {
+    const before = process.exitCode;
+    process.exitCode = 0;
+    try {
+      await fn();
+    } catch (error) {
+      if (error instanceof Error && error.name === 'NeedsAnswerError') throw error;
+      logger.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+    const failed = process.exitCode === 1;
+    process.exitCode = before;
+    if (failed) {
+      report.fail(name, 'see its summary above');
+      await markSetupStep(targetPath, id, 'failed');
+    } else {
+      report.ok(name);
+      await markSetupStep(targetPath, id);
+    }
+  };
+
   // Step 2: Firebase login
   logger.step(2, TOTAL_STEPS, 'Firebase authentication');
   await firebaseLoginCommand();
@@ -144,7 +171,10 @@ export async function createApp(
       assetsDir: path.join(targetPath, 'Assets'),
     });
     await markSetupStep(targetPath, 6);
+    report.ok('Firebase project, apps, auth, SDK configs');
   } else {
+    report.fail('Firebase project', 'project not available; steps 4-6 not run (kappmaker firebase project --app-name ...)');
+    await markSetupStep(targetPath, 3, 'failed');
     logger.warn('Skipping steps 4-6 (Firebase apps, auth, SDK configs) -- project not available.');
     logger.info('You can set up Firebase manually later and re-run these steps.');
   }
@@ -223,8 +253,7 @@ export async function createApp(
   logger.step(11, TOTAL_STEPS, 'App Store Connect setup');
   const wantsAppStore = await confirm('  Set up App Store Connect?');
   if (wantsAppStore) {
-    await createAppStoreApp({ config: ascConfigPath });
-    await markSetupStep(targetPath, 11);
+    await subStep(11, 'App Store Connect setup', () => createAppStoreApp({ config: ascConfigPath }));
   } else {
     logger.info('Skipping App Store Connect setup. Run "kappmaker create-appstore-app" later.');
     await markSetupStep(targetPath, 11, 'skipped');
@@ -261,13 +290,13 @@ export async function createApp(
       }, userConfig);
       logger.success('AAB uploaded to internal track.');
     } catch {
+      report.fail('Upload AAB to internal track', 'kappmaker publish --platform android --track internal');
       logger.warn('Failed to build/upload AAB to internal track.');
       logger.info('You can retry later: kappmaker publish --platform android --track internal');
       logger.info('Continuing with Google Play Console setup -- monetization steps may be skipped.');
     }
 
-    await createPlayApp({ config: gpcConfigPath });
-    await markSetupStep(targetPath, 12);
+    await subStep(12, 'Google Play Console setup', () => createPlayApp({ config: gpcConfigPath }));
   } else {
     logger.info('Skipping Google Play Console setup. Run "kappmaker gpc setup" later.');
     await markSetupStep(targetPath, 12, 'skipped');
@@ -277,13 +306,12 @@ export async function createApp(
   logger.step(13, TOTAL_STEPS, 'Adapty subscription setup');
   const wantsAdapty = await confirm('  Set up Adapty subscriptions?');
   if (wantsAdapty) {
-    await adaptySetup({ config: adaptyConfigPath });
-    await markSetupStep(targetPath, 13);
+    await subStep(13, 'Adapty setup', () => adaptySetup({ config: adaptyConfigPath }));
   } else {
     logger.info('Skipping Adapty setup. Run "kappmaker adapty setup" later.');
     await markSetupStep(targetPath, 13, 'skipped');
   }
 
-  logger.done();
+  if (report.print()) logger.done();
   await printBundledSkillsHint(targetPath);
 }

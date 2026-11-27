@@ -423,9 +423,9 @@ export async function listSubscriptions(packageName: string): Promise<Set<string
     method: 'GET',
     path: `/applications/${encodeURIComponent(packageName)}/subscriptions`,
     label: 'Looking up existing subscriptions',
-    allowFailure: true,
   });
-  if (!result.ok || !result.data?.subscriptions) return new Set();
+  // Strict: a failed list read as "none exist" made every subscription a create.
+  if (!result.data?.subscriptions) return new Set();
   return new Set(result.data.subscriptions.map((s) => s.productId));
 }
 
@@ -1001,9 +1001,7 @@ export async function listInAppProducts(packageName: string): Promise<Set<string
       path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts`,
       query: pageToken ? { pageToken } : undefined,
       label: 'Looking up existing one-time products',
-      allowFailure: true,
     });
-    if (!result.ok) return existing;
     for (const p of result.data?.oneTimeProducts ?? []) {
       existing.add(p.productId);
     }
@@ -1063,7 +1061,6 @@ async function deleteOneTimeProduct(packageName: string, sku: string): Promise<v
     method: 'DELETE',
     path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts/${encodeURIComponent(sku)}`,
     label: `Deleting stuck one-time product ${sku}`,
-    allowFailure: true,
   });
   logger.warn(`Deleted ${sku}. Google soft-deletes — the productId remains reserved for a few minutes to a few hours.`);
   logger.warn(`If the recreate below fails with "Product ID already in use", wait 30+ min and re-run \`kappmaker gpc iap push\` (without --recreate-stuck).`);

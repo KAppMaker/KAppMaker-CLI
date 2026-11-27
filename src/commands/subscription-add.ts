@@ -2,6 +2,8 @@ import path from 'node:path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import { logger } from '../utils/logger.js';
+import { StepReport } from '../utils/step-report.js';
+import { resolveRegionsVersion, resetMonetizationReport, assertPlayCoverage } from '../services/gpc-regions.js';
 import { loadConfig } from '../utils/config.js';
 import * as asc from '../services/asc.service.js';
 import * as ascMoney from '../services/asc-monetization.service.js';
@@ -194,13 +196,14 @@ export async function subscriptionAdd(options: SubscriptionAddOptions): Promise<
   console.log('');
 
   let pushed = 0;
+  const report = new StepReport('subscription add');
 
   if (platform === 'all' || platform === 'android') {
-    if (await pushToPlay(ctx, ids, price, playListingTitle, description)) pushed++;
+    if (await report.run('Google Play', () => pushToPlay(ctx, ids, price, playListingTitle, description), { detail: (v) => (v ? undefined : 'skipped: prerequisites missing, see above') })) pushed++;
   }
   if (platform === 'all' || platform === 'ios') {
     const groupName = options.groupName ?? ctx.ascGroupLocalizationName ?? 'Premium Access';
-    if (await pushToAsc(ctx, ids, price, ascDisplayName, description, reviewScreenshot, groupName)) pushed++;
+    if (await report.run('App Store Connect', () => pushToAsc(ctx, ids, price, ascDisplayName, description, reviewScreenshot, groupName), { detail: (v) => (v ? undefined : 'skipped: prerequisites missing, see above') })) pushed++;
   }
 
   // Mirror into the subscription provider(s) this project uses, so the paywall
@@ -231,6 +234,7 @@ export async function subscriptionAdd(options: SubscriptionAddOptions): Promise<
     logger.info('Run `kappmaker adapty setup` or `kappmaker revenuecat setup`, or pass --provider.');
   }
 
+  if (!report.print()) return;
   console.log('');
   if (pushed === 0) {
     logger.fatal('No subscriptions were pushed (all platforms skipped).');
@@ -278,7 +282,10 @@ async function pushToPlay(
     }],
   };
 
+  await resolveRegionsVersion();
+  resetMonetizationReport();
   await gpcMoney.setupSubscriptions(ctx.packageName, [sub], playLang);
+  assertPlayCoverage(`Subscription ${sub.product_id}`);
   return true;
 }
 

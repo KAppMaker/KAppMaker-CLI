@@ -95,3 +95,8 @@ export function coverageFor(product: string, stored: Map<string, boolean>, billa
   const priced = [...billableSet].filter((r) => stored.get(r) === true).length;
   return { product, priced, billable: billableSet.size, missing };
 }
+
+/** Print the coverage report and throw when a product is short or failed (for one-shot pushes). */
+export function assertPlayCoverage(what: string): void {
+  if (!printCoverageReport()) throw new Error(`${what}: not priced in every billable region or a write failed (see the report above).`);
+}

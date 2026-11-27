@@ -275,12 +275,16 @@ export interface PlayAppDetails {
  * subscriptions — Play rejects subscriptions that don't have a listing in that
  * language, so the caller needs to ensure one exists.
  */
-export async function getEditDetails(packageName: string, editId: string): Promise<PlayAppDetails | null> {
+export async function getEditDetails(
+  packageName: string,
+  editId: string,
+  opts: { strict?: boolean } = {},
+): Promise<PlayAppDetails | null> {
   const result = await apiRequest<PlayAppDetails>({
     method: 'GET',
     path: `/applications/${encodeURIComponent(packageName)}/edits/${editId}/details`,
     label: 'Fetching current app details',
-    allowFailure: true,
+    allowFailure: !opts.strict,
   });
   return result.ok ? (result.data ?? null) : null;
 }
@@ -381,7 +385,8 @@ export async function updateAppDetails(
   // PUT replaces the whole resource: a field left out is CLEARED on Play. Start
   // from the live details and overlay only the non-empty config values, so an
   // empty contact_phone in the config never wipes the phone on Play.
-  const live = (await getEditDetails(packageName, editId)) ?? {};
+  // Strict: without the live details the PUT would clear them.
+  const live = (await getEditDetails(packageName, editId, { strict: true })) ?? {};
   const body: Record<string, unknown> = { ...live, defaultLanguage };
   if (details.contact_website?.trim()) body.contactWebsite = details.contact_website.trim();
   if (details.contact_email?.trim()) body.contactEmail = details.contact_email.trim();
