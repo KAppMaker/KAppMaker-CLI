@@ -61,7 +61,9 @@ export async function updateAndroidVersion(
   const oldCode = parseInt(codeMatch[1], 10);
   const oldName = nameMatch[1];
   const newCode = oldCode + 1;
-  const newName = newVersionName ?? incrementPatch(oldName);
+  // The name changes only when asked (--version-name). A plain bump is a new
+  // build of the same version: 1.0.0 stayed 1.0.0, it used to become 1.0.1 (and iOS 1.0 -> 1.1).
+  const newName = newVersionName ?? oldName;
 
   content = content.replace(
     /^(\s*versionCode\s*=\s*)\d+/m,
@@ -100,7 +102,9 @@ export async function updateIosVersion(
   const oldCode = parseInt(codeMatch[1], 10);
   const oldName = nameMatch[1].trim();
   const newCode = oldCode + 1;
-  const newName = newVersionName ?? incrementPatch(oldName);
+  // The name changes only when asked (--version-name). A plain bump is a new
+  // build of the same version: 1.0.0 stayed 1.0.0, it used to become 1.0.1 (and iOS 1.0 -> 1.1).
+  const newName = newVersionName ?? oldName;
 
   pbx = pbx.replace(
     /(CURRENT_PROJECT_VERSION\s*=\s*)\d+;/g,

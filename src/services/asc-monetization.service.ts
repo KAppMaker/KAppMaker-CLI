@@ -13,6 +13,8 @@ import {
   type PricePoint,
 } from './ppp-pricing.service.js';
 import { prepareReviewScreenshot } from './review-screenshot.service.js';
+import { ascRun, attrsOf } from './asc.service.js';
+import { CliError } from '../utils/errors.js';
 import type {
   AppStorePricingConfig,
   AppStoreSubscriptionGroup,
@@ -21,103 +23,72 @@ import type {
   AppStoreInAppPurchase,
 } from '../types/appstore.js';
 
-export async function createPricing(appId: string, pricing: AppStorePricingConfig): Promise<void> {
-  const isFree = !pricing.price || pricing.price === '0';
-  const targetPrice = isFree ? '0' : pricing.price;
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+// ── Failure collector ────────────────────────────────────────────────
+// Each subscription / IAP sub-step that fails is recorded here instead of a
+// bare warning. setupSubscriptions / setupInAppPurchases throw at the end when
+// anything was recorded, so the caller reports the step FAILED.
+const failures: string[] = [];
 
-  // v1.x `asc pricing schedule create` only accepts --price-point (no --price),
-  // so resolve a price-point ID that matches the target customer price first.
-  const pricePoint = await findPricePointForPrice(appId, pricing.base_territory, targetPrice);
-  if (!pricePoint) {
-    const label = isFree ? 'free price point' : `price point for $${targetPrice}`;
-    logger.warn(`Could not find a ${label} in ${pricing.base_territory}. Skipping price schedule.`);
-    return;
-  }
+function recordFailure(what: string): void {
+  failures.push(what);
+  logger.error(what);
+}
 
-  const args = [
-    'pricing', 'schedule', 'create',
-    '--app', appId,
-    '--base-territory', pricing.base_territory,
-    '--start-date', today,
-    '--price-point', pricePoint,
-    '--output', 'json',
-  ];
-  const label = isFree ? 'Setting pricing (free)' : `Setting pricing ($${pricing.price})`;
-  await run('asc', args, { label, allowFailure: true });
+function takeFailures(): string[] {
+  return failures.splice(0);
+}
 
-  // Set availability
-  if (pricing.availability) {
-    let territories = pricing.availability.territories;
-    if (pricing.availability.include_all && territories.length === 0) {
-      territories = await fetchAllTerritories();
-    }
-    if (territories.length > 0) {
-      await setAppAvailability(appId, pricing.availability.available_in_new_territories, territories);
-    }
-  }
+function throwIfFailed(step: string): void {
+  const f = takeFailures();
+  if (f.length > 0) throw new CliError(`${step}: ${f.length} problem(s):\n  - ${f.join('\n  - ')}`);
 }
 
 /**
- * Find a price-point ID in the given territory whose customer price matches the target.
- * Matching is tolerant of trailing-zero formatting ("6.99", "6.990", "0.00", "0").
- * Returns null if no exact numeric match is found.
+ * App price + availability, read back. Uses `pricing schedule create --free |
+ * --price` (asc 5.x) and `pricing availability create --all-territories` for
+ * "every territory", instead of a hand-built territory list.
  */
-async function findPricePointForPrice(
-  appId: string,
-  territory: string,
-  targetPrice: string,
-): Promise<string | null> {
-  const result = await run(
-    'asc',
-    ['pricing', 'price-points', '--app', appId, '--territory', territory, '--output', 'json'],
-    { label: `Looking up price point for ${targetPrice === '0' ? 'free tier' : `$${targetPrice}`}`, allowFailure: true },
-  );
+export async function createPricing(appId: string, pricing: AppStorePricingConfig): Promise<void> {
+  const isFree = !pricing.price || Number(pricing.price) === 0;
+  const args = ['pricing', 'schedule', 'create', '--app', appId, '--base-territory', pricing.base_territory || 'USA'];
+  if (isFree) args.push('--free');
+  else args.push('--price', pricing.price);
+  args.push('--output', 'json');
+  await ascRun(args, isFree ? 'Setting pricing (free)' : `Setting pricing ($${pricing.price})`);
 
-  if (result.exitCode !== 0 || !result.stdout) return null;
-
-  let points: Array<{ id?: string; attributes?: { customerPrice?: string }; customerPrice?: string }> = [];
-  try {
-    const data = JSON.parse(result.stdout);
-    points = data?.data ?? data ?? [];
-  } catch {
-    return null;
-  }
-
-  const target = Number(targetPrice);
-  if (!Number.isFinite(target)) return null;
-
-  for (const p of points) {
-    const attrs = p.attributes ?? p;
-    const raw = attrs.customerPrice;
-    if (raw === undefined || raw === null) continue;
-    const num = Number(raw);
-    if (Number.isFinite(num) && num === target) {
-      return p.id ?? null;
-    }
-  }
-  return null;
+  const availability = pricing.availability ?? { include_all: true, territories: [], available_in_new_territories: true };
+  const all = availability.include_all !== false && availability.territories.length === 0;
+  await setAppAvailability(appId, availability.available_in_new_territories !== false, all ? 'all' : availability.territories);
 }
 
-async function setAppAvailability(appId: string, availableInNew: boolean, territories: string[]): Promise<void> {
-  // asc 3.0 renamed `app-setup availability set` to `edit`, which only edits
-  // an existing record and cannot change the new-territory flag. `pricing
-  // availability create --if-exists update` (asc 5.6+) creates or updates.
-  // Needs ASC_TIMEOUT for ~175 territories.
-  await run('asc', [
+async function setAppAvailability(appId: string, availableInNew: boolean, territories: string[] | 'all'): Promise<void> {
+  const where = territories === 'all' ? ['--all-territories'] : ['--territory', territories.join(',')];
+  await ascRun([
     'pricing', 'availability', 'create',
     '--app', appId,
-    '--territory', territories.join(','),
+    ...where,
     '--available=true',
     `--available-in-new-territories=${availableInNew}`,
     '--if-exists', 'update',
     '--output', 'json',
-  ], {
-    label: `Setting app availability (${territories.length} territories)`,
-    allowFailure: true,
+  ], `Setting app availability (${territories === 'all' ? 'all territories' : `${territories.length} territories`})`, {
     timeout: 3 * 60_000,
     env: { ASC_TIMEOUT: '180s' },
   });
+
+  // Read back: count the territories the app is actually available in.
+  const back = await ascRun(
+    ['pricing', 'availability', 'territory-availabilities', '--app', appId, '--paginate', '--output', 'json'],
+    'Reading app availability back',
+    { timeout: 3 * 60_000, env: { ASC_TIMEOUT: '180s' } },
+  );
+  const rows: Array<{ attributes?: { available?: boolean } }> = Array.isArray(back.json?.data) ? back.json.data : [];
+  const available = rows.filter((r) => r.attributes?.available === true).length;
+  const wanted = territories === 'all' ? rows.length : territories.length;
+  if (rows.length === 0 || available < wanted) {
+    throw new CliError(`App availability read-back: available in ${available} of ${wanted} territories.`);
+  }
+  logger.success(`App available in ${available} of ${rows.length} territories.`);
 }
 
 async function fetchAllTerritories(): Promise<string[]> {
@@ -170,32 +141,65 @@ export async function setupSubscriptions(
     }
   }
 
-  // The first group localization rides on `subscriptions setup` when it
-  // creates the group. `subscriptions groups localizations create` was
-  // removed in asc 5.0; further locales now live on the group's version.
-  const extraLocs = group.localizations?.slice(createdGroup ? 1 : 0) ?? [];
-  if (extraLocs.length > 0) {
-    if (!groupId) groupId = await findGroupByName(appId, group.reference_name);
-    const versionId = groupId ? await findGroupVersionId(groupId) : null;
-    if (versionId) {
-      for (const loc of extraLocs) {
-        const args = [
-          'subscriptions', 'groups', 'versions', 'localizations', 'create',
-          '--version-id', versionId,
-          '--locale', loc.locale,
-          '--name', loc.name,
-        ];
-        if (loc.custom_app_name) args.push('--custom-app-name', loc.custom_app_name);
-        args.push('--output', 'json');
-        await run('asc', args, {
-          label: `Setting group localization (${loc.locale})`,
-          allowFailure: true,
-        });
-      }
-    } else if (groupId) {
-      logger.warn(`No editable version found for subscription group "${group.reference_name}" — add its other localizations in App Store Connect.`);
+  // Group localizations live on the group's version since asc 5.0. The one
+  // `subscriptions setup` sends uses Apple's deprecated v1 resource and does
+  // not always land, which leaves every subscription MISSING_METADATA. Make
+  // sure each configured locale exists on the group version, then read back.
+  if (!groupId) groupId = await findGroupByName(appId, group.reference_name);
+  if (!groupId) {
+    recordFailure(`Subscription group "${group.reference_name}" does not exist after setup.`);
+  } else if ((group.localizations ?? []).length === 0) {
+    recordFailure(`Subscription group "${group.reference_name}" has no localizations in the config (Apple needs at least one display name).`);
+  } else {
+    await ensureGroupLocalizations(groupId, group);
+  }
+  throwIfFailed(`Subscription group "${group.reference_name}"`);
+}
+
+async function listGroupLocales(versionId: string): Promise<Set<string>> {
+  const r = await ascRun(
+    ['subscriptions', 'groups', 'versions', 'localizations', 'list', '--version-id', versionId, '--paginate', '--output', 'json'],
+    'Reading subscription group localizations',
+  );
+  const rows: Array<{ attributes?: { locale?: string } }> = Array.isArray(r.json?.data) ? r.json.data : [];
+  return new Set(rows.map((x) => x.attributes?.locale).filter((x): x is string => Boolean(x)));
+}
+
+async function ensureGroupLocalizations(groupId: string, group: AppStoreSubscriptionGroup): Promise<void> {
+  const versionId = await findGroupVersionId(groupId);
+  if (!versionId) {
+    recordFailure(`Subscription group "${group.reference_name}" has no editable version for its localizations.`);
+    return;
+  }
+  const have = await listGroupLocales(versionId);
+  for (const loc of group.localizations ?? []) {
+    if (have.has(loc.locale)) continue;
+    const args = [
+      'subscriptions', 'groups', 'versions', 'localizations', 'create',
+      '--version-id', versionId,
+      '--locale', loc.locale,
+      '--name', loc.name,
+    ];
+    if (loc.custom_app_name) args.push('--custom-app-name', loc.custom_app_name);
+    args.push('--output', 'json');
+    try {
+      await ascRun(args, `Setting group localization (${loc.locale})`);
+    } catch (error) {
+      recordFailure(error instanceof Error ? error.message : String(error));
     }
   }
+  const after = await listGroupLocales(versionId);
+  const missing = (group.localizations ?? []).filter((l) => !after.has(l.locale)).map((l) => l.locale);
+  if (missing.length > 0) recordFailure(`Group "${group.reference_name}" localization read-back: missing ${missing.join(', ')}`);
+}
+
+/**
+ * Final read-back for subscriptions: `asc validate subscriptions` checks group
+ * and subscription localizations, review screenshot, availability and the full
+ * price matrix for every subscription still in MISSING_METADATA.
+ */
+export async function validateSubscriptions(appId: string): Promise<void> {
+  await ascRun(['validate', 'subscriptions', '--app', appId, '--output', 'json'], 'Validating subscriptions (read-back)');
 }
 
 /** Latest version of a subscription group (holds its localizations since asc 5.0). */
@@ -306,7 +310,7 @@ async function setupSubscription(
     logger.info(`Subscription "${sub.ref_name}" (${sub.product_id}) already exists — refreshing pricing.`);
   } else {
     const errMsg = result.stderr || result.stdout;
-    logger.warn(`Could not create subscription "${sub.ref_name}": ${errMsg.slice(0, 150)}`);
+    recordFailure(`Could not create subscription "${sub.ref_name}": ${errMsg.slice(0, 400)}`);
     return;
   }
 
@@ -317,6 +321,23 @@ async function setupSubscription(
   const basePrice = sub.prices[0];
   if (basePrice?.price && sub.ppp_enabled !== false) {
     await applyPppToSubscription(appId, idForCli, sub, basePrice.price);
+  } else if (basePrice?.price) {
+    // No PPP: Apple's own equalized prices for every territory. 2 workers:
+    // more trip Apple's rate limit (HTTP 429) on a fresh account.
+    try {
+      await ascRun([
+        'subscriptions', 'pricing', 'equalize',
+        '--app', appId,
+        '--subscription-id', idForCli,
+        '--base-price', basePrice.price,
+        '--base-territory', basePrice.territory || 'USA',
+        '--confirm',
+        '--workers', '2',
+        '--output', 'json',
+      ], `Equalizing prices for ${sub.ref_name} (all territories)`, { timeout: 15 * 60_000 });
+    } catch (error) {
+      recordFailure(error instanceof Error ? error.message : String(error));
+    }
   }
 
   // Upload App Review screenshot (Apple-required; without it subs stay in
@@ -373,7 +394,7 @@ async function applyPppToSubscription(
     }
   }
   if (!subInternalS) {
-    logger.warn(`PPP ${sub.ref_name}: could not resolve USA price-point catalog; skipping fan-out.`);
+    recordFailure(`PPP ${sub.ref_name}: could not resolve the USA price-point catalog, so no territory prices were set.`);
     return;
   }
 
@@ -430,7 +451,7 @@ async function applyPppToSubscription(
   }
 
   if (rows.length === 1) {
-    logger.warn(`PPP ${sub.ref_name}: no rows resolved; skipping import.`);
+    recordFailure(`PPP ${sub.ref_name}: no territory price rows resolved, so no prices were set.`);
     return;
   }
 
@@ -498,7 +519,7 @@ async function applyPppToSubscription(
   const total = dataRows.length;
   if (totalFailed > 0) {
     const sample = allFailures.slice(0, 3).map((f) => `${f.territory}: ${f.error.slice(0, 100)}`).join('\n    ');
-    logger.warn(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied; ${totalFailed} failed.\n    ${sample}${totalFailed > 3 ? `\n    … (${totalFailed - 3} more)` : ''}`);
+    recordFailure(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied; ${totalFailed} failed.\n    ${sample}${totalFailed > 3 ? `\n    … (${totalFailed - 3} more)` : ''}`);
   } else {
     logger.success(`PPP ${sub.ref_name}: ${totalCreated}/${total} territories applied via CSV import.`);
   }
@@ -615,6 +636,7 @@ export async function setupInAppPurchases(
   for (const iap of iaps) {
     await setupInAppPurchase(appId, iap, reviewOpts, territories, availability?.available_in_new_territories ?? true);
   }
+  throwIfFailed('In-app purchases');
 }
 
 async function setIapAvailability(
@@ -625,7 +647,7 @@ async function setIapAvailability(
   availableInNew: boolean,
 ): Promise<void> {
   if (territories.length === 0) return;
-  await run('asc', [
+  const r = await run('asc', [
     'iap', 'pricing', 'availability', 'set',
     '--app', appId,
     '--iap-id', iapId,
@@ -638,6 +660,7 @@ async function setIapAvailability(
     timeout: 3 * 60_000,
     env: { ASC_TIMEOUT: '180s' },
   });
+  if (r.exitCode !== 0) recordFailure(`IAP availability for ${refName}: ${(r.stderr || r.stdout).slice(0, 300)}`);
 }
 
 async function setupInAppPurchase(
@@ -701,7 +724,7 @@ async function setupInAppPurchase(
     logger.info(`IAP "${iap.ref_name}" (${iap.product_id}) already exists — refreshing pricing.`);
   } else if (result.exitCode !== 0) {
     const errMsg = result.stderr || result.stdout;
-    logger.warn(`Could not create IAP "${iap.ref_name}": ${errMsg.slice(0, 150)}`);
+    recordFailure(`Could not create IAP "${iap.ref_name}": ${errMsg.slice(0, 400)}`);
     return;
   }
 
@@ -768,7 +791,7 @@ async function applyPppToIap(
     }
   }
   if (!iapInternalS) {
-    logger.warn(`PPP IAP ${iap.ref_name}: could not resolve USA price-point catalog; skipping fan-out.`);
+    recordFailure(`PPP IAP ${iap.ref_name}: could not resolve the USA price-point catalog, so no territory prices were set.`);
     return;
   }
 
@@ -814,7 +837,7 @@ async function applyPppToIap(
   }
 
   if (entries.length === 0) {
-    logger.warn(`PPP fan-out for IAP "${iap.ref_name}" produced no price-points; skipping schedule create.`);
+    recordFailure(`PPP fan-out for IAP "${iap.ref_name}" produced no price-points, so no territory prices were set.`);
     return;
   }
 
@@ -836,7 +859,7 @@ async function applyPppToIap(
     },
   );
   if (result.exitCode !== 0) {
-    logger.warn(`PPP IAP ${iap.ref_name}: schedule create failed — ${(result.stderr || result.stdout).slice(0, 300)}`);
+    recordFailure(`PPP IAP ${iap.ref_name}: schedule create failed: ${(result.stderr || result.stdout).slice(0, 300)}`);
   } else {
     logger.success(`PPP IAP ${iap.ref_name}: ${entries.length} territories applied via schedule create.`);
   }
@@ -934,7 +957,7 @@ export async function uploadSubscriptionReviewScreenshot(
     }
   }
 
-  await run(
+  const uploaded = await run(
     'asc',
     [
       'subscriptions', 'review', 'screenshots', 'create',
@@ -951,6 +974,9 @@ export async function uploadSubscriptionReviewScreenshot(
       timeout: 2 * 60_000,
     },
   );
+  if (uploaded.exitCode !== 0) {
+    recordFailure(`Review screenshot upload for ${refName} failed: ${(uploaded.stderr || uploaded.stdout).slice(0, 300)}`);
+  }
 }
 
 export async function uploadIapReviewScreenshot(
@@ -1022,7 +1048,7 @@ export async function uploadIapReviewScreenshot(
     }
   }
 
-  await run(
+  const uploaded = await run(
     'asc',
     [
       'iap', 'review-screenshots', 'create',
@@ -1039,6 +1065,9 @@ export async function uploadIapReviewScreenshot(
       timeout: 2 * 60_000,
     },
   );
+  if (uploaded.exitCode !== 0) {
+    recordFailure(`Review screenshot upload for ${refName} failed: ${(uploaded.stderr || uploaded.stdout).slice(0, 300)}`);
+  }
 }
 
 async function findGroupByName(appId: string, referenceName: string): Promise<string | null> {

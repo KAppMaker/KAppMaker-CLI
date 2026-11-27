@@ -3,12 +3,17 @@ import fs from 'fs-extra';
 import sharp from 'sharp';
 import { logger } from '../utils/logger.js';
 import { promptInput } from '../utils/prompt.js';
+import { monochromeFrom, writeAndroidSplash } from '../services/splash.service.js';
 
 export interface GenerateAndroidIconsOptions {
   source?: string;
   output?: string;
   background?: string;
   foregroundPadding?: number;
+  /** Also point the Android 12+ splash at the new icon. Default true. */
+  splash?: boolean;
+  splashBackground?: string;
+  splashBackgroundDark?: string;
 }
 
 interface DensityBucket {
@@ -37,11 +42,13 @@ const SOURCE_CANDIDATES = [
 
 const HEX_COLOR_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
-const ADAPTIVE_XML = `<?xml version="1.0" encoding="utf-8"?>
+function adaptiveXml(withMonochrome: boolean): string {
+  return `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>${withMonochrome ? '\n    <monochrome android:drawable="@mipmap/ic_launcher_monochrome"/>' : ''}
 </adaptive-icon>`;
+}
 
 export async function generateAndroidIcons(
   options: GenerateAndroidIconsOptions,
@@ -87,6 +94,10 @@ export async function generateAndroidIcons(
     .png()
     .toBuffer();
 
+  // Themed (monochrome) icon for Android 13+: the logo's shape in white.
+  const mono = await monochromeFrom(squareSrc);
+  if (!mono) logger.warn('Source logo has no transparency: no themed (monochrome) icon written. Use a logo without background (logo_no_bg.png) to get one.');
+
   // Generate the per-density PNG/webp files.
   for (const d of DENSITIES) {
     const dirPath = path.join(resDir, d.dir);
@@ -122,18 +133,32 @@ export async function generateAndroidIcons(
       .toBuffer();
     await fs.writeFile(path.join(dirPath, 'ic_launcher_foreground.webp'), fgBuf);
 
+    if (mono) {
+      const monoInner = await sharp(mono).resize(innerSize, innerSize, { fit: 'cover', kernel: 'lanczos3' }).png().toBuffer();
+      const monoBuf = await sharp({ create: { width: d.foreground, height: d.foreground, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+        .composite([{ input: monoInner, left: innerOffset, top: innerOffset }])
+        .webp({ quality: 90 })
+        .toBuffer();
+      await fs.writeFile(path.join(dirPath, 'ic_launcher_monochrome.webp'), monoBuf);
+    }
+
     logger.success(`Wrote ${d.dir}/ (${d.legacy}px launcher + ${d.foreground}px foreground)`);
   }
 
   // Adaptive icon XML files (API 26+).
   const anyDpiDir = path.join(resDir, 'mipmap-anydpi-v26');
   await fs.ensureDir(anyDpiDir);
-  await fs.writeFile(path.join(anyDpiDir, 'ic_launcher.xml'), ADAPTIVE_XML);
-  await fs.writeFile(path.join(anyDpiDir, 'ic_launcher_round.xml'), ADAPTIVE_XML);
+  await fs.writeFile(path.join(anyDpiDir, 'ic_launcher.xml'), adaptiveXml(Boolean(mono)));
+  await fs.writeFile(path.join(anyDpiDir, 'ic_launcher_round.xml'), adaptiveXml(Boolean(mono)));
   logger.success('Wrote mipmap-anydpi-v26/ic_launcher.xml + ic_launcher_round.xml');
 
   // Insert/update the ic_launcher_background color reference in values/colors.xml.
   await upsertBackgroundColor(resDir, background);
+
+  // Splash (Android 12+): it kept showing the template logo.
+  if (options.splash !== false) {
+    await writeAndroidSplash(resDir, { background: options.splashBackground, backgroundDark: options.splashBackgroundDark });
+  }
 
   logger.success(`Android app icons written to: ${resDir}`);
   logger.info('AndroidManifest.xml should already reference @mipmap/ic_launcher and @mipmap/ic_launcher_round.');
@@ -176,14 +201,15 @@ async function resolveSource(source?: string): Promise<string> {
 async function resolveResDir(output?: string): Promise<string> {
   if (output) return path.resolve(output);
 
-  // KAppMaker convention: composeApp module. Fall back to legacy androidApp
-  // module names and pure-Android `app/` for non-KMM projects.
+  // AGP 9 template: the app module (manifest, splash theme, launcher icons) is
+  // androidApp. composeApp is the pre-rename layout, kept as a fallback.
   const candidates = [
+    'MobileApp/androidApp/src/main/res',
+    '../MobileApp/androidApp/src/main/res',
+    'androidApp/src/main/res',
     'MobileApp/composeApp/src/androidMain/res',
     '../MobileApp/composeApp/src/androidMain/res',
     'composeApp/src/androidMain/res',
-    'MobileApp/androidApp/src/main/res',
-    '../MobileApp/androidApp/src/main/res',
     'app/src/main/res',
   ];
 

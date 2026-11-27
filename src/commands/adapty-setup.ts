@@ -7,6 +7,7 @@ import { loadConfig, getAdaptyTemplate, loadAdaptyDefaults } from '../utils/conf
 import * as adapty from '../services/adapty.service.js';
 import { creditPackProductId } from '../services/credit-pack.defaults.js';
 import type { AdaptyConfig, CreateAdaptyOptions } from '../types/adapty.js';
+import { StepReport } from '../utils/step-report.js';
 
 const CONFIG_FILENAME = 'Assets/adapty-config.json';
 const TOTAL_STEPS = 8;
@@ -64,6 +65,9 @@ export async function adaptySetup(options: CreateAdaptyOptions): Promise<void> {
   const finalConfig: AdaptyConfig = await fs.readJson(configPath);
   Object.assign(config, finalConfig);
 
+  // Problems found along the way; the read-back at the end decides OK/FAILED.
+  const problems: string[] = [];
+
   // Step 4: Find or create app
   logger.step(4, TOTAL_STEPS, 'Finding or creating Adapty app');
   let appId = config.app.app_id;
@@ -104,7 +108,7 @@ export async function adaptySetup(options: CreateAdaptyOptions): Promise<void> {
       }
     }
     if (id) accessLevelIdBySdkId.set(level.sdk_id, id);
-    else logger.warn(`Could not determine access level ID for "${level.sdk_id}". Products on it may fail to create.`);
+    else problems.push(`access level "${level.sdk_id}" could not be created or found`);
   }
   const defaultAccessLevelId = accessLevelIdBySdkId.get(config.access_levels[0]?.sdk_id ?? '') ?? '';
 
@@ -127,7 +131,7 @@ export async function adaptySetup(options: CreateAdaptyOptions): Promise<void> {
     const sdkId = product.access_level_sdk_id ?? config.access_levels[0]?.sdk_id ?? '';
     const accessLevelId = accessLevelIdBySdkId.get(sdkId) ?? defaultAccessLevelId;
     if (!accessLevelId) {
-      logger.warn(`No access level resolved for "${product.title}" (sdk_id=${sdkId}). Skipping.`);
+      problems.push(`product "${product.title}" not created: no access level "${sdkId}"`);
       continue;
     }
     const productId = await adapty.createProduct(appId, product, accessLevelId);
@@ -164,7 +168,7 @@ export async function adaptySetup(options: CreateAdaptyOptions): Promise<void> {
       .filter((id): id is string => !!id);
 
     if (paywallProductIds.length === 0) {
-      logger.warn(`No product IDs found for paywall "${paywall.title}". Skipping.`);
+      problems.push(`paywall "${paywall.title}" not created: none of its products exist`);
       continue;
     }
     const id = await adapty.createPaywall(appId, paywall.title, paywallProductIds);
@@ -188,8 +192,8 @@ export async function adaptySetup(options: CreateAdaptyOptions): Promise<void> {
       const paywallId = paywallIds[i] ?? paywallIds[0];
       await adapty.createPlacement(appId, placement.title, placement.developer_id, paywallId);
     }
-  } else {
-    logger.warn('No paywall IDs available. Skipping placement creation.');
+  } else if (config.placements.length > 0) {
+    problems.push('no placements created: no paywall exists');
   }
 
   // Save updated config with generated IDs
@@ -198,7 +202,29 @@ export async function adaptySetup(options: CreateAdaptyOptions): Promise<void> {
 
   printPostSetupChecklist(appId);
 
-  logger.done();
+  // Read back: every configured access level, product, paywall and placement
+  // must exist on Adapty. "Done" is printed only when they all do.
+  const report = new StepReport('Adapty setup');
+  for (const p of problems) report.fail('Setup', p);
+  await report.run('Read-back (access levels, products, paywalls, placements)', () => verifyAdaptySetup(appId, config));
+  if (report.print()) logger.done();
+}
+
+/** Throw listing every configured item Adapty does not have. Exported for tests. */
+export async function verifyAdaptySetup(appId: string, config: AdaptyConfig): Promise<void> {
+  const [levels, products, paywalls, placements] = await Promise.all([
+    adapty.listAccessLevels(appId),
+    adapty.listProducts(appId),
+    adapty.listPaywalls(appId),
+    adapty.listPlacements(appId),
+  ]);
+  const missing: string[] = [];
+  const has = <T>(list: T[], pred: (x: T) => boolean) => list.some(pred);
+  for (const l of config.access_levels) if (!has(levels, (x) => x.sdk_id === l.sdk_id)) missing.push(`access level ${l.sdk_id}`);
+  for (const p of config.products) if (!has(products, (x) => x.title === p.title)) missing.push(`product "${p.title}"`);
+  for (const p of config.paywalls) if (!has(paywalls, (x) => x.title === p.title)) missing.push(`paywall "${p.title}"`);
+  for (const p of config.placements) if (!has(placements, (x) => x.developer_id === p.developer_id)) missing.push(`placement ${p.developer_id}`);
+  if (missing.length > 0) throw new Error(`missing on Adapty: ${missing.join(', ')}`);
 }
 
 /**

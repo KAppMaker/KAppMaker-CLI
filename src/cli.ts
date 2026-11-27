@@ -463,11 +463,17 @@ export function createCli(): Command {
     .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
     .option('--output <dir>', 'Output AppIcon.appiconset directory (default: auto-detect MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset)')
     .option('--background <hex>', 'Background color used to flatten alpha (App Store rejects transparent icons)', '#FFFFFF')
+    .option('--no-splash', 'Do not update the launch screen (Assets.xcassets/ic_logo.imageset)')
+    .option('--splash-background <hex>', 'Launch screen background (SplashBackground color, light mode)')
+    .option('--splash-background-dark <hex>', 'Launch screen background in dark mode')
     .action(async (options) => {
       await generateIosIcons({
         source: options.source,
         output: options.output,
         background: options.background,
+        splash: options.splash,
+        splashBackground: options.splashBackground,
+        splashBackgroundDark: options.splashBackgroundDark,
       });
     });
 
@@ -475,15 +481,21 @@ export function createCli(): Command {
     .command('generate-android-icons')
     .description('Generate all Android launcher icons across 5 mipmap density buckets + adaptive icon XML + colors.xml entry (no AI)')
     .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
-    .option('--output <dir>', 'Output Android res/ directory (default: auto-detect MobileApp/composeApp/src/androidMain/res)')
+    .option('--output <dir>', 'Output Android res/ directory (default: auto-detect MobileApp/androidApp/src/main/res)')
     .option('--background <hex>', 'Adaptive icon background color', '#FFFFFF')
     .option('--foreground-padding <ratio>', 'Padding each side of the adaptive foreground (0 = no padding, 0.25 = matches Android Asset Studio default)', '0.25')
+    .option('--no-splash', 'Do not point the Android 12+ splash (styles.xml) at the new icon')
+    .option('--splash-background <hex>', 'Splash background (windowBackgroundColor in values/colors.xml)')
+    .option('--splash-background-dark <hex>', 'Splash background in dark mode (values-night/colors.xml)')
     .action(async (options) => {
       await generateAndroidIcons({
         source: options.source,
         output: options.output,
         background: options.background,
         foregroundPadding: parseFloat(options.foregroundPadding),
+        splash: options.splash,
+        splashBackground: options.splashBackground,
+        splashBackgroundDark: options.splashBackgroundDark,
       });
     });
 
