@@ -4,6 +4,9 @@
 
 Documentation site: https://cli.kappmaker.com (source in `docs-site/`, deployed via GitHub Pages)
 
+The README is only the first screen (three ways in, install, config, links). The full command reference lives in
+`docs/commands/` (index: `docs/commands/README.md`): document a new or changed command there and on the docs site.
+
 KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootstrapping for the KAppMaker platform. It wraps Firebase CLI, Gradle, Fastlane, CocoaPods, Git, fal.ai, App Store Connect CLI (asc), and Adapty CLI into a single workflow. Google Play Console management is built-in (not wrapping any external CLI) — `gpc.service.ts` talks directly to `androidpublisher.googleapis.com/v3` via Node's built-in `fetch` + `crypto` (service-account JWT flow).
 
 ## Tech Stack
