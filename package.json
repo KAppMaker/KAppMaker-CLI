@@ -46,12 +46,14 @@
     "test:ppp": "tsx src/services/ppp-pricing.service.test.ts",
     "test:ios-ci": "tsx src/commands/ios-ci.test.ts",
     "lint": "tsc --noEmit",
-    "test": "npm run test:ppp && npm run test:ios-ci && npm run test:army && npm run test:prereqs && npm run test:headless && npm run test:mcp",
+    "test": "npm run test:ppp && npm run test:ios-ci && npm run test:army && npm run test:prereqs && npm run test:headless && npm run test:mcp && npm run test:publish-guard",
     "test:army": "tsx --test src/commands/army.test.ts",
     "test:prereqs": "tsx --test src/utils/prereqs.test.ts",
     "test:headless": "tsx --test src/utils/headless.test.ts",
     "test:mcp": "tsx --test src/mcp/mcp.test.ts src/mcp/army.test.ts",
-    "test:mcp-e2e": "tsx --test src/mcp/army.e2e.test.ts"
+    "test:mcp-e2e": "tsx --test src/mcp/army.e2e.test.ts",
+    "prepublishOnly": "npm run build && node scripts/prepublish-check.mjs",
+    "test:publish-guard": "node scripts/prepublish-check.mjs --self-test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
