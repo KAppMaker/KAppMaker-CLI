@@ -74,7 +74,7 @@ test('bug 2: an empty en-US listing in the config sends nothing and keeps the li
 });
 
 test('bug 2: a partial config keeps the live fields it does not fill in (PUT replaces the whole listing)', async () => {
-  process.env.KAPPMAKER_YES = '1';
+  process.env.KAPPMAKER_ASSUME_YES = '1';
   try {
     const play = installFakePlay({ liveListings: live });
     await gpc.withEdit('com.example.l2', (editId) =>
@@ -82,7 +82,7 @@ test('bug 2: a partial config keeps the live fields it does not fill in (PUT rep
     const put = play.calls.find((c) => c.method === 'PUT' && c.path.includes('/listings/'));
     assert.deepEqual(put?.body, { language: 'en-US', title: 'Lab Rat', shortDescription: 'Lab games for kids', fullDescription: 'Long live text' });
   } finally {
-    delete process.env.KAPPMAKER_YES;
+    delete process.env.KAPPMAKER_ASSUME_YES;
   }
 });
 
@@ -95,7 +95,7 @@ test('bug 2: a change to a live listing needs a yes (no terminal = refuses, noth
 });
 
 test('bug 2: --allow-empty clears only what the config explicitly empties', async () => {
-  process.env.KAPPMAKER_YES = '1';
+  process.env.KAPPMAKER_ASSUME_YES = '1';
   try {
     const play = installFakePlay({ liveListings: live });
     await gpc.withEdit('com.example.l4', (editId) =>
@@ -103,19 +103,19 @@ test('bug 2: --allow-empty clears only what the config explicitly empties', asyn
     assert.equal(play.listings[0].fullDescription, '');
     assert.equal(play.listings[0].title, 'Lab Rat');
   } finally {
-    delete process.env.KAPPMAKER_YES;
+    delete process.env.KAPPMAKER_ASSUME_YES;
   }
 });
 
 test('bug 2: a listing write that does not stick fails the read-back and is not committed', async () => {
-  process.env.KAPPMAKER_YES = '1';
+  process.env.KAPPMAKER_ASSUME_YES = '1';
   try {
     const play = installFakePlay({ liveListings: live, dropListingWrites: true });
     await assert.rejects(gpc.withEdit('com.example.l5', (editId) =>
       listingsSvc.pushListings('com.example.l5', editId, [{ locale: 'en-US', title: 'New Title' }])), /read-back does not match/);
     assert.equal(play.calls.filter((c) => c.path.endsWith(':commit')).length, 0);
   } finally {
-    delete process.env.KAPPMAKER_YES;
+    delete process.env.KAPPMAKER_ASSUME_YES;
   }
 });
 

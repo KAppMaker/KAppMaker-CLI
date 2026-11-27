@@ -71,7 +71,10 @@ export async function confirm(message: string, opts: ConfirmOptions = {}): Promi
     console.log(`${message.trim()} yes (confirmed beforehand)`);
     return true;
   }
-  if (!opts.destructive && assumeYes()) {
+  // Under KAPPMAKER_NONINTERACTIVE (the MCP server's children) --yes/--config do
+  // not answer: only KAPPMAKER_ASSUME_YES on an assumable re-ask does, so a
+  // first-time or destructive question still comes back as NeedsAnswerError.
+  if (!opts.destructive && assumeYes() && !explicitlyHeadless()) {
     const answer = opts.yesAnswer !== false;
     console.log(`${message.trim()} ${answer ? 'yes' : 'no'} (--yes)`);
     return answer;
@@ -86,7 +89,7 @@ export interface PromptInputOptions {
 }
 
 export async function promptInput(message: string, opts: PromptInputOptions = {}): Promise<string> {
-  if (opts.defaultValue !== undefined && assumeYes()) {
+  if (opts.defaultValue !== undefined && assumeYes() && !explicitlyHeadless()) {
     console.log(`${message.trim()} ${opts.defaultValue} (--yes default)`);
     return opts.defaultValue;
   }

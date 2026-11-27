@@ -55,16 +55,32 @@ test('bugs 6/7: --yes is on every prompting command and --config turns it on', a
   delete process.env.KAPPMAKER_YES;
 });
 
-test('--yes never answers a destructive question', async () => {
+test('--yes never answers a destructive question; under NONINTERACTIVE it answers nothing', async () => {
   const { confirm } = await import('../utils/prompt.js');
   process.env.KAPPMAKER_YES = '1';
   process.env.KAPPMAKER_NONINTERACTIVE = '1';
   try {
     await assert.rejects(confirm('Delete it and start fresh?', { destructive: true }), /needs an answer/);
-    assert.equal(await confirm('Log in interactively?', { yesAnswer: false }), false);
+    // MCP children: a first-time question still needs an answer even with --config/--yes.
+    await assert.rejects(confirm('App not found. Create it now?'), /needs an answer/);
+    // ... and an assumable re-ask is answered only by KAPPMAKER_ASSUME_YES (MCP confirm: true).
+    process.env.KAPPMAKER_ASSUME_YES = '1';
+    assert.equal(await confirm('Continue with these settings?', { assumable: true }), true);
+    await assert.rejects(confirm('Delete it and start fresh?', { destructive: true }), /needs an answer/);
   } finally {
     delete process.env.KAPPMAKER_YES;
     delete process.env.KAPPMAKER_NONINTERACTIVE;
+    delete process.env.KAPPMAKER_ASSUME_YES;
+  }
+});
+
+test('--yes answers "no" to a login or install question', async () => {
+  const { confirm } = await import('../utils/prompt.js');
+  process.env.KAPPMAKER_YES = '1';
+  try {
+    assert.equal(await confirm('Log in interactively?', { yesAnswer: false }), false);
+  } finally {
+    delete process.env.KAPPMAKER_YES;
   }
 });
 

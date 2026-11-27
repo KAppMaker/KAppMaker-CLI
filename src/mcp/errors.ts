@@ -11,6 +11,31 @@ interface Rule {
 
 const RULES: Rule[] = [
   {
+    // An orchestrator summary (create-appstore-app, gpc setup, adapty setup, ...):
+    // the failed steps are named on this line; the output tail has the detail.
+    test: /(\d+) step\(s\) FAILED: ([^\n]+)/,
+    explain: (m) =>
+      `${m[1]} step(s) failed: ${m[2].trim()}. Completed steps are kept. Fix: read the FAILED lines above, fix their cause, then run the same tool again.`,
+  },
+  {
+    // Google Play API error: "ERROR <label>: HTTP 4xx" followed by Google's error body.
+    test: /ERROR ([^\n]+): HTTP (4\d\d)([\s\S]{0,4000})/,
+    explain: (m) =>
+      `Google Play rejected "${m[1].trim()}" (HTTP ${m[2]})${m[3].trim() ? `: ${googleMessage(m[3])}` : ''}. ` +
+      'Fix: correct that part of Assets/googleplay-config.json and run the tool again (nothing else was changed for this step).',
+  },
+  {
+    // An `asc` command failed: "ERROR <label>: asc exited N" followed by its output.
+    test: /([^\n]+): asc exited (\d+)\s*\n?([^\n]*)/,
+    explain: (m) =>
+      `App Store Connect (asc) failed at "${m[1].replace(/^\s*ERROR\s*/, '').trim()}"${m[3] ? `: ${m[3].trim().slice(0, 200)}` : ''}. ` +
+      'Fix: correct that part of Assets/appstore-config.json, or run `kappmaker doctor` if asc itself is the problem, then run the tool again.',
+  },
+  {
+    test: /asc (\S+) is too old/,
+    explain: (m) => `The installed asc ${m[1]} is too old. Fix: run \`brew update && brew upgrade asc\` (or \`curl -fsSL https://asccli.sh/install | bash\`), then retry.`,
+  },
+  {
     test: /needs an answer: "([^"]+)"/,
     explain: (m) =>
       `The command stopped at a question it cannot answer on its own: "${m[1]}".` +
@@ -49,6 +74,13 @@ const RULES: Rule[] = [
     explain: () => 'GitHub CLI is not logged in. Fix: run `gh auth login` in a terminal.',
   },
 ];
+
+/** Google's JSON error body -> its message, else the raw text (short). */
+function googleMessage(body: string): string {
+  const m = body.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (m) return m[1].replace(/\\"/g, '"').slice(0, 300);
+  return body.trim().split('\n')[0].slice(0, 300);
+}
 
 function keyHint(question: string): string {
   const q = question.toLowerCase();
