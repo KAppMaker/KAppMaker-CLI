@@ -3,6 +3,10 @@ sidebar_position: 10
 title: Android Icon Generation
 ---
 
+
+:::info Splash and themed icon too (2.2.0+)
+Also points the Android 12+ splash (`windowSplashScreenAnimatedIcon` in `res/values/styles.xml`) at the new padded foreground, sets `windowBackgroundColor` with `--splash-background <hex>` (`--splash-background-dark` for values-night), and writes a monochrome themed icon when the logo has a transparent background. `--no-splash` skips the splash. The default res dir is `MobileApp/androidApp/src/main/res`.
+:::
 # Android Icon Generation
 
 Generate the full Android launcher icon set — five mipmap density buckets, both legacy and adaptive variants, the adaptive icon XML files, and the `ic_launcher_background` color entry in `values/colors.xml` — from a single source logo. **Sharp-only — no AI, no API keys.** Same output as Android Studio's Asset Studio, but local and instant.

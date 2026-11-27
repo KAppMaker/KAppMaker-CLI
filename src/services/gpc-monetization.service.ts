@@ -818,7 +818,7 @@ async function buildBasePlanBody(
     logger.info(`Echoed ${echoedCount} previously-stored region${echoedCount === 1 ? '' : 's'} on ${basePlan.base_plan_id} (Google rejects PATCH bodies that drop existing regions).`);
   }
   if (skippedDriftCount > 0) {
-    logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${basePlan.base_plan_id}'s existing config — their stored currency no longer matches regionsVersion ${getRegionsVersion()}. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
+    logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${basePlan.base_plan_id}'s existing config: their stored currency no longer matches regionsVersion ${getRegionsVersion()}. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
   }
 
   // Re-inject `forceUnavailable` regions using the 2022/02-expected currency
@@ -843,7 +843,7 @@ async function buildBasePlanBody(
     logger.info(`Re-injected ${forceUnavailableCount} region${forceUnavailableCount === 1 ? '' : 's'} on ${basePlan.base_plan_id} as newSubscriberAvailability=false with the currency regionsVersion ${getRegionsVersion()} expects.`);
   }
   if (neverBillableSubRegions.length > 0) {
-    logger.warn(`Cannot fix ${neverBillableSubRegions.join(', ')} on subscription base plan ${basePlan.base_plan_id} — these regions were removed from Google's ${getRegionsVersion()} billable catalog. The subscription is "stuck"; PATCH will fail.`);
+    logger.warn(`Cannot fix ${neverBillableSubRegions.join(', ')} on subscription base plan ${basePlan.base_plan_id}: these regions were removed from Google's ${getRegionsVersion()} billable catalog. The subscription is "stuck"; PATCH will fail.`);
   }
 
   const body: Record<string, unknown> = {
@@ -1225,7 +1225,7 @@ async function createInAppProduct(
       logger.info(`Echoed ${echoedCount} previously-stored region${echoedCount === 1 ? '' : 's'} on ${product.sku} (Google rejects PATCH bodies that drop existing regions).`);
     }
     if (skippedDriftCount > 0 && attempt === 0) {
-      logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${product.sku}'s existing config — their stored currency no longer matches regionsVersion ${getRegionsVersion()}. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
+      logger.warn(`Dropped ${skippedDriftCount} drift region${skippedDriftCount === 1 ? '' : 's'} from ${product.sku}'s existing config: their stored currency no longer matches regionsVersion ${getRegionsVersion()}. If Google rejects the removal we'll retry marking them NO_LONGER_AVAILABLE.`);
     }
 
     // Re-inject `forceUnavailable` regions with availability=NO_LONGER_AVAILABLE
@@ -1261,7 +1261,7 @@ async function createInAppProduct(
     }
     if (neverBillableSkipped.length > 0) {
       stuckOneTimeProducts.add(product.sku);
-      logger.warn(`Cannot fix ${neverBillableSkipped.join(', ')} on ${product.sku} — these regions were removed from Google's ${getRegionsVersion()} billable catalog entirely. The product is "stuck": Google refuses to remove them AND refuses to keep them. Skipping this product.`);
+      logger.warn(`Cannot fix ${neverBillableSkipped.join(', ')} on ${product.sku}: these regions were removed from Google's ${getRegionsVersion()} billable catalog entirely. The product is "stuck": Google refuses to remove them AND refuses to keep them. Skipping this product.`);
     }
 
     const purchaseOption: Record<string, unknown> = {

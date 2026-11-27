@@ -14,16 +14,22 @@ description: Bump the version of a KAppMaker app. Use when the user asks to bump
 
 ### update-version — Version Bumping
 
-**Syntax**: `kappmaker update-version [-v <version>]`
+**Syntax**: `kappmaker update-version [--version-name <x.y.z>]`
 
 **Options**:
-- `-v, --version <name>` — Set explicit version name (e.g., `2.0.0`). If omitted, auto-increments patch (e.g., `1.2.3` → `1.2.4`).
+- (none): build-only bump: Android `versionCode` +1 and iOS build number +1. The version name
+  does NOT change (CLI 2.2.0+; older versions also bumped the name, 1.0.0 → 1.0.1 and iOS 1.0 → 1.1).
+- `--version-name <name>`: also set the version name on both platforms (e.g., `2.0.0`). `-v` /
+  `--version` is the old spelling and still works.
+
+Use the plain bump for a re-upload of the same release (the store rejects a build number it has
+seen). Pass `--version-name` only when the user asked for a new version number.
 
 **Prerequisites**: None. Run from the project root (containing `MobileApp/`) or inside `MobileApp/`.
 
 **What it updates**:
-- Android: `versionCode` (+1) and `versionName` in `androidApp/build.gradle.kts`
-- iOS: `CURRENT_PROJECT_VERSION` (+1) and `MARKETING_VERSION` in `project.pbxproj` + `Info.plist`
+- Android: `versionCode` (+1), and `versionName` only with `--version-name`, in `androidApp/build.gradle.kts`
+- iOS: `CURRENT_PROJECT_VERSION` (+1), and `MARKETING_VERSION` only with `--version-name`, in `project.pbxproj` + `Info.plist`
 
 If a platform's files are missing, that platform is skipped with a warning.
 

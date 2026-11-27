@@ -100,7 +100,7 @@ export async function markSetupStep(
     const base = match[1].replace(/ \*\((skipped|FAILED)[^)]*\)\*$/, '');
     // A FAILED step stays unchecked so the next agent/human picks it up.
     if (status === 'failed') {
-      await fs.writeFile(file, content.replace(pattern, `- [ ] ${base} *(FAILED — fix and re-run the standalone command)*`), 'utf8');
+      await fs.writeFile(file, content.replace(pattern, `- [ ] ${base} *(FAILED: fix and re-run the standalone command)*`), 'utf8');
       return;
     }
     const suffix = status === 'skipped' ? ' *(skipped — run the standalone command when ready)*' : '';

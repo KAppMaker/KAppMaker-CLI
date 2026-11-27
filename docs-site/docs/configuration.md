@@ -54,6 +54,7 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 | `ascPrivateKeyPath` | Path to `.p8` private key | — |
 | `appleId` | Apple ID email | — |
 | `googleServiceAccountPath` | Google Play service account JSON | `~/credentials/google-service-app-publisher.json` |
+| `playRegionsVersion` | Google Play `regionsVersion` for subscription / IAP writes (`--regions-version` wins) | `2026/01` |
 
 ## Global Defaults
 

@@ -3,6 +3,21 @@ sidebar_position: 3
 title: App Store Connect Setup
 ---
 
+
+:::info Every step reads back (2.2.0+)
+- `asc` older than 5.9.0, or an unreadable version, stops at step 1 with the exact upgrade line
+  (older CLIs warned, then skipped steps silently and printed OK).
+- The run ends with a summary listing each FAILED step (exit 1).
+- Copyright defaults to `"<year> <organization or app name>"` and also reaches an existing version.
+- Availability: every territory, new territories included, counted back.
+- Age rating: every answer sent explicitly, including social media, user-generated content and
+  messaging (default false).
+- App Review detail: created or updated with `demoAccountRequired=false` unless demo credentials
+  are set (or `review_info.demo_account_required: true`), then read back.
+- Subscriptions: group localizations are ensured on the group version; `asc validate subscriptions`
+  is the final read-back.
+- `--yes` or `--config <file>` answers "Continue?" and "Create the app?"; piped answers work too.
+:::
 # App Store Connect Setup
 
 Creates and fully configures an app on App Store Connect using the [asc CLI](https://github.com/rorkai/App-Store-Connect-CLI).
@@ -195,7 +210,7 @@ Versions 1.6.x had a bug where products silently landed at $0 in territories who
 
 **Override rule**: any territory you list in `prices` is preserved as-is. PPP fills the rest.
 
-**Opt-out**: set `"ppp_enabled": false` on a subscription or IAP to skip the fan-out and stay with only your explicitly-listed `prices`.
+**Opt-out**: set `"ppp_enabled": false` on a subscription to use Apple's own equalized prices for every territory (`asc subscriptions pricing equalize --workers 2`; more workers hit HTTP 429), or on an IAP to stay with your listed `prices`.
 
 ```json
 {

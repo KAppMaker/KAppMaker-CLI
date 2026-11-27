@@ -11,6 +11,21 @@ A tight wrapper around the official Google Play Android Publisher API. All subco
 Google Play does not allow creating new apps via any public API. Create the app manually once in [Play Console](https://play.google.com/console/u/0/developers), then use these commands to configure it.
 :::
 
+:::info Fails loudly, never blanks a listing (2.2.0+)
+- Every Play API error stops the command with the HTTP status and Google's error body (exit 1).
+  Older versions printed OK on a data safety HTTP 400.
+- `gpc setup` ends with a step summary listing each FAILED step.
+- Listings: the live listing is the base and only the fields the config fills in are changed
+  (Play's PUT replaces the whole listing, so empty fields used to blank it). The diff is shown,
+  a change asks for a yes (`--yes` / `--config` answer it), clearing a live field needs
+  `--allow-empty`, and the listing is read back before the edit is committed.
+- Monetization uses `regionsVersion` **2026/01** by default (`--regions-version`, or
+  `kappmaker config set playRegionsVersion <v>`). Every product is read back and reported as
+  `N of M regions priced`; a product short of M exits 1.
+- `gpc data-safety push --verify` checks the declaration against Play's question set and prints
+  what Play now declares. Play has no read endpoint for the form, so check it once in Play Console.
+:::
+
 ## gpc setup
 
 Full end-to-end configuration (11 steps) — the Google Play parallel to `create-appstore-app`.
@@ -30,7 +45,7 @@ kappmaker gpc setup --config ./my-config.json
 4. Verify app exists on Play Console (fails fast with a deep link if not)
 5. Start a Play Console edit (skipped if default-language listing has no title)
 6. Update app details (default language + contact website/email/phone)
-7. Update store listings per locale (title, short/full description, video); commits the edit. Empty listing titles are auto-filled from the app name
+7. Update store listings per locale, merged with the live listing (empty config fields never clear Play; `--allow-empty` to clear), read back, then commit. The app name fills a title only where Play has none
 8. Create subscriptions via the new monetization API. Base plans are available to all ~175 Play regions (not just the regions with explicit prices — Google auto-converts pricing for the rest). Idempotent — existing product IDs are skipped. Skipped if no build is uploaded to any track
 9. Create one-time in-app products via the new monetization API. Idempotent
 10. Update the data safety declaration (JSON → CSV conversion using bundled canonical template)
@@ -145,7 +160,9 @@ Then KAppMaker multiplies each native price by the region's PPP multiplier and c
 
 Typical apps with 5 distinct base prices (weekly sub + yearly sub + 3 credit packs) make ~5 `convertRegionPrices` calls per setup run.
 
-### regionsVersion 2022/02 drift override (1.6.11+)
+### regionsVersion 2022/02 drift override (only when you choose 2022/02)
+
+The default is `2026/01` since 2.2.0. This section applies only with `--regions-version 2022/02`.
 
 Google's monetization API requires `regionsVersion.version` and `"2022/02"` is the only documented value as of 2026. Several regions have drifted since that snapshot — Google's live API returns one currency but `2022/02` expects another. The CLI handles this transparently:
 
@@ -187,7 +204,7 @@ If you don't want PPP discounting and would prefer a uniform USD-anchor price ac
 }
 ```
 
-The CLI then submits only your US entry in `regionalConfigs` plus `otherRegionsConfig: { usdPrice, eurPrice, newSubscriberAvailability }` (for subscriptions) or `newRegionsConfig: { availability, usdPrice, eurPrice }` (for one-time products). Google fans out the USD anchor to every billable region using its pricing-template FX algorithm — every region gets a price, just without PPP discounts in lower-income markets. Payload is ~1 entry instead of ~150.
+Since 2.2.0 the CLI still prices **every billable region explicitly**, using Google's own currency conversion of your USD price (`convertRegionPrices`) without the PPP multiplier, and keeps `otherRegionsConfig` / `newRegionsConfig` for regions Google adds later. Before 2.2.0 it sent only your listed regions and relied on Google's auto fan-out, and one app went live priced in the US, ET and MN only.
 
 The trade-off: simpler config but you lose the IN ≈ 0.35×, AR ≈ 0.30× discounting that increases conversion in those markets.
 
@@ -205,7 +222,7 @@ The trade-off: simpler config but you lose the IN ≈ 0.35×, AR ≈ 0.30× disc
 
 US gets your `default_price`, DE keeps your explicit `5.49 EUR`, the other ~173 regions get PPP-adjusted USD prices derived from the US anchor.
 
-**Opt-out**: set `"ppp_enabled": false` on a subscription base plan or IAP to skip the fan-out and stay restricted to your listed regions.
+**Opt-out of PPP**: set `"ppp_enabled": false` on a subscription base plan or IAP for plain currency conversion in every billable region (no PPP discount).
 
 **Why explicit fan-out**: Google's `otherRegionsConfig` / `newRegionsConfig` auto-conversion (used in 1.5.x) fanned out unreliably — many users saw products listed in only 1-2 regions even with valid USD/EUR anchors. Per-region fan-out is now the default and works.
 

@@ -11,8 +11,11 @@ Set up Adapty subscription products, paywalls, and placements using the [Adapty 
 
 ```bash
 kappmaker adapty setup
-kappmaker adapty setup --config ./my-config.json
+kappmaker adapty setup --config ./my-config.json   # --config: no "Continue?" question
+kappmaker adapty setup --yes                      # same, with the default config path
 ```
+
+The run ends by reading every access level, product, paywall and placement back from Adapty; anything missing is listed as FAILED and the command exits 1 (2.2.0+).
 
 ## Options
 

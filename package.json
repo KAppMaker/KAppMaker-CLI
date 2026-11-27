@@ -1,6 +1,6 @@
 {
   "name": "kappmaker",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "The CLI behind KAppMaker AI, the agentic Kotlin Multiplatform app development kit you install on your own laptop or server: create, configure, build and ship Android and iOS apps from one command line.",
   "homepage": "https://kappmaker.com",
   "license": "MIT",
@@ -36,6 +36,7 @@
   "files": [
     "dist",
     "!dist/**/*.test.*",
+    "!dist/test-support",
     "LICENSE",
     "NOTICE.md"
   ],
