@@ -23,7 +23,7 @@ export async function createAppStoreApp(options: CreateAppStoreOptions): Promise
   let userConfig = await loadConfig();
   if (!userConfig.appleId || !userConfig.ascKeyId || !userConfig.ascIssuerId || !userConfig.ascPrivateKeyPath) {
     logger.warn('App Store Connect configuration is incomplete.');
-    const shouldSetup = await confirm('  Run interactive setup now? (API key, Apple ID, review contact)');
+    const shouldSetup = await confirm('  Run interactive setup now? (API key, Apple ID, review contact)', { yesAnswer: false });
     if (shouldSetup) {
       await configAppStoreDefaults({ init: true });
       userConfig = await loadConfig();
@@ -221,7 +221,7 @@ async function loadAppStoreConfig(configPath?: string): Promise<{ config: AppSto
   }
 
   // Ask about user content access (AI image/video wrapper apps)
-  const accessesUserContent = await confirm('  Does this app access user content like photos/videos (e.g., AI image/video wrapper)?');
+  const accessesUserContent = await confirm('  Does this app access user content like photos/videos (e.g., AI image/video wrapper)?', { yesAnswer: false });
   if (accessesUserContent) {
     const contentUsages = [
       {

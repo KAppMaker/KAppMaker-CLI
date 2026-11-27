@@ -89,7 +89,7 @@ export interface GooglePlayBasePlan {
   available_to_new_subscribers?: boolean;
   /** Regional pricing. First entry is treated as the base price. */
   regional_configs: GooglePlayRegionalPrice[];
-  /** Default `true`. Set `false` to opt this base plan out of PPP fan-out (only the listed regional_configs go live). */
+  /** Default `true`. `false` = no PPP discount: every billable region is still priced, by plain currency conversion of the USD price. */
   ppp_enabled?: boolean;
 }
 
@@ -115,7 +115,7 @@ export interface GooglePlayInAppProduct {
   prices?: GooglePlayRegionalPrice[];
   /** When set, marks this entry as a credit pack and triggers sku auto-generation as `credit_pack_{credits}_{priceDigits}_{appname}`. */
   credits?: number;
-  /** Default `true`. Set `false` to opt this product out of PPP fan-out (only default_price + prices go live). */
+  /** Default `true`. `false` = no PPP discount: every billable region is still priced, by plain currency conversion of the USD price. */
   ppp_enabled?: boolean;
 }
 
@@ -132,4 +132,10 @@ export interface CreatePlayAppOptions {
    * considers billable) are DELETED and recreated fresh. Without this flag
    * the CLI logs a clear warning and skips the stuck product instead. */
   recreateStuck?: boolean;
+  /** Play regionsVersion for monetization writes (default: config playRegionsVersion, else 2026/01). */
+  regionsVersion?: string;
+  /** listings push: let empty config fields clear live Play fields. */
+  allowEmpty?: boolean;
+  /** data-safety push: check the sent declaration and print what Play holds. */
+  verify?: boolean;
 }

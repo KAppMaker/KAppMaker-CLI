@@ -6,7 +6,10 @@ import { promptInput, confirm } from '../utils/prompt.js';
 import { loadConfig, getGooglePlayTemplate } from '../utils/config.js';
 import * as gpc from '../services/gpc.service.js';
 import * as gpcMoney from '../services/gpc-monetization.service.js';
-import { buildDataSafetyCsv } from '../services/gpc-data-safety.service.js';
+import { pushDataSafetyFromConfig } from '../services/gpc-data-safety-push.service.js';
+import { pushListings } from '../services/gpc-listings.service.js';
+import { resolveRegionsVersion, printCoverageReport, resetMonetizationReport, monetizationReport } from '../services/gpc-regions.js';
+import { StepReport } from '../utils/step-report.js';
 import { creditPackProductId } from '../services/credit-pack.defaults.js';
 import type { GooglePlayConfig, CreatePlayAppOptions } from '../types/googleplay.js';
 
@@ -84,74 +87,60 @@ export async function createPlayApp(options: CreatePlayAppOptions): Promise<void
     process.exit(1);
   }
 
-  const defaultListing = config.listings.find((l) => l.locale === config.app.default_language);
-  const hasUsableDefaultListing = !!(defaultListing?.title && defaultListing.title.trim().length > 0);
+  const report = new StepReport('Google Play setup');
+  report.ok('Verify app on Play Console', config.app.package_name);
+  await resolveRegionsVersion(options.regionsVersion);
+  resetMonetizationReport();
 
-  if (!hasUsableDefaultListing) {
-    logger.warn(`Default-language listing (${config.app.default_language}) has no title.`);
-    logger.info('Fill in listings[].title/short_description/full_description in the config and re-run.');
-    logger.info('Skipping steps 5-7 (app details + listings + commit) for this run.');
-  } else {
-    const editId = await gpc.insertEdit(config.app.package_name);
-    logger.info(`Edit ID: ${editId}`);
+  // Steps 5-7: app details + listings inside one edit. Listings are merged with
+  // what is live (an empty config field never blanks Play), diffed, read back,
+  // and only then committed. Any failure drops the edit and is reported.
+  logger.step(5, TOTAL_STEPS, 'Updating app details and store listings');
+  await report.run('App details + store listings (edit committed)', async () => {
+    const result = await gpc.withEdit(config.app.package_name, async (editId) => {
+      logger.info(`Edit ID: ${editId}`);
+      await gpc.updateAppDetails(config.app.package_name, editId, config.app.default_language, config.details);
+      return pushListings(config.app.package_name, editId, config.listings, { allowEmpty: options.allowEmpty === true, fallbackTitle: config.app.name });
+    });
+    return result;
+  }, { detail: (r) => (r.pushed.length ? `pushed ${r.pushed.join(', ')}` : 'already matched Play') });
 
-    // Step 5: Update app details (default language + contact)
-    logger.step(5, TOTAL_STEPS, 'Updating app details');
-    await gpc.updateAppDetails(
-      config.app.package_name,
-      editId,
-      config.app.default_language,
-      config.details,
-    );
-
-    // Step 6: Update store listings per locale (skipping any that are still blank)
-    logger.step(6, TOTAL_STEPS, 'Updating store listings');
-    for (const listing of config.listings) {
-      if (!listing.title || listing.title.trim().length === 0) {
-        logger.warn(`Skipping ${listing.locale} listing — title is empty.`);
-        continue;
-      }
-      await gpc.updateListing(config.app.package_name, editId, listing);
-    }
-
-    // Step 7: Commit edit
-    logger.step(7, TOTAL_STEPS, 'Committing Play Console edit');
-    await gpc.commitEdit(config.app.package_name, editId);
-  }
-
-  // Step 8: Create / reuse subscriptions (monetization API, outside edit).
-  // Subscriptions must contain a listing in the app's default language —
-  // `setupSubscriptions` auto-clones the first entry with that locale if missing.
-  //
-  // Pre-flight: Google Play rejects monetization writes unless the app has at
-  // least one build (with the BILLING permission) uploaded to some track —
-  // internal testing is enough. Skip step 8 & 9 loudly if that's not the case.
+  // Steps 8-9: monetization. Google rejects monetization writes until a build
+  // (with BILLING) is on some track; that is a SKIP with the fix, not an OK.
+  const noBuild = cachedAppState && !cachedAppState.hasUploadedBuild;
   logger.step(8, TOTAL_STEPS, 'Setting up subscriptions');
-  if (cachedAppState && !cachedAppState.hasUploadedBuild) {
-    logger.warn('Skipping subscriptions — no build uploaded to any Play Console track.');
-    logger.info('Google Play requires at least one build (with BILLING permission) uploaded');
-    logger.info('to a track before subscriptions/IAPs can be created via the API.');
-    logger.info('Upload one with: kappmaker publish --platform android --track internal');
-    logger.info('Then rerun: kappmaker gpc setup');
+  if (noBuild) {
+    report.skip('Subscriptions', 'no build on any track: kappmaker publish --platform android --track internal, then rerun');
+  } else if (config.subscriptions.length === 0) {
+    report.skip('Subscriptions', 'none in config');
   } else {
-    await gpcMoney.setupSubscriptions(config.app.package_name, config.subscriptions, config.app.default_language);
+    await report.run('Subscriptions', async () => {
+      const mark = markMonetization();
+      await gpcMoney.setupSubscriptions(config.app.package_name, config.subscriptions, config.app.default_language);
+      assertMonetization(mark);
+    });
   }
 
-  // Step 9: Create / reuse one-time in-app products
   logger.step(9, TOTAL_STEPS, 'Setting up in-app products');
-  if (cachedAppState && !cachedAppState.hasUploadedBuild) {
-    logger.warn('Skipping in-app products — no build uploaded to any Play Console track.');
+  if (noBuild) {
+    report.skip('In-app products', 'no build on any track');
+  } else if (config.in_app_products.length === 0) {
+    report.skip('In-app products', 'none in config');
   } else {
-    await gpcMoney.setupInAppProducts(config.app.package_name, config.in_app_products);
+    await report.run('In-app products', async () => {
+      const mark = markMonetization();
+      await gpcMoney.setupInAppProducts(config.app.package_name, config.in_app_products, { recreateStuck: options.recreateStuck === true });
+      assertMonetization(mark);
+    });
   }
+  printCoverageReport();
 
-  // Step 10: Data safety declaration (standalone endpoint, CSV upload).
-  // POST /applications/{pkg}/dataSafety expects `{ safetyLabels: <csv-string> }`
-  // where the CSV is an app-specific export from Play Console → Policy →
-  // App content → Data safety → "Export to CSV". We don't ship a default
-  // because the question set differs per app.
+  // Step 10: Data safety. Fails loudly on a non-2xx (it printed OK on a 400).
   logger.step(10, TOTAL_STEPS, 'Updating data safety declaration');
-  await pushDataSafetyFromConfig(config);
+  await report.run('Data safety', async () => {
+    const outcome = await pushDataSafetyFromConfig(config, { verify: true });
+    if (outcome === 'not-configured') throw new Error('no data_safety block or data_safety_csv_path in the config');
+  });
 
   // Step 11: Manual-only declarations. Google doesn't expose any of these
   // in the Publisher API v3 — verified against the discovery document
@@ -163,7 +152,24 @@ export async function createPlayApp(options: CreatePlayAppOptions): Promise<void
   await fs.writeJson(configPath, config, { spaces: 2 });
   logger.info(`Config saved to ${configPath}`);
 
-  logger.done();
+  if (report.print()) logger.done();
+}
+
+/** Throw when the last monetization batch left a product short or failed (the coverage report names it). */
+function markMonetization(): { c: number; f: number } {
+  const r = monetizationReport();
+  return { c: r.coverage.length, f: r.failures.length };
+}
+
+function assertMonetization(since: { c: number; f: number }): void {
+  const all = monetizationReport();
+  const coverage = all.coverage.slice(since.c);
+  const failures = all.failures.slice(since.f);
+  const short = coverage.filter((r) => r.priced < r.billable);
+  if (failures.length > 0 || short.length > 0) {
+    const parts = [...failures.map((f) => f.product), ...short.map((r) => `${r.product} (${r.priced}/${r.billable})`)];
+    throw new Error(`not complete: ${parts.join(', ')}`);
+  }
 }
 
 /**
@@ -181,7 +187,6 @@ async function loadPlayConfig(configPath?: string): Promise<{ config: GooglePlay
     const config = await fs.readJson(savePath) as GooglePlayConfig;
     migrateLegacyConfig(config);
     await detectAndApplyDefaultLanguage(config);
-    fillListingDefaults(config);
     fillSubscriptionDefaults(config);
     fillIapDefaults(config);
     await fs.writeJson(savePath, config, { spaces: 2 });
@@ -209,7 +214,6 @@ async function loadPlayConfig(configPath?: string): Promise<{ config: GooglePlay
   // Detect Play's actual default language so the template's en-US placeholder
   // gets rewritten to whatever Play Console reports for the real app.
   await detectAndApplyDefaultLanguage(template);
-  fillListingDefaults(template);
   fillSubscriptionDefaults(template);
   fillIapDefaults(template);
 
@@ -302,49 +306,6 @@ function printManualDeclarationsChecklist(packageName: string): void {
 }
 
 /**
- * Push data safety declaration. Priority:
- *   1. `data_safety_csv_path` file (if set and exists) — uploaded verbatim,
- *      the escape hatch for users who exported a CSV from Play Console.
- *   2. `data_safety` JSON block — converted to CSV via buildDataSafetyCsv()
- *      using kappmaker defaults + user overrides.
- *   3. Skip with a helpful message.
- */
-async function pushDataSafetyFromConfig(config: GooglePlayConfig): Promise<void> {
-  // (1) Raw CSV escape hatch takes priority when explicitly set.
-  if (config.data_safety_csv_path) {
-    const csvPath = path.isAbsolute(config.data_safety_csv_path)
-      ? config.data_safety_csv_path
-      : path.resolve(config.data_safety_csv_path);
-    if (!(await fs.pathExists(csvPath))) {
-      logger.warn(`data_safety_csv_path is set to ${csvPath} but the file does not exist.`);
-      logger.info('Skipping data safety push.');
-      return;
-    }
-    const csvContents = await fs.readFile(csvPath, 'utf8');
-    if (!csvContents.trim()) {
-      logger.warn(`Data safety CSV at ${csvPath} is empty — skipping.`);
-      return;
-    }
-    await gpc.updateDataSafety(config.app.package_name, csvContents);
-    logger.info(`Pushed data safety CSV from ${csvPath}`);
-    return;
-  }
-
-  // (2) Structured JSON (primary path).
-  if (config.data_safety !== undefined) {
-    const csv = buildDataSafetyCsv(config.data_safety);
-    await gpc.updateDataSafety(config.app.package_name, csv);
-    logger.info('Pushed data safety declaration (built from data_safety JSON).');
-    return;
-  }
-
-  // (3) Nothing configured — skip cleanly.
-  logger.info('No data_safety in config, skipping.');
-  logger.info('To enable: add a `data_safety: { apply_defaults: true }` block to the config');
-  logger.info('or set `data_safety_csv_path` to a Play-Console-exported CSV file.');
-}
-
-/**
  * Clean up known-legacy fields in an existing config so subsequent runs don't
  * trip over outdated values. Mutates `config` in place.
  *
@@ -375,21 +336,6 @@ function migrateLegacyConfig(config: GooglePlayConfig): void {
       if (match) {
         sub.product_id = match[1];
       }
-    }
-  }
-}
-
-/**
- * Auto-fill empty store listing titles from config.app.name. Without a title,
- * updateListing skips the locale and Play Console falls back to displaying
- * the package name (e.g. "com.measify.myapp") instead of the app's display name.
- */
-function fillListingDefaults(config: GooglePlayConfig): void {
-  const appName = config.app.name;
-  if (!appName) return;
-  for (const listing of config.listings) {
-    if (!listing.title || listing.title.trim().length === 0) {
-      listing.title = appName;
     }
   }
 }

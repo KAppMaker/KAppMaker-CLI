@@ -32,7 +32,7 @@ export async function validateAscInstalled(): Promise<void> {
     // script (it verifies checksums) is the documented route.
     const hasBrew = (await execa('brew', ['--version'], { reject: false })).exitCode === 0;
     const hint = hasBrew ? 'brew install asc' : 'curl -fsSL https://asccli.sh/install | bash';
-    const shouldInstall = await confirm(`  Would you like to install it? (${hint})`);
+    const shouldInstall = await confirm(`  Would you like to install it? (${hint})`, { yesAnswer: false });
     if (shouldInstall) {
       if (hasBrew) await runStreaming('brew', ['install', 'asc'], { label: 'Installing asc CLI...' });
       else await runStreaming('bash', ['-c', hint], { label: 'Installing asc CLI...' });
@@ -95,7 +95,7 @@ export async function validateAscAuth(): Promise<void> {
     }
 
     console.log('');
-    const shouldLogin = await confirm('  Would you like to log in interactively? (asc auth login)');
+    const shouldLogin = await confirm('  Would you like to log in interactively? (asc auth login)', { yesAnswer: false });
     if (shouldLogin) {
       await runStreaming('asc', ['auth', 'login'], { label: 'Logging in to App Store Connect...' });
       // Re-validate after login

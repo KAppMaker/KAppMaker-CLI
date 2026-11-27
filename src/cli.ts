@@ -51,6 +51,8 @@ import { gitSetupUpstreamCommand } from './commands/git.js';
 import { army } from './commands/army.js';
 import { doctor } from './commands/doctor.js';
 import { mcpCommand } from './commands/mcp.js';
+import { setAssumeYes } from './utils/prompt.js';
+import { applyYesOption } from './utils/yes-option.js';
 import {
   firebaseLoginCommand,
   firebaseProjectCommand,
@@ -548,6 +550,8 @@ export function createCli(): Command {
     .command('create-play-app')
     .description('Alias for `kappmaker gpc setup` — configure an existing Google Play app end-to-end')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--allow-empty', 'Let empty listing fields clear live Play fields')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await createPlayApp(options);
     });
@@ -560,6 +564,8 @@ export function createCli(): Command {
     .command('setup')
     .description('Full end-to-end Google Play Console setup (11 steps)')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--allow-empty', 'Let empty listing fields clear live Play fields')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcSetup(options);
     });
@@ -575,8 +581,9 @@ export function createCli(): Command {
   const gpcListings = gpcCmd.command('listings').description('Manage store listings');
   gpcListings
     .command('push')
-    .description('Push listings from the Google Play config file (title, short/full description, video)')
+    .description('Push listings from the Google Play config file (title, short/full description, video). Empty fields are never sent; a diff against the live listing is shown first.')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--allow-empty', 'Let empty config fields clear the matching live Play fields (asks first unless --yes)')
     .action(async (options) => {
       await gpcListingsPush(options);
     });
@@ -594,6 +601,7 @@ export function createCli(): Command {
     .command('push')
     .description('Create/reuse subscriptions from the Google Play config file (idempotent)')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcSubscriptionsPush(options);
     });
@@ -611,7 +619,8 @@ export function createCli(): Command {
     .command('push')
     .description('Create/reuse in-app products from the Google Play config file (idempotent)')
     .option('--config <path>', 'Path to Google Play JSON config file')
-    .option('--recreate-stuck', 'Delete + recreate products whose existing regions are incompatible with regionsVersion 2022/02 (e.g. legacy products with MN stored)')
+    .option('--recreate-stuck', 'Delete + recreate products whose existing regions are incompatible with the regionsVersion (e.g. legacy products with MN stored)')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcIapPush(options);
     });
@@ -621,6 +630,7 @@ export function createCli(): Command {
     .command('push')
     .description('Push data safety declaration from the Google Play config file')
     .option('--config <path>', 'Path to Google Play JSON config file')
+    .option('--verify', 'After the push, check the sent declaration answer by answer and print what Play now holds')
     .action(async (options) => {
       await gpcDataSafetyPush(options);
     });
@@ -632,7 +642,8 @@ export function createCli(): Command {
     .option('--config <path>', 'Path to Google Play JSON config file')
     .option('--subscriptions-only', 'Push subscriptions only, skip IAPs')
     .option('--iap-only', 'Push IAPs only, skip subscriptions')
-    .option('--recreate-stuck', 'Delete + recreate products stuck due to regionsVersion 2022/02 incompatibility')
+    .option('--recreate-stuck', 'Delete + recreate products stuck due to a regionsVersion incompatibility')
+    .option('--regions-version <v>', 'Play regionsVersion (default: config playRegionsVersion, else 2026/01)')
     .action(async (options) => {
       await gpcMonetizationPush(options);
     });
@@ -817,8 +828,9 @@ export function createCli(): Command {
 
   program
     .command('update-version')
-    .description('Bump Android and iOS version codes and optionally set version name')
-    .option('-v, --version <name>', 'Set explicit version name (e.g., "2.0.0")')
+    .description('Bump the Android versionCode and iOS build number. The version name changes only with --version-name.')
+    .option('--version-name <name>', 'Also set the version name (e.g., "2.0.0") on both platforms')
+    .option('-v, --version <name>', 'Same as --version-name (kept for older scripts)')
     .action(async (options) => {
       await updateVersion(options);
     });
@@ -890,6 +902,16 @@ export function createCli(): Command {
     .action(async (options) => {
       await configAdaptyDefaults(options);
     });
+
+  // Every command that can ask a question gets `-y, --yes`, and `--config <file>`
+  // on a setup command means the file holds the answers: both answer every
+  // confirmation that does not delete or clear data. See utils/yes-option.ts.
+  applyYesOption(program);
+  program.hook('preAction', (_root, action) => {
+    const opts = action.opts() as { yes?: boolean; config?: unknown };
+    if (opts.yes) setAssumeYes();
+    if (typeof opts.config === 'string' && opts.config) setAssumeYes();
+  });
 
   return program;
 }

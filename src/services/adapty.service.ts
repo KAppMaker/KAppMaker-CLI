@@ -44,7 +44,7 @@ export async function validateAdaptyInstalled(): Promise<void> {
   } catch {
     logger.warn('adapty CLI is not installed.');
     console.log('');
-    const shouldInstall = await confirm('  Would you like to install it? (npm install -g adapty)');
+    const shouldInstall = await confirm('  Would you like to install it? (npm install -g adapty)', { yesAnswer: false });
     if (shouldInstall) {
       await runStreaming('npm', ['install', '-g', 'adapty'], { label: 'Installing adapty CLI...' });
     } else {
@@ -63,7 +63,7 @@ export async function validateAdaptyAuth(): Promise<void> {
   if (result.exitCode !== 0) {
     logger.warn('adapty CLI is not authenticated.');
     console.log('');
-    const shouldLogin = await confirm('  Would you like to log in? (opens browser)');
+    const shouldLogin = await confirm('  Would you like to log in? (opens browser)', { yesAnswer: false });
     if (shouldLogin) {
       await runStreaming('adapty', ['auth', 'login'], { label: 'Logging in to Adapty...' });
       const recheck = await run('adapty', ['auth', 'whoami'], {
