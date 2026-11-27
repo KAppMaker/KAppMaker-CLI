@@ -73,6 +73,7 @@ Both are right, for different places; keep them, but say which is which:
 | O5 | Claude desktop still needs one terminal line (`npx … mcp connect claude-desktop`). A Desktop Extension (`.mcpb`, one click) would remove the terminal entirely. Not built: needs packaging and signing choices. | "No terminal knowledge on the MCP path". |
 | O6 | Live check of private forms (MCP elicitation) in Claude desktop, Codex and Gemini. Without forms the flow still works (install code in the sentence, token via `bot_file`, sender confirmed in chat), but the model then sees the install code. | Phase 6. |
 | O7 | `army_install_plugin` says "Claude Code 2.1.330 or later": confirm the real minimum. | Plugin path. |
+| O9 | Merge order with W15/W19 `claude/fix-cli-bugs-12-660009` (b93b0d9): both branches are at CLI 2.2.0 / plugin 2.15.0, so keep those numbers. Conflicts to expect: `src/cli.ts` (keep this branch's plain-word help texts), `src/mcp/tools/stores.ts` and `src/mcp/errors.ts` (wording). The MCP inputs for W19's new flags (`--allow-empty`, `--verify`, `--regions-version`, splash options) are added on W19's branch, which owns them. The plan/confirm gate still holds under W19's `--config` implies `--yes`, because every MCP tool that passes `--config` is `long` (plan first) or a read-only list. | Merge in phase 5. |
 | O8 | On the server the install code is an argument of install.sh for the seconds before it is redeemed (visible in `ps` to other local users of a fresh box). Low; the key never is. | Hardening. |
 
 ## 7. Human steps on the MCP path, as counted now
