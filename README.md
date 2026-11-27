@@ -137,8 +137,8 @@ the long tool timeout for you where the app has one.
 For App Army, `army_setup` does the whole server setup: each call does the next step and says what it needs from you,
 until it answers READY. Long or paid tools return a plan first and run only after you say yes. No tool takes a key,
 token or password: those go into a private form or stay in your saved `kappmaker config`, and output is redacted.
-Guides: [App Army from your AI](https://cli.kappmaker.com/docs/guides/app-army-from-your-ai) ·
-[MCP server](https://cli.kappmaker.com/docs/guides/mcp-server).
+Guides: [App Army from your AI](https://cli.kappmaker.com/guides/app-army-from-your-ai) ·
+[MCP server](https://cli.kappmaker.com/guides/mcp-server).
 
 ## `kappmaker army`
 
