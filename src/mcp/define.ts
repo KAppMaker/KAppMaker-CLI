@@ -41,10 +41,16 @@ export interface AskField {
 export interface LocalCtx {
   cwd: string;
   configDir?: string;
-  /** True when the client can show the user a form (MCP elicitation); the model never sees what is typed. */
+  /** True when the client can show the user a form (MCP elicitation). Forms are for yes/no only: never for secrets. */
   canAsk: boolean;
   /** Shows the form; undefined when the user declined or the client cannot. */
   ask: (message: string, fields: AskField[]) => Promise<Record<string, string | boolean> | undefined>;
+  /** True when the client can open a page for the user (URL-mode elicitation): the only way secrets are asked for. */
+  canAskUrl: boolean;
+  /** Asks the client to open `url` (a one-time page of this process); true when the user agreed to open it. */
+  askUrl: (message: string, url: string, id: string) => Promise<boolean>;
+  /** Tells the client the page was filled in (notifications/elicitation/complete); best effort. */
+  urlDone?: (id: string) => void;
   /** Values that must be masked if they ever show up in output (e.g. a token the user typed). */
   secrets: string[];
   progress: (message: string) => void;

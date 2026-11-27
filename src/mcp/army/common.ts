@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { LocalCtx } from '../define.js';
 import { ConnError, explainSsh, makeConn, type Conn } from './ssh.js';
 import { LicenceError, readKeyFile, validCode } from './licence.js';
+import { askSecret, FIELDS } from './secrets.js';
 
 /** Every server tool takes the host the user named, their login and their key PATH (never the key). */
 export const connShape = {
@@ -42,13 +43,23 @@ export function tail(out: string, lines = 40): string {
   return (all.length > lines ? ['…', ...all.slice(-lines)] : all).join('\n');
 }
 
+/** Turns what the user typed on the page into a key or a code. */
+export function licenceValue(v: string): { key?: string; code?: string } | Failure {
+  try {
+    return /^KAM-/i.test(v) ? { key: v } : { code: validCode(v) };
+  } catch (e) {
+    return fail((e as Error).message);
+  }
+}
+
+export const NO_PAGE_LICENCE = 'I need your install code, but this AI app cannot open a private page for it. Copy the install code from "My purchase" on kappmaker.com and give it as install_code (it works once and lasts 30 minutes), or save your licence key in a file and give its path as licence_key_file.';
+
 /**
- * The licence for an install: install code or key file from the arguments, else a hidden form the client shows
- * the user (elicitation: the value goes to this server only, never to the model). Returns a plain refusal when
- * neither is possible.
+ * The licence for an install: install code or key file from the arguments, else a one-time page on this computer
+ * (URL-mode elicitation: the value goes to this process only, never to the model). `waiting` = call again.
  */
 export async function licenceFrom(i: { install_code?: string; licence_key_file?: string }, ctx: LocalCtx):
-  Promise<{ key?: string; code?: string } | Failure> {
+  Promise<{ key?: string; code?: string } | Failure | { waiting: string }> {
   try {
     if (i.install_code) return { code: validCode(i.install_code) };
     if (i.licence_key_file) return { key: readKeyFile(i.licence_key_file) };
@@ -56,19 +67,13 @@ export async function licenceFrom(i: { install_code?: string; licence_key_file?:
     if (e instanceof LicenceError) return fail(e.message);
     throw e;
   }
-  const got = await ctx.ask('Paste your install code (or licence key) from "My purchase" on kappmaker.com. It goes straight to the installer, not to the AI.', [
-    { name: 'code_or_key', title: 'Install code or licence key', description: 'ABCD-EFGH-JKLM, or KAM-XXXXX-…' },
-  ]);
-  const v = typeof got?.code_or_key === 'string' ? got.code_or_key.trim() : '';
-  if (!v) {
-    return fail(ctx.canAsk ? 'No install code was given, so nothing was installed.'
-      : 'I need your install code, but this AI app cannot show a private form. Copy the install code from "My purchase" on kappmaker.com and give it as install_code (it is single-use and expires in 30 minutes), or save your licence key in a file and give its path as licence_key_file.');
-  }
-  try {
-    return /^KAM-/i.test(v) ? { key: v } : { code: validCode(v) };
-  } catch (e) {
-    return fail((e as Error).message);
-  }
+  const got = await askSecret(ctx, 'licence', {
+    title: 'Your App Army install code', message: 'Open this page and paste your install code (or licence key) from "My purchase". It goes straight to the installer, not to the AI.',
+    fields: [FIELDS.code],
+  });
+  if ('values' in got) return licenceValue(got.values.code_or_key);
+  if ('waiting' in got) return got;
+  return fail('declined' in got ? 'No install code was given, so nothing was installed.' : NO_PAGE_LICENCE);
 }
 
 /**

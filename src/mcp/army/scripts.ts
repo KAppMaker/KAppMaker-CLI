@@ -59,11 +59,12 @@ export function judge(p: Probe, c: Conn): { lines: string[]; blockers: string[];
 }
 
 /** The installer run: the verified install.sh and (optionally) the licence key go in on stdin, never as arguments. */
-export function installScript(o: { script: string; key?: string; keyFile?: string; code?: string; api?: string; sudo: 'limited' | 'full'; worker: string; mentor: boolean; kitOnly?: boolean }): string {
+export function installScript(o: { script: string; key?: string; keyFile?: string; code?: string; api?: string; sudo: 'limited' | 'full'; worker: string; mentor: boolean; kitOnly?: boolean; extra?: string[] }): string {
   if (o.script.includes('KAPPMAKER_INSTALLER_EOF')) throw new Error('installer text contains the stream marker');
   const args = ['--server', '--yes', '--no-start', '--sudo', o.sudo, '--worker', o.worker];
   if (o.code) args.push('--code', o.code);
   if (o.kitOnly) args.push('--no-toolchain', '--no-voice', '--no-claude-mem');
+  if (o.extra) args.push(...o.extra);
   return [
     'set -u', 'umask 077', 'd="$(mktemp -d)"', `trap 'rm -rf "$d"' EXIT`,
     `cat > "$d/install.sh" <<'KAPPMAKER_INSTALLER_EOF'`, o.script.replace(/\n?$/, ''), 'KAPPMAKER_INSTALLER_EOF',

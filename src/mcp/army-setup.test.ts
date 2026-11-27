@@ -13,6 +13,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createMcpServer } from './server.js';
+import { fillPage } from './pages.test.helper.js';
 
 const CODE = 'ABCD-EFGH-JKLM';
 const TOKEN = '123456789:AAbbCCddEEffGGhhIIjjKKllMMnnOOppQQ';
@@ -24,7 +25,7 @@ fs.writeFileSync(sshKey, 'not a real key', { mode: 0o600 });
 const box = { host: '203.0.113.7', ssh_key_path: sshKey };
 
 /** A server that moves on as the steps happen. `sudoFull` = root login is refused once the install is done. */
-function fakeServer(o: { sudoFull?: boolean; oldKit?: boolean; failInstall?: boolean } = {}) {
+function fakeServer(o: { sudoFull?: boolean; oldKit?: boolean; failInstall?: boolean; autopair?: boolean } = {}) {
   const s = { install: 'none' as 'none' | 'running' | 'done' | 'failed', polls: 0, claude: false, login: false, token: false, pending: false, paired: false, greeted: false };
   const sent: { user: string; remote: string; stdin: string }[] = [];
   const ssh = async (conn: { user: string }, remote: string, stdin: string) => {
@@ -53,7 +54,8 @@ function fakeServer(o: { sudoFull?: boolean; oldKit?: boolean; failInstall?: boo
       if (o.oldKit) return { exitCode: 2, output: 'kappmaker-army worker add <name> ...' };
       if (stdin.includes('--approve')) { s.paired = true; s.greeted = true; return { exitCode: 0, output: 'bot=acme_bot\nstate=paired\ngreeted=yes' }; }
       if (s.paired) return { exitCode: 0, output: 'bot=acme_bot\nstate=paired' };
-      if (!s.pending) { s.pending = true; return { exitCode: 0, output: 'bot=acme_bot\nstate=none' }; }
+      if (!s.pending) { s.pending = true; return { exitCode: 0, output: 'bot=acme_bot\nstate=none\nautopair=1700' }; }
+      if (o.autopair !== false) { s.paired = true; s.greeted = true; return { exitCode: 0, output: 'bot=acme_bot\nstate=paired\nsender=4242\ngreeted=yes' }; }
       return { exitCode: 0, output: 'bot=acme_bot\nstate=pending\ncode=abc123\nsender=4242\nwho=Ada (@ada)' };
     }
     return { exitCode: 0, output: 'ok' };
@@ -61,7 +63,8 @@ function fakeServer(o: { sudoFull?: boolean; oldKit?: boolean; failInstall?: boo
   return { s, sent, ssh };
 }
 
-async function connect(server: ReturnType<typeof fakeServer>, elicit?: (msg: string) => Record<string, unknown> | undefined) {
+async function connect(server: ReturnType<typeof fakeServer>, elicit?: (msg: string) => Record<string, unknown> | undefined,
+  page?: (msg: string) => Record<string, string> | undefined) {
   const posts: string[] = [];
   const mcp = await createMcpServer({
     version: 'test', secretValues: [], cwd: dir,
@@ -77,10 +80,18 @@ async function connect(server: ReturnType<typeof fakeServer>, elicit?: (msg: str
       exec: async () => ({ exitCode: 0, output: 'ok' }),
     },
   });
-  const client = new Client({ name: 't', version: '0' }, elicit ? { capabilities: { elicitation: {} } } : {});
-  if (elicit) {
+  const caps = page ? { elicitation: { form: {}, url: {} } } : elicit ? { elicitation: {} } : undefined;
+  const client = new Client({ name: 't', version: '0' }, caps ? { capabilities: caps } : {});
+  if (elicit || page) {
     client.setRequestHandler(ElicitRequestSchema, async (req) => {
-      const c = elicit((req.params as { message: string }).message);
+      const p = req.params as { mode?: string; url?: string; message: string };
+      if (p.mode === 'url') {
+        const v = page?.(p.message);
+        if (!v) return { action: 'decline' };
+        setTimeout(() => void fillPage(p.url!, v), 20);
+        return { action: 'accept' };
+      }
+      const c = elicit?.(p.message);
       return c ? { action: 'accept', content: c as never } : { action: 'decline' };
     });
   }
@@ -92,26 +103,32 @@ async function connect(server: ReturnType<typeof fakeServer>, elicit?: (msg: str
   };
 }
 
-test('one sentence: plan, install, sign-in link, token form, "is that you?", READY', async () => {
+test('the plan names every step and opens no page', async () => {
   const srv = fakeServer();
   const asked: string[] = [];
-  const call = await connect(srv, (msg) => {
-    asked.push(msg);
-    if (/install code/i.test(msg)) return { code_or_key: CODE };
-    if (/bot token/i.test(msg)) return { token: TOKEN };
-    if (/Is that you\?/.test(msg)) return { me: true };
-    return undefined;
-  });
+  const call = await connect(srv, undefined, (m) => { asked.push(m); return undefined; });
   const plan = await call();
   assert.match(plan.body, /^PLAN: set up App Army on 203\.0\.113\.7/);
   assert.match(plan.body, /Your App Army is ready\. Tell me your app idea\./);
+  assert.deepEqual(asked, []);
   assert.ok(!srv.sent.some((x) => x.stdin.includes('KAPPMAKER_SETUP_EOF')), 'nothing installed before the yes');
+});
 
+test('one sentence is the go-ahead: one page (code + bot token), install, sign-in link, first message, READY', async () => {
+  const srv = fakeServer();
+  const pages: string[] = [];
+  const forms: string[] = [];
+  const call = await connect(srv, (m) => { forms.push(m); return undefined; }, (m) => {
+    pages.push(m);
+    return /install code/i.test(m) ? { code_or_key: CODE, bot_token: TOKEN } : undefined;
+  });
   const started = await call({ confirm: true });
-  assert.match(started.body, /^INSTALLING .*started/);
+  assert.match(started.body, /^INSTALLING App Army on 203\.0\.113\.7: started/, started.body);
+  assert.equal(pages.length, 1, 'one page for the install code and the bot token');
   const inst = srv.sent.find((x) => x.stdin.includes('KAPPMAKER_SETUP_EOF'))!;
   assert.match(inst.stdin, /nohup \$SETSID bash/, 'install runs detached');
   assert.match(inst.stdin, /'--code' 'ABCD-EFGH-JKLM'/);
+  assert.ok(!inst.stdin.includes(TOKEN), 'the bot token is held until its step, not sent with the install');
   assert.doesNotMatch(inst.remote, /ABCD|install/, 'nothing secret on the ssh command line');
 
   const busy = await call();
@@ -121,24 +138,42 @@ test('one sentence: plan, install, sign-in link, token form, "is that you?", REA
   const signedIn = await call();
   assert.match(signedIn.body, /signed in/);
   const bot = await call();
-  assert.match(bot.body, /WAITING FOR YOU: open your new bot/);
+  assert.match(bot.body, /Your bot is connected to the server\. WAITING FOR YOU: on your phone, open https:\/\/t\.me\/acme_bot/);
+  assert.equal(pages.length, 1, 'the token from the first page was used: no second page');
   const tokenRun = srv.sent.find((x) => x.stdin.includes('worker add'))!;
   assert.ok(tokenRun.stdin.includes(TOKEN) && !tokenRun.remote.includes(TOKEN), 'token only on ssh stdin');
-  const wait = await call();
-  assert.match(wait.body, /^WAITING FOR YOU: on your phone, open https:\/\/t\.me\/acme_bot/);
+  assert.match(tokenRun.stdin, /--token-stdin/);
   const ready = await call();
   assert.match(ready.body, /^READY\. .*It just wrote to you on Telegram: "Your App Army is ready\. Tell me your app idea\."/s);
-  assert.ok(asked.some((m) => /Ada \(@ada\) \(Telegram id 4242\)\. Is that you\?/.test(m)));
-  assert.ok(srv.s.greeted);
+  assert.deepEqual(forms, [], 'no form at all on the golden path');
   const again = await call();
   assert.match(again.body, /^READY\. .*@acme_bot answers only you/s);
-  for (const r of [plan, started, busy, login, signedIn, bot, wait, ready, again]) {
+  for (const r of [started, busy, login, signedIn, bot, ready, again]) {
     assert.ok(!r.body.includes(TOKEN) && !r.body.includes(CODE), 'no secret in any answer');
   }
 });
 
-test('no forms: pairing waits for the user\'s yes in chat and the sender they confirmed', async () => {
+test('no token on the first page: a page of its own later; an AI app without pages gets the exact steps', async () => {
   const srv = fakeServer();
+  Object.assign(srv.s, { install: 'done', claude: true });
+  const pages: string[] = [];
+  const call = await connect(srv, undefined, (m) => { pages.push(m); return { bot_token: TOKEN }; });
+  const r = await call();
+  assert.match(r.body, /Your bot is connected/);
+  assert.equal(pages.length, 1);
+  assert.match(pages[0], /token/);
+
+  const plain = fakeServer();
+  Object.assign(plain.s, { install: 'done', claude: true });
+  const callPlain = await connect(plain);
+  const steps = await callPlain();
+  assert.match(steps.body, /bot_file/);
+  assert.match(steps.body, /--token-file/);
+  assert.equal(plain.s.token, false);
+});
+
+test('no forms: pairing waits for the user\'s yes in chat and the sender they confirmed', async () => {
+  const srv = fakeServer({ autopair: false });
   Object.assign(srv.s, { install: 'done', claude: true, token: true });
   const call = await connect(srv);
   assert.match((await call()).body, /WAITING FOR YOU/);
@@ -153,7 +188,7 @@ test('no forms: pairing waits for the user\'s yes in chat and the sender they co
 
 test('failed install reports the log; --sudo full falls back to the worker login; old kits get a terminal line', async () => {
   const bad = fakeServer({ failInstall: true });
-  const callBad = await connect(bad, (m) => (/install code/i.test(m) ? { code_or_key: CODE } : undefined));
+  const callBad = await connect(bad, undefined, (m) => (/install code/i.test(m) ? { code_or_key: CODE } : undefined));
   await call2(callBad);
   const failed = await callBad();
   assert.equal(failed.isError, true);
@@ -161,11 +196,11 @@ test('failed install reports the log; --sudo full falls back to the worker login
 
   const full = fakeServer({ sudoFull: true });
   Object.assign(full.s, { install: 'done', claude: true });
-  const callFull = await connect(full, () => ({ token: TOKEN }));
+  const callFull = await connect(full, undefined, () => ({ bot_token: TOKEN }));
   await callFull();
   assert.ok(full.sent.some((x) => x.user === 'army'), 'retried as the worker user');
 
-  const old = fakeServer({ oldKit: true });
+  const old = fakeServer({ oldKit: true, autopair: false });
   Object.assign(old.s, { install: 'done', claude: true, token: true });
   const callOld = await connect(old);
   const r = await callOld();

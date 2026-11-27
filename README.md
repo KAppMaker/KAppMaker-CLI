@@ -13,8 +13,9 @@ Make Android and iOS apps with AI, and run App Army, your own AI app team, on yo
 | Codex | `npx -y kappmaker@latest mcp connect codex` |
 | Gemini CLI | `npx -y kappmaker@latest mcp connect gemini` |
 
-It installs what you bought and stops only for what needs you: a Claude sign-in link, your Telegram bot token (in a
-private form), and one message to your new bot. Then your bot writes: "Your App Army is ready. Tell me your app idea."
+That sentence is your go-ahead. It installs what you bought and stops only for what needs you: one private page on
+your computer for your install code and your Telegram bot token (your AI never sees them), a Claude sign-in link,
+and one message to your new bot. Then your bot writes: "Your App Army is ready. Tell me your app idea."
 
 **2. One command** on your laptop, or on a Linux server as root:
 

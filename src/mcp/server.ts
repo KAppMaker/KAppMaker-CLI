@@ -29,12 +29,13 @@ const PROGRESS_EVERY_MS = 5_000;
 
 const INSTRUCTIONS =
   'KAppMaker builds and ships mobile apps (Android + iOS). ' +
-  'App Army on a server ("set up App Army on my server at 1.2.3.4"): call army_setup with the host and the path of the user\'s SSH key, ' +
-  'show its plan, then keep calling it with the same arguments until it answers READY. Relay every WAITING FOR YOU line to the user in plain words. ' +
+  'App Army on a server ("set up App Army on my server at 1.2.3.4"): call army_setup with the host. A message that asks for the setup is the user\'s yes, ' +
+  'so pass confirm: true on the first call; only show the plan first when they asked what it would do. Keep calling it with the same arguments until it answers READY, ' +
+  'and relay every WAITING FOR YOU line to the user in plain words. ' +
   'Not sure what they bought, or they bought the plugin: army_plan_setup. ' +
   'Building an app on this computer: start with doctor and config_check, then create_app_plan. ' +
   'Tools marked long or paid return a plan first; show it to the user and call again with confirm: true only after they agree. ' +
-  'Never ask the user to paste a key, token or password into the chat: the army_* tools ask through a private form or give a command to run, ' +
+  'Never ask the user to paste a key, token or password into the chat: the army_* tools open a private page on this computer, or give a command to run, ' +
   'and other keys are saved by the user with `kappmaker config set`. Every tool takes project_dir (the app folder).';
 
 const text = (t: string, isError = false): CallToolResult => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError } : {}) });
@@ -79,7 +80,17 @@ export async function createMcpServer(opts: ServerOptions): Promise<McpServer> {
         if (tool.type === 'local') {
           const secrets: string[] = [];
           const caps = server.server.getClientCapabilities();
-          const canAsk = Boolean(caps?.elicitation);
+          const el = caps?.elicitation as { form?: object; url?: object } | undefined;
+          const canAsk = Boolean(el && (el.form || !el.url));
+          const canAskUrl = Boolean(el?.url);
+          const askUrl = async (message: string, url: string, id: string) => {
+            if (!canAskUrl) return false;
+            const r = await server.server.elicitInput({ mode: 'url', message, url, elicitationId: id } as never);
+            return r.action === 'accept';
+          };
+          const urlDone = (id: string) => {
+            try { void server.server.createElicitationCompletionNotifier(id)().catch(() => undefined); } catch { /* client without url mode */ }
+          };
           const ask = async (message: string, fields: AskField[]) => {
             if (!canAsk) return undefined;
             const properties: Record<string, object> = {};
@@ -101,7 +112,7 @@ export async function createMcpServer(opts: ServerOptions): Promise<McpServer> {
             last = now;
             void extra.sendNotification({ method: 'notifications/progress', params: { progressToken, progress: ++ticks, message: redact(message).slice(0, 200) } }).catch(() => undefined);
           };
-          const out = await tool.run(input, { cwd, configDir: opts.configDir, canAsk, ask, secrets, progress, signal: extra.signal, army: deps });
+          const out = await tool.run(input, { cwd, configDir: opts.configDir, canAsk, ask, canAskUrl, askUrl, urlDone, secrets, progress, signal: extra.signal, army: deps });
           const mask = makeRedactor(secrets);
           const body = typeof out === 'string' ? out : out.text;
           return text(mask(redact(body)), typeof out !== 'string');

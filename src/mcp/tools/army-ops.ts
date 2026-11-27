@@ -1,27 +1,13 @@
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { z } from 'zod';
 import { local, type LocalCtx, type ToolDef } from '../define.js';
-import { asWorker, workerShellCommand } from '../army/scripts.js';
-import { shq, userCommand, type Conn } from '../army/ssh.js';
-import { conn, connShape, destructiveShape, fail, isConn, remote, secondYes, tail, type Failure, type ToolOut } from '../army/common.js';
+import { kit } from '../army/kit.js';
+import { shq, type Conn } from '../army/ssh.js';
+import { conn, connShape, destructiveShape, fail, isConn, secondYes } from '../army/common.js';
 import { claudeLoginTool } from './army-login.js';
+import { addWorkerTool } from './army-bot.js';
 import { pairTool } from './army-pair.js';
 
 const worker = z.string().regex(/^[a-z0-9-]{1,32}$/, 'a-z, 0-9 and -, up to 32 characters').describe('Worker name, e.g. main');
-const TOKEN = /^\d{5,12}:[A-Za-z0-9_-]{30,64}$/;
-
-/** Runs `kappmaker-army …` on the server as the worker user; plain failure with the output tail. */
-async function kit(ctx: LocalCtx, c: Conn, body: string, stream = false): Promise<{ ok: boolean; out: string; fail?: ToolOut }> {
-  const r = await remote(ctx, c, asWorker(c, body), stream);
-  const out = tail(r.output);
-  if (r.exitCode === 0) return { ok: true, out };
-  if (/command not found|No such file/.test(r.output) && /kappmaker-army/.test(r.output)) {
-    return { ok: false, out, fail: fail(`App Army is not installed on ${c.host} for the worker user yet. Run army_install_server first.`) };
-  }
-  return { ok: false, out, fail: fail(`${r.why ?? `It failed (exit ${r.exitCode}).`}\n${out}`) };
-}
 
 /** A tool that takes the server connection and does one kit command. */
 function op(o: { name: string; title: string; description: string; kind: 'read' | 'write' | 'long'; shape?: z.ZodRawShape;
@@ -44,54 +30,6 @@ function op(o: { name: string; title: string; description: string; kind: 'read' 
   });
 }
 
-
-function readTokenFile(file: string): { token: string } | Failure {
-  const p = path.resolve(file.replace(/^~(?=$|\/)/, os.homedir()));
-  let raw: string;
-  try { raw = fs.readFileSync(p, 'utf8'); } catch { return fail(`No file at ${p}.`); }
-  const token = (raw.match(/^\s*(?:TELEGRAM_BOT_TOKEN=)?["']?([^\s"']+)/) ?? [])[1] ?? '';
-  return TOKEN.test(token) ? { token } : fail(`${p} does not hold a bot token (one line like 123456789:AA… from @BotFather).`);
-}
-
-/** Exported so army_setup can run the same step. */
-export const addWorkerTool: ToolDef = local({
-    name: 'army_add_worker',
-    title: 'Connect a Telegram bot (add a worker)',
-    description:
-      'Adds an always-on worker with the user\'s own Telegram bot (or connects the bot to the worker the install made). ' +
-      'The bot token is typed into a private form the AI never sees; without one, this returns the command for the user to run in their own terminal.',
-    kind: 'long',
-    network: true,
-    shape: {
-      ...connShape, name: worker.default('main'),
-      bot_file: z.string().optional().describe('Only when the app cannot show forms: path of a text file on THIS computer holding the bot token (the user saves it there). Never the token itself'),
-    },
-    run: async (i, ctx) => {
-      const c = conn(i);
-      if (!isConn(c)) return c;
-      const fromFile = i.bot_file ? readTokenFile(String(i.bot_file)) : undefined;
-      if (fromFile && 'isError' in fromFile) return fromFile;
-      const manual = userCommand(c, workerShellCommand(c, `kappmaker-army worker add ${i.name} && kappmaker-army start --worker ${i.name}`));
-      const pairing = 'Next: the user sends the bot one message on Telegram, then call army_pair_telegram (it asks them "is that you?" in a private form).';
-      if (i.confirm !== true) {
-        return `PLAN on ${c.host}: worker "${i.name}" with your own Telegram bot (make one with @BotFather → /newbot; it gives you a token). ` +
-          `${ctx.canAsk ? 'You will type the token into a private form.' : 'This app cannot show a private form, so you run one command yourself.'} Run with confirm: true after the user's yes.`;
-      }
-      if (!ctx.canAsk && !fromFile) {
-        return `This AI app cannot show a private form. Either save the bot token in a text file on this computer (one line) and give me its path as bot_file, or run this in your own terminal (it asks for the token hidden):\n  ${manual}`;
-      }
-      const got = fromFile ? { token: fromFile.token } : await ctx.ask(`Paste the Telegram bot token from @BotFather for worker "${i.name}". It goes to your server only, not to the AI.`, [
-        { name: 'token', title: 'Bot token', description: '123456789:AA…' },
-      ]);
-      const tok = typeof got?.token === 'string' ? got.token.trim() : '';
-      if (!tok) return fail('No token given; nothing changed.');
-      if (!TOKEN.test(tok)) return fail('That does not look like a bot token (it looks like 123456789:AA… from @BotFather). Nothing changed.');
-      ctx.secrets.push(tok);
-      const body = `umask 077; t="$(mktemp)"; trap 'rm -f "$t"' EXIT\nprintf '%s\\n' ${shq(tok)} > "$t"\nkappmaker-army worker add ${shq(String(i.name))} --token-file "$t"`;
-      const r = await kit(ctx, c, body);
-      return r.ok ? `Worker "${i.name}" is connected to your bot.\n${r.out}\n\n${pairing}` : r.fail!;
-    },
-  });
 
 export const armyOpsTools: ToolDef[] = [
   op({ name: 'army_doctor', title: 'App Army health check', kind: 'read',
@@ -132,3 +70,5 @@ export const armyOpsTools: ToolDef[] = [
   pairTool,
   claudeLoginTool,
 ];
+
+export { addWorkerTool };

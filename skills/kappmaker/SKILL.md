@@ -51,11 +51,13 @@ skills below still apply for what to pass. The tools that take minutes, create t
 return a **plan** first. Show the plan to the user, and call the tool again with `confirm: true` only after they
 agree. Shelling out to `kappmaker` is still fine when the server is not connected.
 
-**App Army on a server** ("set up App Army on my server at 1.2.3.4"): call `army_setup` with the host and the
-path of the user's SSH key. Show its plan, call it again with `confirm: true` after their yes, then keep calling it
-with the same arguments until it answers READY. Pass each "WAITING FOR YOU" line to the user in plain words (sign-in
-link, BotFather token in a private form, one message to the bot, "is that you?"). Never ask for the token or the
-install code in chat. Not connected? Tell the user the one line: `npx -y kappmaker@latest mcp connect <their app>`.
+**App Army on a server** ("set up App Army on my server at 1.2.3.4"): call `army_setup` with the host. The
+user's own request to set it up is their yes, so pass `confirm: true` on the first call (show the plan first only
+when they asked what it would do). Then keep calling it with the same arguments until it answers READY. Pass each
+"WAITING FOR YOU" line to the user in plain words: one private page on their computer for the install code and the
+bot token (from @BotFather), the Claude sign-in link, one message to the new bot. Never ask for the token, the
+install code or a sign-in code in chat. Not connected? Tell the user the one line:
+`npx -y kappmaker@latest mcp connect <their app>`.
 
 ## The usual journey
 

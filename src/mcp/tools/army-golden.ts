@@ -6,17 +6,18 @@ import { local, type LocalCtx, type LocalTool, type ToolDef } from '../define.js
 import { downloadVerifiedInstaller, resolveOrigin, DEFAULT_ORIGIN } from '../../services/army.service.js';
 import { checkEntitlement, hasMentorPack, isKit, productName } from '../army/licence.js';
 import { PROBE, installScript, judge, parseProbe, WORKER_USER } from '../army/scripts.js';
-import { connShape, conn, fail, isConn, licenceFrom, licenceShape, remote, tail, type ToolOut } from '../army/common.js';
+import { connShape, conn, fail, isConn, licenceFrom, licenceShape, licenceValue, remote, tail, type ToolOut } from '../army/common.js';
+import { askSecret, FIELDS, hold } from '../army/secrets.js';
 import type { Conn } from '../army/ssh.js';
 import { SETUP_DIR, detachedInstall, installLogTail, parseState, stateScript, type SetupState } from '../army/setup-state.js';
 import { claudeLoginTool } from './army-login.js';
-import { addWorkerTool } from './army-ops.js';
+import { addWorkerTool } from './army-bot.js';
 import { pairStep, READY_TEXT } from './army-pair.js';
 
 /**
  * The golden path in one tool: "Set up App Army on my server at 1.2.3.4". Each call looks at the server and moves
  * the setup one step on: install (detached, so no call waits 25 minutes), Claude sign-in (a link), the Telegram bot
- * (token in a private form), pairing ("is that you?"), and stops at READY when the bot has written first. The AI
+ * (install code and token on a one-time private page), pairing (by itself on current kits), and stops at READY when the bot has written first. The AI
  * calls it again, with the same arguments, until the answer starts with READY. Only the install needs confirm: true.
  */
 const WORKER = 'main';
@@ -35,29 +36,53 @@ async function look(ctx: LocalCtx, c: Conn): Promise<{ c: Conn; st?: SetupState;
   return { c, st: parseState(r.output) };
 }
 
+/** Licence (and, on the same page, the bot token for later) for the install. */
+async function licenceAndBot(i: Record<string, unknown>, ctx: LocalCtx, c: Conn): Promise<{ key?: string; code?: string } | ToolOut> {
+  if (i.install_code || i.licence_key_file || !ctx.canAskUrl) {
+    const l = await licenceFrom(i as never, ctx);
+    return 'waiting' in l ? l.waiting : l;
+  }
+  const got = await askSecret(ctx, `setup:${c.host}`, {
+    title: 'Set up App Army', message: 'Open this page and paste your install code and your Telegram bot token. They go straight to your server, not to the AI.',
+    fields: [FIELDS.code, FIELDS.bot(true)],
+  });
+  if ('waiting' in got) return got.waiting;
+  if (!('values' in got)) return fail('No install code was given, so nothing was installed.');
+  if (got.values.bot_token) hold(`bot:${c.host}`, { bot_token: got.values.bot_token });
+  return licenceValue(got.values.code_or_key);
+}
+
+/** Installer flags that answer its questions up front, passed only when this install.sh knows them (older ones refuse unknown flags). */
+export function promptFlags(script: string): string[] {
+  const out: string[] = [];
+  if (script.includes('--routines)')) out.push('--routines', 'off');
+  if (script.includes('--prompt-timeout)')) out.push('--prompt-timeout', '60');
+  return out;
+}
+
 async function startInstall(i: Record<string, unknown> & { confirm?: boolean }, ctx: LocalCtx, c: Conn): Promise<ToolOut> {
   const probe = await remote(ctx, c, { remote: 'bash -s', stdin: PROBE });
   if (probe.exitCode !== 0) return fail(probe.why ?? `Could not check ${c.host} (exit ${probe.exitCode}).`);
   const rep = judge(parseProbe(probe.output), c);
   if (rep.blockers.length) return fail(`Not installing yet:\n  ${rep.blockers.join('\n  ')}`);
-  const lic = await licenceFrom(i as never, ctx);
-  if ('isError' in lic) return lic;
-  const ent = await checkEntitlement(lic, ctx.army.fetch);
-  if (!ent.valid) return fail(`Nothing installed. ${ent.note}`);
-  if (!isKit(ent.product)) return fail('Your purchase is App Army for Claude Code (the plugin): it runs inside Claude Code on your own computer, not on a server. Use army_install_plugin.');
-  const mentor = hasMentorPack(ent.product);
   if (i.confirm !== true) {
     return [
-      `PLAN: set up ${productName(ent.product)} on ${c.host} (nothing has run yet)`, ...rep.lines.map((l) => `  ${l}`),
+      `PLAN: set up App Army on ${c.host} (nothing has run yet)`, ...rep.lines.map((l) => `  ${l}`),
       'What happens, start to finish:',
-      '  1. The official installer runs on the server (10 to 25 minutes): security baseline (SSH keys only, firewall, automatic security updates), a worker user with limited rights, the tools, the kit' + (mentor ? ', your mentor pack' : '') + ' and an always-on worker.',
-      '  2. You sign Claude in: I give you a link to open in your browser.',
-      '  3. You make a Telegram bot with @BotFather and paste its token into a private form (the AI never sees it).',
-      '  4. You send your new bot one message; I ask you to confirm it is you.',
+      '  1. A private page opens on your computer: paste your install code from "My purchase" and your Telegram bot token (from @BotFather: /newbot). Your AI never sees them.',
+      '  2. The official installer runs on the server (10 to 25 minutes): security baseline (SSH keys only, firewall, automatic security updates), a worker user with limited rights, the tools, the kit, your mentor pack if you bought it, and an always-on worker.',
+      '  3. You sign Claude in: open the link I give you.',
+      '  4. You send your new bot one message. It connects to you by itself.',
       `  5. Your bot writes to you: "${READY_TEXT}"`,
       'Show this to the user. After their yes, call army_setup again with confirm: true.',
     ].join('\n');
   }
+  const lic = await licenceAndBot(i, ctx, c);
+  if (typeof lic === 'string' || 'isError' in lic) return lic as ToolOut;
+  const ent = await checkEntitlement(lic, ctx.army.fetch);
+  if (!ent.valid) return fail(`Nothing installed. ${ent.note}`);
+  if (!isKit(ent.product)) return fail('Your purchase is App Army for Claude Code (the plugin): it runs inside Claude Code on your own computer, not on a server. Use army_install_plugin.');
+  const mentor = hasMentorPack(ent.product);
   let script: string;
   try {
     const origin = resolveOrigin();
@@ -65,7 +90,7 @@ async function startInstall(i: Record<string, unknown> & { confirm?: boolean }, 
     script = detachedInstall(installScript({
       script: fs.readFileSync(dl.scriptPath, 'utf8'), keyFile: lic.key ? `${SETUP_DIR}/key` : undefined, code: lic.code,
       api: origin === DEFAULT_ORIGIN ? undefined : origin, sudo: 'limited', worker: WORKER, mentor,
-      kitOnly: i.kit_only === true,
+      kitOnly: i.kit_only === true, extra: promptFlags(fs.readFileSync(dl.scriptPath, 'utf8')),
     }), lic.key);
     fs.rmSync(dl.dir, { recursive: true, force: true });
   } catch (e) {
@@ -74,23 +99,25 @@ async function startInstall(i: Record<string, unknown> & { confirm?: boolean }, 
   if (lic.key) ctx.secrets.push(lic.key);
   const r = await remote(ctx, c, { remote: c.user === 'root' ? 'bash -s' : 'sudo -n bash -s', stdin: script });
   if (r.exitCode !== 0 || !/STARTED|ALREADY_RUNNING/.test(r.output)) return fail(`The install did not start (exit ${r.exitCode}). ${r.why ?? ''}\n${tail(r.output, 10)}`);
-  return `INSTALLING on ${c.host}: started. It takes 10 to 25 minutes and keeps going even if this chat closes. ${again} every few minutes to see how far it is.`;
+  return `INSTALLING ${productName(ent.product)} on ${c.host}: started. It takes 10 to 25 minutes and keeps going even if this chat closes. ${again} every few minutes to see how far it is.`;
 }
 
 export const setupTool: ToolDef = local({
   name: 'army_setup',
   title: 'Set up App Army on a server, start to finish',
   description:
-    'Use this when the user says "set up App Army on my server at <ip>". One tool for the whole setup: it looks at the ' +
-    'server and does the next step each time it is called (install, Claude sign-in link, Telegram bot token in a private ' +
-    'form, "is that you?" for the first message). Call it again with the same arguments until the answer starts with ' +
-    'READY. Lines starting with WAITING FOR YOU say what the user must do. Only starting the install needs confirm: true.',
+    'Use this when the user says "set up App Army on my server at <ip>". One tool for the whole setup: each call looks ' +
+    'at the server and does the next step (install, Claude sign-in link, bot token, first message to the bot). Call it ' +
+    'again with the same arguments until the answer starts with READY. Lines starting with WAITING FOR YOU say what the ' +
+    'user must do. Install code and bot token go in on a private page on this computer, never through the chat. ' +
+    'Starting the install needs confirm: true. When the user\'s own message already asks for the setup ("Set up App ' +
+    'Army on my server at 1.2.3.4"), that is their yes: pass confirm: true on the first call.',
   kind: 'long',
   network: true,
   shape: {
     ...connShape, ...licenceShape,
     ssh_key_path: z.string().optional().describe("Path to the user's private SSH key on THIS machine. Leave out to use ~/.ssh/id_ed25519 (or id_ecdsa, id_rsa)"),
-    bot_file: z.string().optional().describe('Only when the app cannot show forms: path of a text file on THIS computer holding the bot token'),
+    bot_file: z.string().optional().describe('Only when the app cannot open private pages: path of a text file on THIS computer holding the bot token'),
     kit_only: z.boolean().default(false).describe('Test boxes only: skip the developer tools'),
     approve_sender: z.string().regex(/^\d{1,20}$/).optional().describe('Only when the app cannot show forms: the Telegram id the user confirmed is theirs'),
   },
@@ -116,13 +143,17 @@ export const setupTool: ToolDef = local({
       const out = await sub(claudeLoginTool, { action: st.loginWaiting ? 'finish' : 'start' });
       const body = typeof out === 'string' ? out : out.text;
       if (/is signed in/.test(body)) return `${body.replace(/ Next: army_add_worker\./, '')}\n${again} for the next step.`;
+      if (/^WAITING FOR YOU/.test(body)) return body.replace(/Then call army_claude_login with action finish again\./, `Then ${again.toLowerCase()}.`);
       return `WAITING FOR YOU: ${body.replace(/Then call army_claude_login with action finish\./, `When you have signed in, tell me (I then call army_setup again).`)}`;
     }
     if (!st.token) {
       const out = await sub(addWorkerTool, { name: WORKER, confirm: true, bot_file: i.bot_file });
       if (typeof out !== 'string') return out;
-      if (/cannot show a private form/.test(out)) return `WAITING FOR YOU: make a Telegram bot with @BotFather (send /newbot). ${out}\nThen ${again.toLowerCase()}.`;
-      return `Your bot is connected to the server. WAITING FOR YOU: open your new bot in Telegram and send it any message, like: hi. Then ${again.toLowerCase()}.`;
+      if (/^WAITING FOR YOU/.test(out)) return out.replace(/Then call this again\./, `Then ${again.toLowerCase()}.`);
+      if (/cannot open a private page/.test(out)) return `WAITING FOR YOU: make a Telegram bot with @BotFather (send /newbot). ${out}\nThen ${again.toLowerCase()}.`;
+      const p = await pairStep(ctx, c, WORKER, { approve_sender: i.approve_sender as string | undefined });
+      if (p.done) return `READY. App Army is set up on ${c.host}. ${typeof p.out === 'string' ? p.out : ''}\nTell the user: reply to your bot with your app idea and it starts building.`;
+      return `Your bot is connected to the server. ${typeof p.out === 'string' ? p.out : p.out.text}`;
     }
     if (!st.paired) {
       const p = await pairStep(ctx, c, WORKER, { approve_sender: i.approve_sender as string | undefined });

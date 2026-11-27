@@ -12,6 +12,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { ElicitRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createMcpServer } from './server.js';
+import { fillPage } from './pages.test.helper.js';
 import type { Conn } from './army/ssh.js';
 
 const KEY = 'KAM-AAAAA-BBBBB-CCCCC-DDDDD';
@@ -27,7 +28,7 @@ const PROBE_OK = 'os=Ubuntu 24.04 LTS\nos_id=ubuntu\nos_ver=24.04\nkernel=Linux\
 
 type Ssh = { conn: Conn; remote: string; stdin: string };
 
-async function setup(o: { probe?: string; elicit?: (req: { message: string; requestedSchema: { properties: Record<string, unknown> } }) => Record<string, unknown> | undefined } = {}) {
+async function setup(o: { probe?: string; elicit?: (req: { message: string; requestedSchema: { properties: Record<string, unknown> } }) => Record<string, unknown> | undefined; page?: (msg: string) => Record<string, string> | undefined } = {}) {
   const ssh: Ssh[] = [];
   const posts: string[] = [];
   const execs: { file: string; args: string[]; env?: Record<string, string> }[] = [];
@@ -53,9 +54,18 @@ async function setup(o: { probe?: string; elicit?: (req: { message: string; requ
       exec: async (file, args, env) => { execs.push({ file, args, env }); return { exitCode: 0, output: 'ok' }; },
     },
   });
-  const client = new Client({ name: 't', version: '0' }, o.elicit ? { capabilities: { elicitation: {} } } : {});
-  if (o.elicit) {
+  const caps = o.page ? { elicitation: { form: {}, url: {} } } : o.elicit ? { elicitation: {} } : undefined;
+  const client = new Client({ name: 't', version: '0' }, caps ? { capabilities: caps } : {});
+  if (o.elicit || o.page) {
     client.setRequestHandler(ElicitRequestSchema, async (req) => {
+      const p = req.params as { mode?: string; url?: string; message: string };
+      if (p.mode === 'url') {
+        const v = o.page?.(p.message);
+        if (!v) return { action: 'decline' };
+        setTimeout(() => void fillPage(p.url!, v), 20);
+        return { action: 'accept' };
+      }
+      if (!o.elicit) return { action: 'decline' };
       const content = o.elicit!(req.params as never);
       return content ? { action: 'accept', content: content as never } : { action: 'decline' };
     });
@@ -140,10 +150,12 @@ test('install: plugin purchase refused, plan first, then the official installer 
   assert.match(ssh.at(-1)!.stdin, /kappmaker-army mentor install/);
 });
 
-test('elicitation: the licence and the bot token go from a private form to the server, never into tool output', async () => {
+test('secrets go in on a one-time local page (URL elicitation), never a form or tool output', async () => {
   const asked: string[] = [];
+  const formAsks: string[] = [];
   const { call, ssh } = await setup({
-    elicit: (req) => { asked.push(Object.keys(req.requestedSchema.properties)[0]); return 'token' in req.requestedSchema.properties ? { token: TOKEN } : { code_or_key: 'ABCD-EFGH-JKLM' }; },
+    elicit: (req) => { formAsks.push(req.message); return undefined; },
+    page: (msg): Record<string, string> => { asked.push(msg); return /bot/i.test(msg) && !/install code/i.test(msg) ? { bot_token: TOKEN } : { code_or_key: 'ABCD-EFGH-JKLM' }; },
   });
   const inst = await call('army_install_server', { ...box, confirm: true });
   assert.equal(inst.isError, false, inst.body);
@@ -151,11 +163,13 @@ test('elicitation: the licence and the bot token go from a private form to the s
 
   const add = await call('army_add_worker', { ...box, name: 'main', confirm: true });
   assert.equal(add.isError, false, add.body);
-  assert.deepEqual(asked, ['code_or_key', 'token']);
+  assert.equal(asked.length, 2);
+  assert.deepEqual(formAsks, [], 'no secret is ever asked for in a form');
   const w = ssh.at(-1)!;
   assert.ok(w.stdin.includes(TOKEN) && !w.remote.includes(TOKEN), 'token only in the stdin script');
+  assert.match(w.stdin, /--token-stdin/);
   assert.equal(w.remote, "runuser -l army -c 'bash -s'");
-  assert.ok(!add.body.includes(TOKEN));
+  assert.ok(!add.body.includes(TOKEN) && !inst.body.includes('ABCD-EFGH-JKLM'));
 });
 
 test('without elicitation: exact commands for the user instead of asking for secrets in chat', async () => {

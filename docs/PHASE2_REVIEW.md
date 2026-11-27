@@ -80,14 +80,16 @@ Both are right, for different places; keep them, but say which is which:
 
 ## 7. Human steps on the MCP path, as counted now
 
-After paying, with a VPS made at a provider with the buyer's SSH key:
-1. Paste the one connect line (Claude Code users are already in a terminal; desktop users need one, see O5).
-2. Say the sentence ("Set up App Army on my server at 1.2.3.4").
-3. Say yes to the plan (and enter the install code in the private form, the same moment).
-4. Open the Claude sign-in link and sign in.
-5. Make the bot in BotFather and paste its token in the private form.
-6. Send the bot one message and confirm "that is me".
-7. Reply to the bot's "Your App Army is ready. Tell me your app idea." with the idea.
+Update (branch `claude/phase2b-golden-token-url`): secrets no longer go through MCP forms (the spec forbids that).
+The install code and the bot token go in on ONE one-time page served by `kappmaker mcp` on 127.0.0.1 (URL-mode
+elicitation), the sentence itself is the go-ahead (`confirm: true` on the first call), and kits with W21's
+auto-pairing connect the first message by themselves. After paying, with the MCP connected:
+1. Say the sentence ("Set up App Army on my server at 1.2.3.4").
+2. Fill the one private page: install code + bot token (made in BotFather).
+3. Open the Claude sign-in link and sign in (plus paste a code on a second small page if Claude asks for one).
+4. Send the new bot one message (it pairs by itself and writes "Your App Army is ready. Tell me your app idea.").
+5. Reply with the idea.
 
-7 actions, against the target of 5. Steps 1 and 3 are the extra ones: O5 removes the terminal from 1, and O4 can fold 3
-into 2. Waiting: the install runs by itself (10 to 25 minutes); nothing else needs the human.
+5 steps, the target. Connecting the MCP is one line before that (O5: a one-click desktop extension would remove its
+terminal). AI apps without URL elicitation fall back to: install code in the sentence or a key file, the bot token in
+a local file (`bot_file`) or the user's own terminal, and "is that you?" confirmed in chat.

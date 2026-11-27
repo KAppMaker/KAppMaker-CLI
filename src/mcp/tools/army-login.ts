@@ -3,11 +3,12 @@ import { local, type ToolDef } from '../define.js';
 import { asWorker, workerShellCommand } from '../army/scripts.js';
 import { shq, userCommand } from '../army/ssh.js';
 import { conn, connShape, fail, isConn, remote } from '../army/common.js';
+import { askSecret, FIELDS } from '../army/secrets.js';
 
 /**
  * Claude Code sign-in on the server, for the worker user. `claude auth login` runs in a detached tmux session
  * (isolated Telegram state dir, so a live worker's poller is never touched); the tool returns the link for the user
- * to open in their own browser. If Claude then wants a code pasted back, the user types it into a private form.
+ * to open in their own browser. If Claude then wants a code pasted back, the user types it on a one-time private page on this computer.
  */
 const SESSION = 'kappmaker-login';
 const HEADLESS = 'TELEGRAM_STATE_DIR="$HOME/.claude/channels/telegram-headless"';
@@ -19,7 +20,7 @@ export const claudeLoginTool: ToolDef = local({
   title: 'Sign Claude Code in on the server',
   description:
     'action start: begins the Claude Code sign-in on the server and returns the link for the user to open in their own ' +
-    'browser. action finish: checks it worked; if Claude asks for a code, the user types it into a private form. ' +
+    'browser. action finish: checks it worked; if Claude asks for a code, the user pastes it on a private page on this computer. ' +
     'action check: is the server signed in. No password ever goes through here.',
   kind: 'write',
   network: true,
@@ -52,15 +53,14 @@ export const claudeLoginTool: ToolDef = local({
     // finish: maybe Claude waits for a code pasted back.
     const pane = await run(`tmux capture-pane -p -t ${SESSION} 2>/dev/null | tail -n 15`);
     if (/paste|enter.*code|code:/i.test(pane.output)) {
-      const got = await ctx.ask('Paste the code the Claude sign-in page showed you. It goes to your server only.', [
-        { name: 'code', title: 'Sign-in code', description: 'From the browser, after signing in' },
-      ]);
-      const code = typeof got?.code === 'string' ? got.code.trim() : '';
-      if (!code) {
-        return fail(ctx.canAsk ? 'No code given.' : `Finish it in your own terminal:\n  ${userCommand(c, workerShellCommand(c, `tmux attach -t ${SESSION}`))}\n(after the code is in: Ctrl-b d to leave)`);
-      }
-      if (!/^[A-Za-z0-9#_.~-]{6,300}$/.test(code)) return fail('That code has characters a sign-in code does not have. Copy it again.');
-      ctx.secrets.push(code);
+      const attach = `Finish it in your own terminal:\n  ${userCommand(c, workerShellCommand(c, `tmux attach -t ${SESSION}`))}\n(after the code is in: Ctrl-b d to leave)`;
+      const got = await askSecret(ctx, `login:${c.host}`, {
+        title: 'Claude sign-in code', message: 'Open this page and paste the code the Claude sign-in page showed you. It goes to your server only, not to the AI.',
+        fields: [FIELDS.signinCode],
+      });
+      if ('waiting' in got) return got.waiting.replace('Then call this again.', 'Then call army_claude_login with action finish again.');
+      if (!('values' in got)) return 'declined' in got ? fail('No code given.') : fail(attach);
+      const code = got.values.code;
       // load-buffer from stdin: the code is never a command-line argument on the server.
       await run(`printf '%s' ${shq(code)} | tmux load-buffer -b kmcode - && tmux paste-buffer -d -b kmcode -t ${SESSION} && tmux send-keys -t ${SESSION} Enter; sleep 5`);
     }

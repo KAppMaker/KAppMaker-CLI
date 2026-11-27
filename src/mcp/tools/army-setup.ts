@@ -40,6 +40,7 @@ export const armySetupTools: ToolDef[] = [
       if (i.install_code || i.licence_key_file) {
         const l = await licenceFrom(i, ctx);
         if ('isError' in l) return l;
+        if ('waiting' in l) return l.waiting;
         lic = l;
       }
       const ent = await checkEntitlement(lic, ctx.army.fetch);
@@ -79,7 +80,7 @@ export const armySetupTools: ToolDef[] = [
       'Installs what the user bought on their server with the official installer (install.sh --server, checked against its ' +
       'published checksum, nothing reimplemented): security baseline, the worker user with limited sudo, toolchain, the ' +
       'kit, the kappmaker plugin, the always-on worker, and the mentor pack when their purchase includes it. Ends with ' +
-      'the health check. Safe to re-run. The licence goes in through a private form or a file, never through chat.',
+      'the health check. Safe to re-run. The licence goes in on a private page on this computer or as a file, never through chat.',
     kind: 'long',
     network: true,
     shape: {
@@ -91,8 +92,10 @@ export const armySetupTools: ToolDef[] = [
     run: async (i, ctx) => {
       const c = conn(i);
       if (!isConn(c)) return c;
-      const lic = await licenceFrom(i, ctx);
-      if ('isError' in lic) return lic;
+      const got = await licenceFrom(i, ctx);
+      if ('isError' in got) return got;
+      if ('waiting' in got) return got.waiting;
+      const lic = got;
       const ent: Entitlement = await checkEntitlement(lic, ctx.army.fetch);
       if (!ent.valid) return fail(`Nothing installed. ${ent.note}`);
       if (!isKit(ent.product)) {

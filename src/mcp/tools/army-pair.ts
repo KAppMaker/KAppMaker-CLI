@@ -32,9 +32,13 @@ export async function pairStep(ctx: LocalCtx, c: Conn, worker: string, i: { appr
   const bot = kv.bot ? `@${kv.bot}` : 'your bot';
   const link = kv.bot ? `https://t.me/${kv.bot}` : 'your bot in Telegram';
   if (kv.state === 'no-token') return { done: false, out: fail(`Worker "${worker}" has no Telegram bot yet. Connect one first (army_add_worker).`) };
-  if (kv.state === 'paired') return { done: true, out: `Your Telegram account is connected: ${bot} answers only you.` };
+  if (kv.state === 'paired') {
+    // Current kits pair a brand-new bot's first message by themselves and the bot writes first.
+    const wrote = kv.greeted === 'yes' ? ` It just wrote to you on Telegram: "${READY_TEXT}"` : '';
+    return { done: true, out: `Your Telegram account is connected: ${bot} answers only you.${wrote}` };
+  }
   if (kv.state === 'none') {
-    return { done: false, out: `WAITING FOR YOU: on your phone, open ${link} and send it any message, like: hi\nThen call this again (I notice the message by myself; nothing to copy).` };
+    return { done: false, out: `WAITING FOR YOU: on your phone, open ${link} and send it any message, like: hi\nIt connects to you by itself. Then call this again (nothing to copy).` };
   }
   // pending: someone messaged the bot. Never approve without the owner's yes.
   const who = kv.who ? `${kv.who} (Telegram id ${kv.sender})` : `Telegram id ${kv.sender}`;

@@ -22,18 +22,21 @@ You need Node.js 22.12 or newer. Nothing else to install.
 
 ## 2. Say one sentence
 
-> Set up App Army on my server at 203.0.113.7. My SSH key is ~/.ssh/id_ed25519.
+> Set up App Army on my server at 203.0.113.7.
 
-Your AI uses one tool, `army_setup`, and calls it again after each step. It shows you the plan first and starts the
-install only after your yes. Then it only stops for what needs you:
+That sentence is your go-ahead. Your AI uses one tool, `army_setup`, and calls it again after each step. It uses
+your SSH key at `~/.ssh/id_ed25519` unless you name another one. Then it only stops for what needs you:
 
-1. **Your install code**, from "My purchase" on kappmaker.com, in a private form.
+1. **One private page** opens in your browser, on your own computer: paste your install code from "My purchase"
+   on kappmaker.com, and your Telegram bot token (in Telegram, open @BotFather, send /newbot, and copy the token it
+   gives you). Your AI never sees either one.
 2. **Claude sign-in**: open the link it gives you and sign in.
-3. **Your Telegram bot**: in Telegram, open @BotFather, send /newbot, and paste the token it gives you into the
-   private form.
-4. **One message to your new bot**, like "hi". Your AI asks you "is that you?"; say yes.
+3. **One message to your new bot**, like "hi". It connects to you by itself.
 
 Your bot then writes to you: **"Your App Army is ready. Tell me your app idea."** Reply with your idea.
+
+Want to see the plan first? Say "What would setting up App Army on my server do?" and it shows the plan before
+anything runs.
 
 The install takes 10 to 25 minutes and runs on the server by itself, so closing the chat does not stop it. Ask "how
 far is it?" at any time.
@@ -42,7 +45,7 @@ Not sure what you bought, or you bought the Claude Code plugin? Say "What do I n
 plans it (`army_plan_setup`). For the plugin it installs it into Claude Code on your computer; accept the GitHub invite
 first. When your purchase includes the mentor pack, it is installed too.
 
-Every step that changes something shows you its plan first. Anything that cannot be undone, such as going back a
+Other steps that change something show you their plan first. Anything that cannot be undone, such as going back a
 release or removing a worker, asks you a second time.
 
 ## What it needs from you, and how
@@ -50,9 +53,9 @@ release or removing a worker, asks you a second time.
 | What | How you give it |
 |---|---|
 | Server address and SSH key | You tell the AI the IP and the **path** to your key. The key file itself is never read, copied or stored. |
-| Install code or licence key | In a private form your AI app shows you, or as a file path. It goes straight to the installer and is never shown in the chat. |
+| Install code or licence key | On a one-time private page on your own computer, or as a file path. It goes straight to the installer and is never shown in the chat. |
 | Claude sign-in on the server | The AI gives you a link. You sign in in your own browser. |
-| Telegram bot token | You make a bot with @BotFather and type the token into the private form. If your AI app cannot show forms, you get one command to run in your own terminal instead. |
+| Telegram bot token | You make a bot with @BotFather and paste the token on the same private page. If your AI app cannot open pages, you save the token in a file and give the path, or run one command in your own terminal. |
 
 You are never asked for a password, and no tool takes one.
 

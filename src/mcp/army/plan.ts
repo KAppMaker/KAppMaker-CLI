@@ -31,7 +31,7 @@ export function planText(ent: Entitlement, hadLicence: boolean, hasHost: boolean
     '2. army_install_server: runs the official installer. It turns on the security baseline and creates the worker user with limited sudo, then installs the tools, the kit, the kappmaker plugin and an always-on worker, and finishes with a health check.' +
       (mentor ? ' It also installs your mentor pack: the keyword bank, scored app ideas and the keyword tool, wired into the skills.' : ''),
     '3. army_claude_login: signs Claude Code in on the server. You open the link it gives you in your own browser.',
-    '4. army_add_worker: connects your own Telegram bot. You type the bot token into a private form, or into your own terminal; it never goes into the chat.',
+    '4. army_add_worker: connects your own Telegram bot. You paste the bot token on a private page on this computer (or in your own terminal); it never goes into the chat.',
     `5. army_pair_telegram: you send your bot one message and confirm it is you. The bot then writes first: "Your App Army is ready. Tell me your app idea."`,
     '6. Tell the bot your app idea on Telegram. army_doctor checks health; army_status shows what is running.',
     '',
