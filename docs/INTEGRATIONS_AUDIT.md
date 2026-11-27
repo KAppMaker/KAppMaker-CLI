@@ -1,5 +1,7 @@
 # Integrations audit — 2026-11-26 (kappmaker 2.0.0)
 
+> History: a snapshot from its date, kept for the record. The current truth is the README, CHANGELOG.md and the docs site (cli.kappmaker.com).
+
 Every external tool or API the CLI wraps or checks, verified against the tool's current `--help`,
 release notes, official docs or discovery document on 2026-11-26. `kappmaker doctor` shows what is
 installed on a machine, with the exact install line for macOS (Homebrew) and Linux (apt).

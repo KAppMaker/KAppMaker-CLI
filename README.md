@@ -30,14 +30,14 @@ curl -fsSL https://kappmaker.com/install.sh | bash -s -- --server
 /plugin install kappmaker-app-army@app-army-mod
 ```
 
-You need Node.js 22.12 or newer for `npx`. Your install code is on "My purchase" at
+You need Node.js 22.12 or newer for `npx`. Your install code and licence key are on "My purchase" at
 [kappmaker.com](https://kappmaker.com). Full docs: [cli.kappmaker.com](https://cli.kappmaker.com).
 
 ---
 
 ## What the CLI does
 
-The CLI behind [KAppMaker AI](https://kappmaker.com): it automates the whole mobile app launch, from the first project
+The CLI behind [App Army](https://kappmaker.com) from KAppMaker: it automates the whole mobile app launch, from the first project
 to store-ready builds, and every command is one an agent can run unattended. It works on its own too:
 `npm install -g kappmaker`. The CLI sends nothing about you or your machine anywhere: no telemetry, no analytics, no
 update checks. The only network calls it makes are to the services you configure for the command you run.
@@ -142,7 +142,7 @@ Guides: [App Army from your AI](https://cli.kappmaker.com/guides/app-army-from-y
 
 ## `kappmaker army`
 
-Bridge to the App Army kit (`kappmaker-army`), the part of KAppMaker AI that runs agents on your own machine.
+Bridge to the App Army kit (`kappmaker-army`), which runs the agents on your own machine.
 
 ```bash
 kappmaker army install                 # laptop (macOS / Linux)
@@ -1892,7 +1892,7 @@ If a platform's files are missing, that platform is skipped with a warning.
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-v, --version <name>` | Set explicit version name (e.g., `2.0.0`) | Auto-increment patch |
+| `--version-name <name>` | Also set the version name (e.g., `2.0.0`); `-v, --version` is an alias | Name unchanged |
 
 ---
 

@@ -1,15 +1,16 @@
 # KAppMaker CLI
 
 > Command reference for the KAppMaker CLI: create a Kotlin Multiplatform project, configure
-> Firebase, build signed releases and ship to the App Store and Google Play. It is the CLI behind
-> KAppMaker AI, the agentic KMP app development kit you install on your own machine. See
+> Firebase, build signed releases and ship to the App Store and Google Play. It is also the CLI
+> behind App Army from KAppMaker (agentic mobile app development on your own machine). See
 > https://kappmaker.com.
 
-The CLI is installed with `npm i -g kappmaker` and runs standalone, but it is also the CLI behind
-[KAppMaker AI](https://kappmaker.com): the agentic Kotlin Multiplatform app development kit a buyer
-installs once, with one command, on their own laptop or VPS (`kappmaker army install`). The kit's
-agents run Claude Code on that machine and drive these commands unattended — no Xcode, no Android
-Studio, no Mac required for iOS. Nothing is collected from the machine it runs on.
+The CLI is installed with `npm i -g kappmaker` and runs on its own. It is also the CLI behind
+App Army (https://kappmaker.com), which a buyer installs once on their own laptop or server with
+`curl -fsSL https://kappmaker.com/install.sh | bash` (on a server: `... | bash -s -- --server`), or
+from their own AI by connecting `kappmaker mcp` and saying "Set up App Army on my server at 1.2.3.4".
+App Army's agents run Claude Code on that machine and drive these commands unattended, with no
+Xcode, no Android Studio and no Mac needed for iOS. Nothing is collected from the machine it runs on.
 
 ## Start here
 
@@ -18,6 +19,8 @@ Studio, no Mac required for iOS. Nothing is collected from the machine it runs o
 - [Claude Code skill](https://cli.kappmaker.com/guides/claude-code-skill): the routed skills that let
   Claude Code drive the CLI
 - [Per-app checklist](https://cli.kappmaker.com/guides/per-app-checklist): zero to published, in order
+- [Set up App Army from your AI](https://cli.kappmaker.com/guides/app-army-from-your-ai): one connect line, one sentence
+- [MCP server](https://cli.kappmaker.com/guides/mcp-server): every KAppMaker step as a tool for Claude Code, Codex or Gemini CLI
 
 ## Project setup
 

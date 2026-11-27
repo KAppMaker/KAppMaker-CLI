@@ -22,7 +22,7 @@ export function installHint(): string[] {
     'To install it on a Linux server instead, connect to the server and run (as root):',
     `  ${chalk.cyan('kappmaker army install --server')}`,
     '',
-    'Have your licence key ready — the installer asks for it (what you type stays hidden).',
+    'Have your licence key ready (it is on My purchase at kappmaker.com). The installer asks for it and hides what you type.',
     `Just installed it? Open a new terminal window and try again (the new ${KIT_BINARY} command`,
     'is only visible to terminals opened after the install).',
   ];

@@ -182,14 +182,15 @@ Rule of thumb: code change → bump CLI version (all three spots); skill change 
 Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
 maintained by hand and drift silently.
 
-Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour), `npm run test:mcp` (MCP server via the SDK client), `npm run test:mcp-e2e` (opt-in: `KAPPMAKER_MCP_E2E=1 ARMY_REPO=<app-army>`, Docker VPS over real SSH). `npm run lint` = type check.
+Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour), `npm run test:play` (fake Play API), `npm run test:asc` (fake `asc` binary on PATH), `npm run test:fixes` (the 2.2.0 bug fixes), `npm run test:mcp` (MCP server via the SDK client, army tools, `army_setup`, `mcp connect`), `npm run test:publish-guard` (self-test of `scripts/prepublish-check.mjs`, which `prepublishOnly` runs to refuse a publish that would ship a secret or maintainer id), `npm run test:mcp-e2e` (opt-in: `KAPPMAKER_MCP_E2E=1 ARMY_REPO=<app-army>`, Docker VPS over real SSH). `npm run lint` = type check.
 
 ## Privacy (hard rule)
 
 The CLI never collects or sends anything about the user's machine: no telemetry, analytics, crash
 reports or update checks. Network calls go only to the services a command is configured for
 (fal.ai, OpenAI, Apple, Google, Adapty, RevenueCat, imgbb, GitHub) and to kappmaker.com for
-`kappmaker army install` (install.sh + its checksum, fixed User-Agent). Keep it that way.
+`kappmaker army install` (install.sh + its checksum, fixed User-Agent) and, for the MCP army tools, a
+read-only `POST /api/license/check` (what the buyer owns; activates nothing, never returns the key). Keep it that way.
 
 ## Custom Template Support
 

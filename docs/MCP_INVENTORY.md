@@ -1,5 +1,7 @@
 # MCP servers and external CLIs the agents use to build apps
 
+> History: a snapshot from its date, kept for the record. The current truth is the README, CHANGELOG.md and the docs site (cli.kappmaker.com).
+
 Snapshot 2026-11-27. Sources: this Mac's `~/.claude.json` / `~/.claude/settings.json` (server **names and
 transport only**, no values read), and the box1 mirror taken by the W8 audit (`claude/settings.json`,
 `installed_plugins.json`, `projects/.factory/docs/APP_ARMY_OVERVIEW.md` §5). A live read of box1's

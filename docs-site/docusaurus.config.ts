@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'KAppMaker CLI',
-  tagline: 'The CLI behind KAppMaker AI — agentic Kotlin Multiplatform app development on your own machine',
+  tagline: 'Make, set up and ship Android and iOS apps, and the CLI behind App Army: agentic mobile app development on your own machine',
   favicon: 'img/favicon.ico',
 
   url: 'https://cli.kappmaker.com',

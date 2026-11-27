@@ -1,5 +1,7 @@
 # Phase 2 review: CLI and MCP against the golden path (2026-11-27)
 
+> History: a snapshot from its date, kept for the record. The current truth is the README, CHANGELOG.md and the docs site (cli.kappmaker.com).
+
 Scope: every `kappmaker` command and every `kappmaker mcp` tool, checked against the kit at app-army main (v1.2.0)
 plus the pending branches (W13 design flow, W14 secret checks, W11 first-run seeding), the licence API
 (`/api/license/check|activate|redeem-code`, `/download`) and the golden path in KAppMaker-AI `docs/LAUNCH_PROGRESS.md`.

@@ -2,6 +2,28 @@
 
 ## 2.2.0 (unreleased)
 
+The first release on npm since 2.0.0. Version 2.1.0 was only ever on a branch and never published, so
+everything that was built for it (`kappmaker mcp`) ships here for the first time. Plugin 2.15.0.
+
+### New: `kappmaker mcp`
+- `kappmaker mcp` runs the CLI as an MCP server over stdio with 54 typed tools: health checks, a new
+  app, Firebase, logo, icons, screenshots, App Store Connect, Google Play, subscriptions, builds,
+  publishing, and App Army on your own server over your own SSH key.
+- `kappmaker mcp connect claude-code|claude-desktop|codex|gemini` adds it to your AI app in one line
+  and sets the long tool timeout where the app has one. Claude Code: `claude mcp add --scope user
+  kappmaker -- npx -y kappmaker@latest mcp`.
+- One sentence sets up App Army: "Set up App Army on my server at 1.2.3.4". `army_setup` does the
+  next step on each call (plan, install, Claude sign-in, Telegram bot, pairing) until it answers
+  READY. `army_pair_telegram` finishes the Telegram connection after you confirm it is you.
+- Long or paid tools return a plan first and run only with `confirm: true`. No tool takes a key,
+  token or password; those go into a private form, and tool output is redacted.
+- The army tools read what you bought with a read-only `POST /api/license/check`; nothing else
+  about your machine is sent.
+
+### New: publish guard
+- `npm publish` refuses when the package would ship a secret or a maintainer id
+  (`scripts/prepublish-check.mjs`, run by `prepublishOnly`; `npm run test:publish-guard`).
+
 Fixes for the 12 bugs App Army logged while building 9 apps. The theme: a command must never
 print OK for something that did not happen.
 

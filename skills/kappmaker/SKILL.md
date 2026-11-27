@@ -161,5 +161,6 @@ after each batch.**
   downloads and checksum-verifies the installer. Never pass the licence key on the command line
   yourself — let the installer prompt for it.
 - **App name validation**: PascalCase, starts uppercase, alphanumeric only.
-- Steps that fail on a missing dependency warn and skip rather than aborting the whole flow; if no
-  config file exists when `create` runs, `config init` is triggered automatically.
+- A step that needs an optional tool that is missing warns and skips. A required step that fails stops
+  the command with exit 1 and a summary of the FAILED steps (since 2.2.0 nothing prints OK without a
+  read-back). If no config file exists when `create` runs, `config init` is triggered automatically.

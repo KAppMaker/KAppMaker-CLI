@@ -31,7 +31,7 @@ export function preflight(args: string[], platform: NodeJS.Platform, uid: number
   if (platform === 'win32') {
     return [
       'The App Army kit runs on macOS or Linux, not directly on Windows.',
-      'What to do: install WSL (Ubuntu) — https://learn.microsoft.com/windows/wsl/install —',
+      'What to do: install WSL (Ubuntu) from https://learn.microsoft.com/windows/wsl/install,',
       `then open the Ubuntu terminal, install Node.js and kappmaker there, and run: ${RETRY}`,
     ];
   }
@@ -61,7 +61,7 @@ function downloadFailure(e: unknown): string[] {
       chalk.dim(`  (${e.message})`),
       'Nothing on your computer was changed.',
       `What to do: wait a few minutes and run ${chalk.cyan(RETRY)} again.`,
-      'If it keeps happening, contact KAppMaker through https://kappmaker.com — do not run an',
+      'If it keeps happening, contact KAppMaker through https://kappmaker.com. Do not run an',
       'installer copied from anywhere else.',
     ];
   }
@@ -102,7 +102,7 @@ export function afterInstall(code: number): string[] {
     return [
       '',
       chalk.red('Could not start the installer: the "bash" program is missing.'),
-      'What to do: on Ubuntu/Debian run  sudo apt-get install -y bash  — then try again.',
+      'What to do: on Ubuntu/Debian run  sudo apt-get install -y bash  and then try again.',
     ];
   }
   if (code === 2) {
@@ -115,7 +115,7 @@ export function afterInstall(code: number): string[] {
   return [
     '',
     chalk.red(`The installer stopped before finishing (exit code ${code}).`),
-    'What to do: scroll up — the last step it printed says what went wrong and how to fix it.',
+    'What to do: scroll up. The last step it printed says what went wrong and how to fix it.',
     `After fixing that, run ${chalk.cyan(RETRY)} again: it is safe to re-run and skips the steps already done.`,
   ];
 }
