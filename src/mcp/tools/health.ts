@@ -92,7 +92,7 @@ export const healthTools: ToolDef[] = [
       const dir = `${i.app_name}-All`;
       return [
         `New app ${i.app_name} (${pkg}). Run in order; steps marked * need confirm: true and say what they create first.`,
-        `0. doctor, config_check — fix anything missing first.`,
+        `0. doctor, config_check: fix anything missing first.`,
         `1. * clone_template {app_name: "${i.app_name}"}  → creates ${dir}/; use project_dir="${dir}" from here on`,
         `2. (terminal, once) firebase login`,
         `3. * firebase_project {app_name: "${i.app_name}"}  (project id ${fb})`,

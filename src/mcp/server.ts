@@ -28,10 +28,14 @@ const MAX_OUTPUT = 12_000;
 const PROGRESS_EVERY_MS = 5_000;
 
 const INSTRUCTIONS =
-  'KAppMaker builds and ships Kotlin Multiplatform apps (Android + iOS). Start with doctor and config_check; for a new app ' +
-  'call create_app_plan. To set up App Army on the user\'s server or install their plugin, start with army_plan_setup. Tools marked long or paid return a plan first; show it to the user and call again with ' +
-  'confirm: true only after they agree. Keys and accounts are set by the user in a terminal (`kappmaker config set …`); ' +
-  'they are never passed through or shown by these tools. Never ask the user to paste a key, token or password into the chat: the army_* tools ask through a private form or give a command to run. Every tool takes project_dir (the app folder).';
+  'KAppMaker builds and ships mobile apps (Android + iOS). ' +
+  'App Army on a server ("set up App Army on my server at 1.2.3.4"): call army_setup with the host and the path of the user\'s SSH key, ' +
+  'show its plan, then keep calling it with the same arguments until it answers READY. Relay every WAITING FOR YOU line to the user in plain words. ' +
+  'Not sure what they bought, or they bought the plugin: army_plan_setup. ' +
+  'Building an app on this computer: start with doctor and config_check, then create_app_plan. ' +
+  'Tools marked long or paid return a plan first; show it to the user and call again with confirm: true only after they agree. ' +
+  'Never ask the user to paste a key, token or password into the chat: the army_* tools ask through a private form or give a command to run, ' +
+  'and other keys are saved by the user with `kappmaker config set`. Every tool takes project_dir (the app folder).';
 
 const text = (t: string, isError = false): CallToolResult => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError } : {}) });
 

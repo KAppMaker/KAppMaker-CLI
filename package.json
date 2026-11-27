@@ -1,6 +1,6 @@
 {
   "name": "kappmaker",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "The CLI behind KAppMaker AI, the agentic Kotlin Multiplatform app development kit you install on your own laptop or server: create, configure, build and ship Android and iOS apps from one command line.",
   "homepage": "https://kappmaker.com",
   "license": "MIT",
@@ -50,7 +50,7 @@
     "test:army": "tsx --test src/commands/army.test.ts",
     "test:prereqs": "tsx --test src/utils/prereqs.test.ts",
     "test:headless": "tsx --test src/utils/headless.test.ts",
-    "test:mcp": "tsx --test src/mcp/mcp.test.ts src/mcp/army.test.ts",
+    "test:mcp": "tsx --test src/mcp/mcp.test.ts src/mcp/army.test.ts src/mcp/army-setup.test.ts src/commands/mcp-connect.test.ts",
     "test:mcp-e2e": "tsx --test src/mcp/army.e2e.test.ts",
     "prepublishOnly": "npm run build && node scripts/prepublish-check.mjs",
     "test:publish-guard": "node scripts/prepublish-check.mjs --self-test"

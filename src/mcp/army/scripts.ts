@@ -59,7 +59,7 @@ export function judge(p: Probe, c: Conn): { lines: string[]; blockers: string[];
 }
 
 /** The installer run: the verified install.sh and (optionally) the licence key go in on stdin, never as arguments. */
-export function installScript(o: { script: string; key?: string; code?: string; api?: string; sudo: 'limited' | 'full'; worker: string; mentor: boolean; kitOnly?: boolean }): string {
+export function installScript(o: { script: string; key?: string; keyFile?: string; code?: string; api?: string; sudo: 'limited' | 'full'; worker: string; mentor: boolean; kitOnly?: boolean }): string {
   if (o.script.includes('KAPPMAKER_INSTALLER_EOF')) throw new Error('installer text contains the stream marker');
   const args = ['--server', '--yes', '--no-start', '--sudo', o.sudo, '--worker', o.worker];
   if (o.code) args.push('--code', o.code);
@@ -68,6 +68,8 @@ export function installScript(o: { script: string; key?: string; code?: string; 
     'set -u', 'umask 077', 'd="$(mktemp -d)"', `trap 'rm -rf "$d"' EXIT`,
     `cat > "$d/install.sh" <<'KAPPMAKER_INSTALLER_EOF'`, o.script.replace(/\n?$/, ''), 'KAPPMAKER_INSTALLER_EOF',
     ...(o.key ? [`KAPPMAKER_LICENSE_KEY=${shq(o.key)}; export KAPPMAKER_LICENSE_KEY`] : []),
+    // Detached runs (army_setup): the key waits in a root-only file, read and deleted before the installer starts.
+    ...(o.keyFile ? [`KAPPMAKER_LICENSE_KEY="$(cat ${shq(o.keyFile)} 2>/dev/null)"; rm -f ${shq(o.keyFile)}; export KAPPMAKER_LICENSE_KEY`] : []),
     ...(o.api ? [`KAPPMAKER_API=${shq(o.api)}; export KAPPMAKER_API`] : []),
     `bash "$d/install.sh" ${args.map(shq).join(' ')}`, 'rc=$?', 'unset KAPPMAKER_LICENSE_KEY',
     ...(o.mentor ? [

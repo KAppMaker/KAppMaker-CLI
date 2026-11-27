@@ -37,7 +37,7 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 ```bash
 npm run dev          # Run with tsx (no build needed)
 npm run build        # Compile TypeScript to dist/
-npx tsx src/index.ts mcp                           # MCP server on stdio (52 typed tools incl. army_* server setup over SSH; long/paid need confirm: true) — see docs-site/docs/guides/mcp-server.md
+npx tsx src/index.ts mcp                           # MCP server on stdio (54 typed tools incl. army_setup, the one-shot server setup over SSH; long/paid need confirm: true) — see docs-site/docs/guides/mcp-server.md
 npx tsx src/index.ts army <cmd> [args]             # Forward to kappmaker-army (App Army kit); exit code passed through
 npx tsx src/index.ts army install [--server] [--key K] [--dry-run]  # Download kappmaker.com/install.sh, verify vs install.sh.sha256, run it (key via env only)
 npx tsx src/index.ts create <AppName>              # Full end-to-end app setup (13 steps)
@@ -246,7 +246,7 @@ src/
   cli.ts                    # Commander.js program setup
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
-    mcp.ts                  # `kappmaker mcp` — stdio MCP server entry (src/mcp/)
+    mcp.ts                  # `kappmaker mcp`: stdio MCP server entry (src/mcp/); mcp-connect.ts = `kappmaker mcp connect <app>` (one-line registration via npx)
     army.ts                 # `kappmaker army` — forward to kappmaker-army, or install the kit via verified install.sh (army.test.ts = tests)
     clone.ts                # `kappmaker clone <AppName>` — step 1 of create as a standalone command (also called by create.ts)
     git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone command (also called by create.ts)
@@ -311,7 +311,7 @@ src/
     runner.ts               # child-process runner (KAPPMAKER_NONINTERACTIVE=1, KAPPMAKER_ASSUME_YES on confirm)
     redact.ts               # secret values from config + secret-shape patterns -> [redacted]
     errors.ts               # failed output -> one plain sentence + exact fix
-    tools/                  # tool definitions by area (health, project, assets, stores, monetization, ship, army-setup, army-ops, army-login)
+    tools/                  # tool definitions by area (health, project, assets, stores, monetization, ship, army-setup, army-ops, army-login, army-pair, army-golden = army_setup one-shot: detached install, re-call until READY)
     army/                   # App Army over the buyer's own SSH: ssh.ts (key by PATH only, BatchMode), licence.ts (read-only
                             # POST /api/license/check → product), plan.ts (per-purchase plan text), scripts.ts (probe, installer on
                             # stdin, run-as-worker), common.ts (licence/token via elicitation, second yes for destructive actions)

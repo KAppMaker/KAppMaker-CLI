@@ -25,7 +25,7 @@ const RULES: Rule[] = [
   {
     test: /(command not found|ENOENT|is not installed|not installed)/i,
     explain: () =>
-      'A tool this step needs is missing. Fix: call the `doctor` tool (or run `kappmaker doctor`) — it lists ' +
+      'A tool this step needs is missing. Fix: call the `doctor` tool (or run `kappmaker doctor`): it lists ' +
       'each missing tool with the exact install line.',
   },
   {

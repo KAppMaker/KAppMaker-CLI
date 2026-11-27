@@ -51,6 +51,7 @@ import { gitSetupUpstreamCommand } from './commands/git.js';
 import { army } from './commands/army.js';
 import { doctor } from './commands/doctor.js';
 import { mcpCommand } from './commands/mcp.js';
+import { connectAgent } from './commands/mcp-connect.js';
 import {
   firebaseLoginCommand,
   firebaseProjectCommand,
@@ -70,15 +71,24 @@ export function createCli(): Command {
   program
     .name('kappmaker')
     .description(
-      'The CLI behind KAppMaker AI: create, configure, build and ship Kotlin Multiplatform apps for Android and iOS',
+      'Make, set up and ship Android and iOS apps, and set up App Army on your own server.',
     )
     .version(version)
     // Lets `kappmaker army …` hand every flag (even --help/--version) to the kit.
-    .enablePositionalOptions();
+    .enablePositionalOptions()
+    .addHelpText('after', [
+      '',
+      'Start here:',
+      '  Connect your AI:     npx -y kappmaker@latest mcp connect claude-desktop   (or claude-code, codex, gemini)',
+      '                       then tell it: "Set up App Army on my server at 1.2.3.4"',
+      '  Install App Army:    kappmaker army install            (add --server on a Linux server)',
+      '  Make an app here:    kappmaker create <AppName>',
+      '  Docs:                https://cli.kappmaker.com',
+    ].join('\n'));
 
   program
     .command('doctor')
-    .description('Check the external tools the CLI uses (versions + exact install lines for macOS/Linux)')
+    .description('Check the tools KAppMaker needs and show how to install any that are missing')
     .option('--json', 'Machine-readable output', false)
     .option('--strict', 'Exit 1 when a required tool is missing or too old', false)
     .action(async (options) => {
@@ -87,14 +97,25 @@ export function createCli(): Command {
 
   program
     .command('mcp')
-    .description('Run the KAppMaker MCP server on stdio (for Claude Code, Codex, Gemini CLI and other MCP agents)')
-    .action(async () => {
+    .description('Let your AI use KAppMaker. "mcp connect <app>" adds it to claude-code, claude-desktop, codex or gemini; plain "mcp" is the server those apps start')
+    .argument('[action]', 'connect: add KAppMaker to an AI app (leave out to run the server)')
+    .argument('[app]', 'claude-code, claude-desktop, codex or gemini')
+    .action(async (action?: string, app?: string) => {
+      if (action === 'connect') {
+        const r = await connectAgent(app ?? '').catch((e: Error) => ({ ok: false, message: e.message }));
+        (r.ok ? console.log : console.error)(r.message);
+        process.exit(r.ok ? 0 : 1);
+      }
+      if (action) {
+        console.error(`Unknown: kappmaker mcp ${action}. Use "kappmaker mcp connect <app>" or plain "kappmaker mcp".`);
+        process.exit(2);
+      }
       await mcpCommand();
     });
 
   program
     .command('army')
-    .description('Run the App Army kit (kappmaker-army <cmd>), or install it: kappmaker army install [--server]')
+    .description('Install App Army (kappmaker army install, add --server on a Linux server) or run one of its commands')
     .argument('[args...]', 'Command and arguments for kappmaker-army')
     .helpOption(false)
     .allowUnknownOption()
@@ -106,7 +127,7 @@ export function createCli(): Command {
 
   program
     .command('create')
-    .description('Create a new KAppMaker app from template')
+    .description('Make a new app from the KAppMaker template, start to finish')
     .argument('<app-name>', 'Name of the app (PascalCase, e.g., Remimi)')
     .option('--template-repo <url>', 'Git URL of the template repository')
     .option('--organization <org>', 'Organization name for Fastlane signing')
@@ -116,7 +137,7 @@ export function createCli(): Command {
 
   program
     .command('clone')
-    .description('Clone the KAppMaker template into <AppName>-All')
+    .description('Copy the KAppMaker template into a new <AppName>-All folder')
     .argument('<app-name>', 'Name of the app (PascalCase, e.g., Remimi)')
     .option('--template-repo <url>', 'Git URL of the template repository')
     .option('--target-dir <path>', 'Target directory (default: <AppName>-All)')
@@ -126,7 +147,7 @@ export function createCli(): Command {
 
   const gitCmd = program
     .command('git')
-    .description('Git helpers for KAppMaker projects');
+    .description('Git helpers for your app folder');
 
   gitCmd
     .command('setup-upstream')
@@ -140,7 +161,7 @@ export function createCli(): Command {
 
   const firebaseCmd = program
     .command('firebase')
-    .description('Firebase setup steps (login, project, apps, auth, SDK configs)');
+    .description('Firebase steps: sign in, project, Android and iOS apps, sign-in method, config files');
 
   firebaseCmd
     .command('login')
@@ -151,7 +172,7 @@ export function createCli(): Command {
 
   firebaseCmd
     .command('project')
-    .description('Create a Firebase project (idempotent — skips if it already exists)')
+    .description('Create a Firebase project (idempotent: skips if it already exists)')
     .option('--project-id <id>', 'Firebase project ID (e.g., myapp-app)')
     .option('--display-name <name>', 'Project display name (default: --project-id)')
     .option('--app-name <name>', 'PascalCase app name; derives project-id and display-name')
@@ -161,7 +182,7 @@ export function createCli(): Command {
 
   firebaseCmd
     .command('apps')
-    .description('Create Firebase Android + iOS apps (idempotent — reuses existing apps)')
+    .description('Create Firebase Android + iOS apps (idempotent: reuses existing apps)')
     .requiredOption('--project <id>', 'Firebase project ID')
     .requiredOption('--app-name <name>', 'PascalCase app display name')
     .requiredOption('--package-name <pkg>', 'Application ID / bundle ID (e.g., com.example.myapp)')
@@ -193,7 +214,7 @@ export function createCli(): Command {
 
   program
     .command('create-logo')
-    .description('Generate an app logo using AI (fal.ai)')
+    .description('Make an app logo with AI (fal.ai)')
     .option('--prompt <text>', 'App idea / concept (skips the interactive prompt)')
     .option('--spec <path>', 'Pre-authored logo-grid spec JSON used as the prompt (see `kappmaker spec-template logo`)')
     .option('--output <path>', 'Custom output path for the logo')
@@ -212,7 +233,7 @@ export function createCli(): Command {
 
   program
     .command('create-mascot')
-    .description('Generate an app mascot with AI: pick from 16 concepts, then generate 16 emotional states (fal.ai)')
+    .description('Make an app mascot with AI: pick one of 16 ideas, then get it in 16 moods (fal.ai)')
     .option('--prompt <text>', 'App idea / concept (skips the interactive prompt)')
     .option('--tone <text>', 'App tone woven into the concept grid (e.g. "playful and cozy")')
     .option('--spec <path>', 'Pre-authored concept-grid spec JSON (see `kappmaker spec-template mascot`)')
@@ -249,7 +270,7 @@ export function createCli(): Command {
 
   program
     .command('mascot-add-state')
-    .description('Generate one additional emotional state for an existing mascot (fal.ai edit mode)')
+    .description('Add one more mood to your mascot (fal.ai)')
     .option('--state <text>', 'The emotional/situational state to generate (e.g. "shopping", "level up")')
     .option('--mascot <path>', 'Mascot reference image (default: Assets/mascot/mascot_no_bg.png or mascot.png)')
     .option('--spec <path>', 'Pre-authored single-state spec JSON used as the prompt')
@@ -269,7 +290,7 @@ export function createCli(): Command {
 
   program
     .command('mascot-animate')
-    .description('Animate one mascot state into a short looping clip (image-to-video; costs per second — animate only needed states)')
+    .description('Turn one mascot mood into a short looping clip (paid per second, so animate only what you need)')
     .option('--state <name>', 'Existing state to animate (uses Assets/mascot/states/<state>.png)')
     .option('--image <path>', 'Explicit source image (overrides --state lookup)')
     .option('--motion <text>', 'Motion description (default: per-state preset, e.g. happy → gentle bounce)')
@@ -297,7 +318,7 @@ export function createCli(): Command {
 
   program
     .command('spec-template')
-    .description('Print (or write) the canonical spec JSON template for an image kind, for use with --spec')
+    .description('Print or save a fill-in template for an image (used with --spec)')
     .argument('[kind]', 'Template kind: screenshots, feature-graphic, logo, image, mascot, mascot-states, mascot-animation (omit to list)')
     .option('--list', 'List available template kinds')
     .option('--output <path>', 'Write the template to a file instead of stdout (refuses to overwrite)')
@@ -309,7 +330,7 @@ export function createCli(): Command {
 
   program
     .command('image-split')
-    .description('Split a grid image into individual tiles')
+    .description('Cut a grid image into separate images')
     .argument('<source>', 'Path to the grid image')
     .option('--rows <n>', 'Number of rows', '4')
     .option('--cols <n>', 'Number of columns', '4')
@@ -337,7 +358,7 @@ export function createCli(): Command {
 
   program
     .command('image-remove-bg')
-    .description('Remove background from an image using AI (fal.ai)')
+    .description('Remove the background from an image with AI (fal.ai)')
     .argument('<source>', 'Path to the image')
     .option('--output <path>', 'Custom output path')
     .action(async (source: string, options) => {
@@ -346,7 +367,7 @@ export function createCli(): Command {
 
   program
     .command('image-enhance')
-    .description('Enhance image quality using AI (fal.ai)')
+    .description('Make an image sharper with AI (fal.ai)')
     .argument('<source>', 'Path to the image')
     .option('--output <path>', 'Custom output path')
     .action(async (source: string, options) => {
@@ -355,7 +376,7 @@ export function createCli(): Command {
 
   program
     .command('translate-screenshots')
-    .description('Translate app screenshots into multiple locales using AI (fal.ai)')
+    .description('Translate store screenshots into other languages with AI (fal.ai)')
     .argument('[source-dir]', 'Directory containing source screenshots (default: MobileApp/distribution/ios/appstore_metadata/screenshots/en-US)')
     .option('--output <path>', 'Distribution directory root (auto-detected from source path)')
     .option('--locales <codes...>', 'Target Play Store locale codes (space-separated)')
@@ -377,9 +398,9 @@ export function createCli(): Command {
 
   program
     .command('generate-screenshots')
-    .description('Generate App Store/Play Store marketing screenshots using AI (fal.ai; OpenAI only when no --spec)')
+    .description('Make App Store and Google Play screenshots with AI (fal.ai; OpenAI only without --spec)')
     .option('--prompt <text>', 'App description or PRD (required unless --spec is given)')
-    .option('--spec <path>', 'Pre-authored screenshot spec JSON — skips the OpenAI step entirely')
+    .option('--spec <path>', 'A screenshot spec JSON you wrote (no OpenAI step)')
     .option('--print-prompt', 'Print the spec-authoring instructions (schema + style direction) and exit')
     .option('--input <dir>', 'Directory with reference screenshots (default: auto-detect Assets/screenshots)')
     .option('--style <id>', 'Style preset ID', '1')
@@ -401,9 +422,9 @@ export function createCli(): Command {
 
   program
     .command('generate-feature-image')
-    .description('Generate a Google Play feature graphic (1024×500) using AI (fal.ai; OpenAI only when no --spec)')
+    .description('Make the Google Play feature graphic (1024×500) with AI (fal.ai; OpenAI only without --spec)')
     .option('--prompt <text>', 'App description / concept for the banner (required unless --spec is given)')
-    .option('--spec <path>', 'Pre-authored banner spec JSON — skips the OpenAI step entirely')
+    .option('--spec <path>', 'A banner spec JSON you wrote (no OpenAI step)')
     .option('--print-prompt', 'Print the spec-authoring instructions (schema + constraints) and exit')
     .option('--app-name <name>', 'App name to render on the banner (required unless --spec is given)')
     .option('--primary-color <hex>', 'Primary brand color in hex (required unless --spec is given)')
@@ -433,7 +454,7 @@ export function createCli(): Command {
 
   program
     .command('generate-image')
-    .description('Generate an image using AI (fal.ai nano-banana-2)')
+    .description('Make any image with AI (fal.ai)')
     .option('--prompt <text>', 'Text prompt describing the image to generate (required unless --spec is given)')
     .option('--spec <path>', 'Pre-authored JSON spec used as the structured prompt directly')
     .option('--output <path>', 'Output file or directory (default: Assets/generated.png)')
@@ -457,7 +478,7 @@ export function createCli(): Command {
 
   program
     .command('generate-ios-icons')
-    .description('Generate all iOS AppIcon.appiconset PNG sizes + Contents.json from a single source logo (no AI)')
+    .description('Make every iOS app icon size from one logo (no AI)')
     .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
     .option('--output <dir>', 'Output AppIcon.appiconset directory (default: auto-detect MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset)')
     .option('--background <hex>', 'Background color used to flatten alpha (App Store rejects transparent icons)', '#FFFFFF')
@@ -471,7 +492,7 @@ export function createCli(): Command {
 
   program
     .command('generate-android-icons')
-    .description('Generate all Android launcher icons across 5 mipmap density buckets + adaptive icon XML + colors.xml entry (no AI)')
+    .description('Make every Android app icon size from one logo (no AI)')
     .option('--source <path>', 'Path to source logo PNG (default: auto-detect Assets/logo.png, Assets/logo_no_bg.png, etc.)')
     .option('--output <dir>', 'Output Android res/ directory (default: auto-detect MobileApp/composeApp/src/androidMain/res)')
     .option('--background <hex>', 'Adaptive icon background color', '#FFFFFF')
@@ -487,7 +508,7 @@ export function createCli(): Command {
 
   program
     .command('convert-webp')
-    .description('Convert images (PNG, JPG, BMP, TIFF, GIF) to WebP format')
+    .description('Convert images (PNG, JPG, BMP, TIFF, GIF) to WebP')
     .argument('<source>', 'Path to an image file or directory containing images')
     .option('--quality <n>', 'WebP quality (0-100, default 75)', '75')
     .option('--recursive', 'Search directories recursively', false)
@@ -506,7 +527,7 @@ export function createCli(): Command {
 
   program
     .command('create-appstore-app')
-    .description('Configure an existing app on App Store Connect (version, subscriptions, metadata, etc.)')
+    .description('Set up your app on App Store Connect: listing, version, subscriptions, privacy')
     .option('--config <path>', 'Path to App Store Connect JSON config file')
     .action(async (options) => {
       await createAppStoreApp(options);
@@ -514,7 +535,7 @@ export function createCli(): Command {
 
   program
     .command('appstore-update-subscription-review-screenshot')
-    .description('Replace the App Review screenshot on App Store Connect subscriptions (delete + re-upload). Prompts to resize to 1290×2796 if dimensions differ.')
+    .description('Replace the review screenshot on your App Store subscriptions (offers to resize it to 1290×2796)')
     .option('--file <path>', 'Screenshot path to apply to ALL matched subscriptions (overrides per-product review_screenshot in config)')
     .option('--config <path>', 'Path to App Store Connect JSON config file')
     .option('--product-id <id>', 'Target a single subscription by product_id or ref_name (default: all subscriptions in config)')
@@ -524,7 +545,7 @@ export function createCli(): Command {
 
   program
     .command('appstore-update-iap-review-screenshot')
-    .description('Replace the App Review image on App Store Connect IAPs (delete + re-upload). Prompts to resize to 1290×2796 if dimensions differ.')
+    .description('Replace the review screenshot on your App Store in-app purchases (offers to resize it to 1290×2796)')
     .option('--file <path>', 'Screenshot path to apply to ALL matched IAPs (overrides per-product review_screenshot in config)')
     .option('--config <path>', 'Path to App Store Connect JSON config file')
     .option('--product-id <id>', 'Target a single IAP by product_id or ref_name (default: all IAPs in config)')
@@ -534,7 +555,7 @@ export function createCli(): Command {
 
   program
     .command('appstore-monetization-push')
-    .description('Push subscriptions and IAPs from appstore config to App Store Connect (monetization step of create-appstore-app as a standalone)')
+    .description('Send your subscriptions and in-app purchases from the config file to App Store Connect')
     .option('-c, --config <path>', `Path to App Store Connect JSON config (default: Assets/appstore-config.json)`)
     .option('--subscriptions-only', 'Push subscription groups only, skip IAPs')
     .option('--iap-only', 'Push IAPs only, skip subscription groups')
@@ -546,7 +567,7 @@ export function createCli(): Command {
 
   program
     .command('create-play-app')
-    .description('Alias for `kappmaker gpc setup` — configure an existing Google Play app end-to-end')
+    .description('Set up your app on Google Play, start to finish (same as kappmaker gpc setup)')
     .option('--config <path>', 'Path to Google Play JSON config file')
     .action(async (options) => {
       await createPlayApp(options);
@@ -554,7 +575,7 @@ export function createCli(): Command {
 
   const gpcCmd = program
     .command('gpc')
-    .description('Google Play Console management (listings, subscriptions, IAPs, data safety)');
+    .description('Google Play: listing, subscriptions, in-app products, data safety');
 
   gpcCmd
     .command('setup')
@@ -641,7 +662,7 @@ export function createCli(): Command {
 
   const adapty = program
     .command('adapty')
-    .description('Adapty subscription management');
+    .description('Adapty: set up your subscription products and paywalls');
 
   adapty
     .command('setup')
@@ -653,7 +674,7 @@ export function createCli(): Command {
 
   const iosCi = program
     .command('ios-ci')
-    .description('Build and ship iOS from GitHub Actions — no Mac required locally');
+    .description('Build and ship the iOS app on GitHub, no Mac needed');
   iosCi
     .command('init')
     .description('Set up the macOS build pipeline: certs repo, GitHub secrets, workflow and fastlane lane')
@@ -686,7 +707,7 @@ export function createCli(): Command {
 
   const revenuecat = program
     .command('revenuecat')
-    .description('RevenueCat subscription provider management');
+    .description('RevenueCat: set up your subscription products and offerings');
   revenuecat
     .command('setup')
     .description('Set up RevenueCat: apps, entitlements, products, offerings and packages')
@@ -700,7 +721,7 @@ export function createCli(): Command {
 
   const subscriptionCmd = program
     .command('subscription')
-    .description('Cross-platform subscription management (Google Play + App Store Connect)');
+    .description('Add a subscription on Google Play and the App Store at once');
 
   subscriptionCmd
     .command('add')
@@ -709,8 +730,8 @@ export function createCli(): Command {
     .requiredOption('--price <number>', 'USD price like 9.99')
     .option('--platform <target>', 'all | ios | android (default: all = Play + ASC). ios = ASC only, android = Play only.', 'all')
     .option('--product-version <n>', 'Product-family version (default: 1). Bumps every "v" marker in the IDs together, e.g. v1 → v2 produces myapp.premium.weekly.v2.999.v2 instead of v1.999.v1. Use to create a new product line alongside an existing v1.', '1')
-    .option('--provider <name>', 'Subscription provider to also push to: auto (default — providers whose Assets config exists), adapty, revenuecat, both, none', 'auto')
-    .option('--name <text>', 'ASC localization name (default: "<Period> Premium", e.g. "Weekly Premium"). Play listing title is automatically derived as "<AppName> <ASC name>" (e.g. "Mangit Weekly Premium") — ASC names are short (group context), Play titles include the app name (standalone).')
+    .option('--provider <name>', 'Subscription provider to also push to: auto (default: the ones with a config file in Assets), adapty, revenuecat, both, none', 'auto')
+    .option('--name <text>', 'ASC localization name (default: "<Period> Premium", e.g. "Weekly Premium"). Play listing title is automatically derived as "<AppName> <ASC name>" (e.g. "Mangit Weekly Premium"): ASC names are short (group context), Play titles include the app name (standalone).')
     .option('--description <text>', 'Localized description applied to BOTH ASC and Play (default: period-derived, e.g. "Full access for one week.")')
     .option('--review-screenshot <path>', 'App Review screenshot path applied to this subscription (default: top-level review_screenshot from appstore-config.json)')
     .option('--group <ref>', 'ASC subscription group reference name. If the group does not exist on App Store Connect, it is auto-created. (default: first group from appstore-config.json)')
@@ -724,7 +745,7 @@ export function createCli(): Command {
 
   const iapCmd = program
     .command('iap')
-    .description('Cross-platform one-time in-app product management (Play + ASC + Adapty)');
+    .description('Add a one-time purchase (credit pack) on Google Play, the App Store and Adapty at once');
 
   iapCmd
     .command('add')
@@ -733,7 +754,7 @@ export function createCli(): Command {
     .requiredOption('--price <number>', 'USD price like 14.99')
     .option('--platform <target>', 'all | ios | android (default: all). ios/android push only that store; "all" also pushes to Adapty.', 'all')
     .option('--product-version <n>', 'Product-family version (default: 1). v1 keeps the existing credit_pack_{credits}_{priceDigits}_{appname} format unchanged; v2+ appends "_v{n}" to create a fresh product line.', '1')
-    .option('--provider <name>', 'Subscription provider to also push to: auto (default — providers whose Assets config exists), adapty, revenuecat, both, none', 'auto')
+    .option('--provider <name>', 'Subscription provider to also push to: auto (default: the ones with a config file in Assets), adapty, revenuecat, both, none', 'auto')
     .option('--name <text>', 'Localized display name (default: "<Credits> Credit Pack")')
     .option('--description <text>', 'Localized description (default: "<Credits> credits to use in the app.")')
     .option('--review-screenshot <path>', 'App Review screenshot path applied to this IAP (default: top-level review_screenshot from appstore-config.json)')
@@ -748,7 +769,7 @@ export function createCli(): Command {
 
   program
     .command('generate-keystore')
-    .description('Generate an Android signing keystore for Play Store releases')
+    .description('Make the Android signing key Google Play needs')
     .option('--first-name <name>', 'Developer name for keystore')
     .option('--organization <name>', 'Organization name for keystore')
     .option('--output <dir>', 'Output directory for keystore files')
@@ -758,7 +779,7 @@ export function createCli(): Command {
 
   program
     .command('android-release-build')
-    .description('Build a signed Android release AAB (generates keystore if needed)')
+    .description('Build the signed Android release file for Google Play')
     .option('--organization <name>', 'Organization name for keystore generation')
     .option('--first-name <name>', 'Developer name for keystore generation')
     .option('--output <dir>', 'Output directory for AAB (default: distribution/android)')
@@ -770,7 +791,7 @@ export function createCli(): Command {
 
   const fastlaneCmd = program
     .command('fastlane')
-    .description('Fastlane setup and management');
+    .description('Set up Fastlane, the build and upload tool');
 
   fastlaneCmd
     .command('configure')
@@ -787,13 +808,13 @@ export function createCli(): Command {
 
   program
     .command('publish')
-    .description('Build and upload app to Google Play and/or App Store via Fastlane')
+    .description('Build your app and upload it to Google Play, the App Store, or both')
     .option('--platform <name>', 'Platform to publish: android, ios (repeatable)', collect, [])
     .option('--track <name>', 'Android Play Store track (internal/alpha/beta/production)', 'production')
     .option('--upload-metadata', 'Upload metadata (title, description)', false)
     .option('--upload-screenshots', 'Upload screenshots', false)
-    .option('--upload-images', 'Upload images — icon, feature graphic (Android only)', false)
-    .option('--remote', 'Build iOS on a GitHub macOS runner instead of locally — no Mac required (setup: kappmaker ios-ci init)', false)
+    .option('--upload-images', 'Upload images: icon and feature graphic (Android only)', false)
+    .option('--remote', 'Build iOS on a GitHub macOS runner instead of here, no Mac needed (set up once: kappmaker ios-ci init)', false)
     .option('--submit-for-review <bool>', 'Submit for review after upload (default: true)', 'true')
     .action(async (options) => {
       await publishCommand(options);
@@ -803,7 +824,7 @@ export function createCli(): Command {
 
   program
     .command('refactor')
-    .description('Refactor package names, application ID, bundle ID, and app name')
+    .description('Rename the app: package name, app ID and display name')
     .requiredOption('--app-id <id>', 'New applicationId / bundleId (e.g., com.example.myapp)')
     .requiredOption('--app-name <name>', 'New display name (e.g., MyApp)')
     .option('--old-app-id <id>', 'Current applicationId to replace (default: com.measify.kappmaker)')
@@ -817,7 +838,7 @@ export function createCli(): Command {
 
   program
     .command('update-version')
-    .description('Bump Android and iOS version codes and optionally set version name')
+    .description('Raise the app version on Android and iOS')
     .option('-v, --version <name>', 'Set explicit version name (e.g., "2.0.0")')
     .action(async (options) => {
       await updateVersion(options);
@@ -827,7 +848,7 @@ export function createCli(): Command {
 
   const config = program
     .command('config')
-    .description('Manage CLI configuration');
+    .description('Your saved settings and keys');
 
   config
     .command('list')

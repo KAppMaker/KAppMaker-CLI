@@ -1,9 +1,13 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { z } from 'zod';
 import { local, type LocalCtx, type ToolDef } from '../define.js';
 import { asWorker, workerShellCommand } from '../army/scripts.js';
 import { shq, userCommand, type Conn } from '../army/ssh.js';
-import { conn, connShape, destructiveShape, fail, isConn, remote, secondYes, tail, type ToolOut } from '../army/common.js';
+import { conn, connShape, destructiveShape, fail, isConn, remote, secondYes, tail, type Failure, type ToolOut } from '../army/common.js';
 import { claudeLoginTool } from './army-login.js';
+import { pairTool } from './army-pair.js';
 
 const worker = z.string().regex(/^[a-z0-9-]{1,32}$/, 'a-z, 0-9 and -, up to 32 characters').describe('Worker name, e.g. main');
 const TOKEN = /^\d{5,12}:[A-Za-z0-9_-]{30,64}$/;
@@ -40,6 +44,55 @@ function op(o: { name: string; title: string; description: string; kind: 'read' 
   });
 }
 
+
+function readTokenFile(file: string): { token: string } | Failure {
+  const p = path.resolve(file.replace(/^~(?=$|\/)/, os.homedir()));
+  let raw: string;
+  try { raw = fs.readFileSync(p, 'utf8'); } catch { return fail(`No file at ${p}.`); }
+  const token = (raw.match(/^\s*(?:TELEGRAM_BOT_TOKEN=)?["']?([^\s"']+)/) ?? [])[1] ?? '';
+  return TOKEN.test(token) ? { token } : fail(`${p} does not hold a bot token (one line like 123456789:AA… from @BotFather).`);
+}
+
+/** Exported so army_setup can run the same step. */
+export const addWorkerTool: ToolDef = local({
+    name: 'army_add_worker',
+    title: 'Connect a Telegram bot (add a worker)',
+    description:
+      'Adds an always-on worker with the user\'s own Telegram bot (or connects the bot to the worker the install made). ' +
+      'The bot token is typed into a private form the AI never sees; without one, this returns the command for the user to run in their own terminal.',
+    kind: 'long',
+    network: true,
+    shape: {
+      ...connShape, name: worker.default('main'),
+      bot_file: z.string().optional().describe('Only when the app cannot show forms: path of a text file on THIS computer holding the bot token (the user saves it there). Never the token itself'),
+    },
+    run: async (i, ctx) => {
+      const c = conn(i);
+      if (!isConn(c)) return c;
+      const fromFile = i.bot_file ? readTokenFile(String(i.bot_file)) : undefined;
+      if (fromFile && 'isError' in fromFile) return fromFile;
+      const manual = userCommand(c, workerShellCommand(c, `kappmaker-army worker add ${i.name} && kappmaker-army start --worker ${i.name}`));
+      const pairing = 'Next: the user sends the bot one message on Telegram, then call army_pair_telegram (it asks them "is that you?" in a private form).';
+      if (i.confirm !== true) {
+        return `PLAN on ${c.host}: worker "${i.name}" with your own Telegram bot (make one with @BotFather → /newbot; it gives you a token). ` +
+          `${ctx.canAsk ? 'You will type the token into a private form.' : 'This app cannot show a private form, so you run one command yourself.'} Run with confirm: true after the user's yes.`;
+      }
+      if (!ctx.canAsk && !fromFile) {
+        return `This AI app cannot show a private form. Either save the bot token in a text file on this computer (one line) and give me its path as bot_file, or run this in your own terminal (it asks for the token hidden):\n  ${manual}`;
+      }
+      const got = fromFile ? { token: fromFile.token } : await ctx.ask(`Paste the Telegram bot token from @BotFather for worker "${i.name}". It goes to your server only, not to the AI.`, [
+        { name: 'token', title: 'Bot token', description: '123456789:AA…' },
+      ]);
+      const tok = typeof got?.token === 'string' ? got.token.trim() : '';
+      if (!tok) return fail('No token given; nothing changed.');
+      if (!TOKEN.test(tok)) return fail('That does not look like a bot token (it looks like 123456789:AA… from @BotFather). Nothing changed.');
+      ctx.secrets.push(tok);
+      const body = `umask 077; t="$(mktemp)"; trap 'rm -f "$t"' EXIT\nprintf '%s\\n' ${shq(tok)} > "$t"\nkappmaker-army worker add ${shq(String(i.name))} --token-file "$t"`;
+      const r = await kit(ctx, c, body);
+      return r.ok ? `Worker "${i.name}" is connected to your bot.\n${r.out}\n\n${pairing}` : r.fail!;
+    },
+  });
+
 export const armyOpsTools: ToolDef[] = [
   op({ name: 'army_doctor', title: 'App Army health check', kind: 'read',
     description: 'Read-only: kappmaker-army doctor on the server. Every line says OK, warn or FAIL, and what to do about it.',
@@ -51,7 +104,7 @@ export const armyOpsTools: ToolDef[] = [
     shape: { worker: worker.default('main'), lines: z.number().int().min(10).max(500).default(80) },
     body: (i) => `kappmaker-army worker logs ${shq(String(i.worker))} ${Number(i.lines)}` }),
   op({ name: 'army_update', title: 'Update App Army', kind: 'long',
-    description: 'Moves the kit to the newest release your licence gets, re-renders, keeps all data and your edits. Workers keep running until restarted.',
+    description: 'Moves App Army to the newest release the licence gets. Keeps all data and the user\'s own edits, runs the health check, then restarts running workers fresh (each writes a handoff first).',
     plan: () => 'kappmaker-army update --yes (download the newest release, verify it, switch to it, re-run setup, health check). Run with confirm: true; or call army_update_check first to see what changes.',
     body: () => 'kappmaker-army update --yes' }),
   op({ name: 'army_update_check', title: 'What an update would change', kind: 'read',
@@ -71,40 +124,11 @@ export const armyOpsTools: ToolDef[] = [
     shape: { name: worker, purge: z.boolean().default(false) },
     destructive: (i) => `Removing worker "${i.name}"${i.purge ? ' and deleting its saved bot token' : ''}`,
     body: (i) => `kappmaker-army worker remove ${shq(String(i.name))} --yes${i.purge ? ' --purge' : ''}` }),
-  op({ name: 'army_new_app', title: 'Start a new app', kind: 'long',
-    description: 'Hands an app idea to App Army on the server (the new-app flow: plan, a few questions, then it builds). Uses Claude usage on the server\'s account.',
+  op({ name: 'army_new_app', title: 'Start a new app', kind: 'write',
+    description: 'Saves the user\'s app idea on the server and says how to start it. With a connected Telegram bot the user sends the idea to the bot, which plans it, asks a few questions and builds (the app order). Uses Claude usage on the server\'s account only once the bot starts.',
     shape: { idea: z.string().min(8).max(600).describe("The user's app idea, in their own words"), worker: worker.default('main') },
     body: (i) => `kappmaker-army start --yes --no-launch --worker ${shq(String(i.worker))} --app ${shq(String(i.idea).replace(/\s+/g, ' '))}` }),
-  local({
-    name: 'army_add_worker',
-    title: 'Connect a Telegram bot (add a worker)',
-    description:
-      'Adds an always-on worker with the user\'s own Telegram bot (or connects the bot to the worker the install made). ' +
-      'The bot token is typed into a private form the AI never sees; without one, this returns the command for the user to run in their own terminal.',
-    kind: 'long',
-    network: true,
-    shape: { ...connShape, name: worker.default('main') },
-    run: async (i, ctx) => {
-      const c = conn(i);
-      if (!isConn(c)) return c;
-      const manual = userCommand(c, workerShellCommand(c, `kappmaker-army worker add ${i.name} && kappmaker-army start --worker ${i.name}`));
-      const pairing = `Then message your bot once on Telegram and confirm it is you: ${userCommand(c, workerShellCommand(c, `kappmaker-army start --worker ${i.name}`))}`;
-      if (i.confirm !== true) {
-        return `PLAN on ${c.host}: worker "${i.name}" with your own Telegram bot (make one with @BotFather → /newbot; it gives you a token). ` +
-          `${ctx.canAsk ? 'You will type the token into a private form.' : 'This app cannot show a private form, so you run one command yourself.'} Run with confirm: true after the user's yes.`;
-      }
-      if (!ctx.canAsk) return `Run this in your own terminal. It asks for the bot token hidden, then pairs your Telegram account:\n  ${manual}`;
-      const got = await ctx.ask(`Paste the Telegram bot token from @BotFather for worker "${i.name}". It goes to your server only, not to the AI.`, [
-        { name: 'token', title: 'Bot token', description: '123456789:AA…' },
-      ]);
-      const tok = typeof got?.token === 'string' ? got.token.trim() : '';
-      if (!tok) return fail('No token given; nothing changed.');
-      if (!TOKEN.test(tok)) return fail('That does not look like a bot token (it looks like 123456789:AA… from @BotFather). Nothing changed.');
-      ctx.secrets.push(tok);
-      const body = `umask 077; t="$(mktemp)"; trap 'rm -f "$t"' EXIT\nprintf '%s\\n' ${shq(tok)} > "$t"\nkappmaker-army worker add ${shq(String(i.name))} --token-file "$t"`;
-      const r = await kit(ctx, c, body);
-      return r.ok ? `Worker "${i.name}" is connected to your bot.\n${r.out}\n\n${pairing}` : r.fail!;
-    },
-  }),
+  addWorkerTool,
+  pairTool,
   claudeLoginTool,
 ];

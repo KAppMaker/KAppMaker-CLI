@@ -10,7 +10,7 @@ export const storeTools: ToolDef[] = [
     title: 'Set up the app on App Store Connect',
     description:
       'Creates/configures the iOS app on App Store Connect from Assets/appstore-config.json: bundle ID, app record, version, ' +
-      'categories, listing, privacy, age rating, subscriptions and IAPs with per-country prices. Idempotent. ' +
+      'categories, listing, privacy, age rating, subscriptions and IAPs with per-country prices. Safe to run again. ' +
       'Needs the App Store Connect API key saved in kappmaker config (set it up once with `kappmaker create-appstore-app` in a terminal).',
     kind: 'long',
     network: true,
@@ -20,7 +20,7 @@ export const storeTools: ToolDef[] = [
   cli({
     name: 'appstore_monetization_push',
     title: 'Push App Store subscriptions + IAPs',
-    description: 'Creates or refreshes the subscriptions and in-app purchases from the App Store config on App Store Connect, with per-country prices. Idempotent.',
+    description: 'Creates or refreshes the subscriptions and in-app purchases from the App Store config on App Store Connect, with per-country prices. Safe to run again.',
     kind: 'long',
     network: true,
     shape: { config, only },
@@ -60,7 +60,7 @@ export const storeTools: ToolDef[] = [
   cli({
     name: 'google_play_push',
     title: 'Push one part of the Play listing',
-    description: 'Pushes one section of the Google Play config: listings, subscriptions, iap, monetization (both) or data-safety. Idempotent.',
+    description: 'Pushes one section of the Google Play config: listings, subscriptions, iap, monetization (both) or data-safety. Safe to run again.',
     kind: 'long',
     network: true,
     shape: {

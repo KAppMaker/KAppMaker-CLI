@@ -132,7 +132,7 @@ export const armySetupTools: ToolDef[] = [
       const r = await remote(ctx, c, { remote: c.user === 'root' ? 'bash -s' : 'sudo -n bash -s', stdin: script }, true);
       const out = tail(r.output, 60);
       if (r.exitCode !== 0) return fail(`The install stopped (exit ${r.exitCode}). ${r.why ?? 'It is safe to run again once the cause below is fixed.'}\n--- last output ---\n${out}`);
-      return `Installed on ${c.host}.\n--- last output ---\n${out}\n\nNext: army_claude_login (sign Claude in on the server), then army_add_worker "${i.worker}" (your Telegram bot), then army_new_app.`;
+      return `Installed on ${c.host}.\n--- last output ---\n${out}\n\nNext: army_claude_login (sign Claude in on the server), then army_add_worker "${i.worker}" (your Telegram bot), then army_pair_telegram. Or just call army_setup: it does the rest in order.`;
     },
   }),
   local({

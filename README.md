@@ -1,23 +1,59 @@
 # KAppMaker CLI
 
-> **Full documentation at [cli.kappmaker.com](https://cli.kappmaker.com)**
+Make Android and iOS apps with AI, and run App Army, your own AI app team, on your own server.
 
-The CLI behind [KAppMaker AI](https://kappmaker.com), the agentic Kotlin Multiplatform app development kit you install on your own laptop or server. It automates the entire mobile app launch process — from project scaffolding to store-ready builds — and every command is one an agent can run unattended.
+## Three ways in
 
-It works on its own too: `npm install -g kappmaker` and drive it by hand or from Claude Code. Once the App Army kit is installed, `kappmaker army <command>` hands off to it (see [`kappmaker army`](#kappmaker-army)). The CLI sends nothing about you or your machine anywhere: no telemetry, no analytics, no update checks. The only network calls it makes are to the services you configure for the command you run.
+**1. Ask your AI.** Connect KAppMaker with one line, then say **"Set up App Army on my server at 1.2.3.4"**.
+
+| Your AI | One line |
+|---|---|
+| Claude Code | `claude mcp add --scope user kappmaker -- npx -y kappmaker@latest mcp` |
+| Claude desktop app | `npx -y kappmaker@latest mcp connect claude-desktop` |
+| Codex | `npx -y kappmaker@latest mcp connect codex` |
+| Gemini CLI | `npx -y kappmaker@latest mcp connect gemini` |
+
+It installs what you bought and stops only for what needs you: a Claude sign-in link, your Telegram bot token (in a
+private form), and one message to your new bot. Then your bot writes: "Your App Army is ready. Tell me your app idea."
+
+**2. One command** on your laptop, or on a Linux server as root:
+
+```bash
+curl -fsSL https://kappmaker.com/install.sh | bash
+curl -fsSL https://kappmaker.com/install.sh | bash -s -- --server
+```
+
+**3. Only the Claude Code plugin** (App Army for Claude Code; accept the GitHub invite first), inside Claude Code:
+
+```
+/plugin marketplace add KAppMaker/app-army-mod
+/plugin install kappmaker-app-army@app-army-mod
+```
+
+You need Node.js 22.12 or newer for `npx`. Your install code is on "My purchase" at
+[kappmaker.com](https://kappmaker.com). Full docs: [cli.kappmaker.com](https://cli.kappmaker.com).
+
+---
+
+## What the CLI does
+
+The CLI behind [KAppMaker AI](https://kappmaker.com): it automates the whole mobile app launch, from the first project
+to store-ready builds, and every command is one an agent can run unattended. It works on its own too:
+`npm install -g kappmaker`. The CLI sends nothing about you or your machine anywhere: no telemetry, no analytics, no
+update checks. The only network calls it makes are to the services you configure for the command you run.
 
 A single `kappmaker create` command can:
 - Clone a template repository and set up a new project
 - Create a Firebase project, register Android + iOS apps, enable authentication, and download SDK configs
 - Generate an AI-powered app logo with automatic background removal
 - Create an App Store Connect listing with metadata, categories, age rating, subscriptions, privacy declarations, and review contact info
-- Configure an existing Google Play Console app — store listings, subscriptions, one-time in-app products, and the data safety declaration — via a built-in wrapper around the Play Publisher API (no external CLI, no extra dependencies)
+- Configure an existing Google Play Console app (store listings, subscriptions, one-time in-app products, and the data safety declaration) via a built-in wrapper around the Play Publisher API (no external CLI, no extra dependencies)
 - Set up Adapty subscription products, paywalls, and placements for both iOS and Android
 - Refactor Gradle package names and application IDs
 - Set up the build environment (Android SDK)
 - Produce a signed Android release build (AAB) via Fastlane, ready to upload to Google Play
 
-On top of that, standalone commands let you generate marketing screenshots from a text description, translate screenshots to 48+ locales in parallel, generate arbitrary images with AI, remove image backgrounds, enhance image quality, and split grid images — all powered by AI.
+On top of that, standalone commands let you generate marketing screenshots from a text description, translate screenshots to 48+ locales in parallel, generate arbitrary images with AI, remove image backgrounds, enhance image quality, and split grid images, all with AI.
 
 By default it uses the [KAppMaker](https://kappmaker.com) boilerplate (Kotlin Multiplatform), but you can bring your own template repository via `--template-repo` or `kappmaker config set templateRepo <your-repo-url>`. Boilerplate-specific steps (Gradle refactor, Fastlane build, CocoaPods) are automatically detected and skipped with a warning when using a custom template.
 
@@ -91,22 +127,18 @@ Claude will check your config, verify API keys are set, and walk you through any
 
 **Context-aware**: when a command needs inputs you didn't pass (app description, app name, brand color, tagline, keywords, etc.), the skill reads your project's `AiGuidelines/` folder first (`app-idea.md`, `prd.md`, `keywords.md`, `brand.md`), then `README.md`, then existing ASO metadata, and fills in what it finds — you're only prompted for things that aren't already written down somewhere in the project.
 
-## MCP server (Claude Code, Codex, Gemini CLI)
+## MCP server (Claude Code, Claude desktop, Codex, Gemini CLI)
 
-`kappmaker mcp` serves every capability as typed MCP tools over stdio (52 tools: doctor, config check, new-app plan,
-clone, Firebase, refactor, logo/icons/screenshots/feature graphic, App Store Connect, Google Play, subscriptions, IAPs,
-Adapty, RevenueCat, version bump, build, publish, ios-ci). It can also set up App Army on your own server over your own
-SSH key: say "set up my VPS at <ip>" (guide: cli.kappmaker.com/docs/guides/app-army-from-your-ai).
+`kappmaker mcp` gives your AI every KAppMaker step as a tool (54 tools: health checks, a new app, Firebase, logo,
+icons, screenshots, App Store Connect, Google Play, subscriptions, builds, publishing, and App Army on your own server
+over your own SSH key). The one-line connect commands are at the top of this page; `kappmaker mcp connect <app>` sets
+the long tool timeout for you where the app has one.
 
-```bash
-claude mcp add --scope user kappmaker -- kappmaker mcp     # Claude Code
-codex mcp add kappmaker -- kappmaker mcp                   # OpenAI Codex (set tool_timeout_sec = 3600)
-gemini mcp add kappmaker kappmaker mcp                     # Gemini CLI (set "timeout": 3600000)
-```
-
-Long or paid tools return a plan first and run only when called again with `confirm: true`. No tool takes a key or
-token; they use your saved `kappmaker config`, and output is redacted. Full guide:
-[cli.kappmaker.com/docs/guides/mcp-server](https://cli.kappmaker.com/docs/guides/mcp-server).
+For App Army, `army_setup` does the whole server setup: each call does the next step and says what it needs from you,
+until it answers READY. Long or paid tools return a plan first and run only after you say yes. No tool takes a key,
+token or password: those go into a private form or stay in your saved `kappmaker config`, and output is redacted.
+Guides: [App Army from your AI](https://cli.kappmaker.com/docs/guides/app-army-from-your-ai) ·
+[MCP server](https://cli.kappmaker.com/docs/guides/mcp-server).
 
 ## `kappmaker army`
 
