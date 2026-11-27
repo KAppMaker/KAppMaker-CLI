@@ -1,6 +1,6 @@
 {
   "name": "kappmaker",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Make, set up and ship Android and iOS apps from one command line, and the CLI behind App Army: agentic mobile app development on your own laptop or server. Includes an MCP server for your AI.",
   "homepage": "https://kappmaker.com",
   "license": "MIT",

@@ -1,6 +1,15 @@
 # Changelog
 
-## 2.2.0 (unreleased)
+## 2.2.1 (2026-11-27)
+
+Fixes for the "Set up App Army from your AI" path, found in the end-to-end test on a fresh server.
+
+- The Claude sign-in link now comes through clean and once. Claude prints it as a terminal hyperlink, and the link
+  reached your AI twice with hidden codes stuck to it, so it looked broken.
+- After you sign in, the private page for the sign-in code now opens. Before, the setup only said "Not signed in
+  yet" and you had to log in to the server yourself and paste the code there.
+
+## 2.2.0 (2026-11-27)
 
 The first release on npm since 2.0.0. Version 2.1.0 was only ever on a branch and never published, so
 everything that was built for it (`kappmaker mcp`) ships here for the first time. Plugin 2.15.0.
