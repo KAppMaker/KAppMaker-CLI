@@ -50,7 +50,8 @@
     "test:army": "tsx --test src/commands/army.test.ts",
     "test:prereqs": "tsx --test src/utils/prereqs.test.ts",
     "test:headless": "tsx --test src/utils/headless.test.ts",
-    "test:mcp": "tsx --test src/mcp/mcp.test.ts"
+    "test:mcp": "tsx --test src/mcp/mcp.test.ts src/mcp/army.test.ts",
+    "test:mcp-e2e": "tsx --test src/mcp/army.e2e.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",

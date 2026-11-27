@@ -75,6 +75,7 @@ const sidebars: SidebarsConfig = {
         'guides/custom-templates',
         'guides/claude-code-skill',
         'guides/mcp-server',
+        'guides/app-army-from-your-ai',
       ],
     },
   ],

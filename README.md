@@ -93,9 +93,10 @@ Claude will check your config, verify API keys are set, and walk you through any
 
 ## MCP server (Claude Code, Codex, Gemini CLI)
 
-`kappmaker mcp` serves every capability as typed MCP tools over stdio (37 tools: doctor, config check, new-app plan,
+`kappmaker mcp` serves every capability as typed MCP tools over stdio (52 tools: doctor, config check, new-app plan,
 clone, Firebase, refactor, logo/icons/screenshots/feature graphic, App Store Connect, Google Play, subscriptions, IAPs,
-Adapty, RevenueCat, version bump, build, publish, ios-ci).
+Adapty, RevenueCat, version bump, build, publish, ios-ci). It can also set up App Army on your own server over your own
+SSH key: say "set up my VPS at <ip>" (guide: cli.kappmaker.com/docs/guides/app-army-from-your-ai).
 
 ```bash
 claude mcp add --scope user kappmaker -- kappmaker mcp     # Claude Code

@@ -3,7 +3,8 @@ import fs from 'fs-extra';
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { needsConfirm, shellQuote, type ToolDef } from './define.js';
+import { needsConfirm, shellQuote, type ArmyDeps, type AskField, type ToolDef } from './define.js';
+import { defaultArmyDeps } from './army/deps.js';
 import { defaultRunner, type CliRunner } from './runner.js';
 import { loadSecretValues, makeRedactor, type Redactor } from './redact.js';
 import { explainFailure } from './errors.js';
@@ -19,6 +20,8 @@ export interface ServerOptions {
   /** Overrides the secret values read from config (tests). */
   secretValues?: string[];
   tools?: ToolDef[];
+  /** SSH / licence API / local commands for the App Army tools (tests pass fakes). */
+  army?: Partial<ArmyDeps>;
 }
 
 const MAX_OUTPUT = 12_000;
@@ -26,9 +29,9 @@ const PROGRESS_EVERY_MS = 5_000;
 
 const INSTRUCTIONS =
   'KAppMaker builds and ships Kotlin Multiplatform apps (Android + iOS). Start with doctor and config_check; for a new app ' +
-  'call create_app_plan. Tools marked long or paid return a plan first; show it to the user and call again with ' +
+  'call create_app_plan. To set up App Army on the user\'s server or install their plugin, start with army_plan_setup. Tools marked long or paid return a plan first; show it to the user and call again with ' +
   'confirm: true only after they agree. Keys and accounts are set by the user in a terminal (`kappmaker config set …`); ' +
-  'they are never passed through or shown by these tools. Every tool takes project_dir (the app folder).';
+  'they are never passed through or shown by these tools. Never ask the user to paste a key, token or password into the chat: the army_* tools ask through a private form or give a command to run. Every tool takes project_dir (the app folder).';
 
 const text = (t: string, isError = false): CallToolResult => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError } : {}) });
 
@@ -42,6 +45,7 @@ export async function createMcpServer(opts: ServerOptions): Promise<McpServer> {
   const base = opts.cwd ?? process.cwd();
   const redact: Redactor = makeRedactor(opts.secretValues ?? (await loadSecretValues(opts.configDir)));
   const server = new McpServer({ name: 'kappmaker', version: opts.version }, { instructions: INSTRUCTIONS });
+  const deps: ArmyDeps = { ...defaultArmyDeps(), ...opts.army };
 
   for (const tool of opts.tools ?? allTools) {
     const gated = needsConfirm(tool.kind);
@@ -69,7 +73,34 @@ export async function createMcpServer(opts: ServerOptions): Promise<McpServer> {
           return text(`project_dir does not exist: ${cwd}. Fix: pass the app folder (e.g. "MyApp-All"), or clone it first with clone_template.`, true);
         }
         if (tool.type === 'local') {
-          return text(redact(await tool.run(input, { cwd, configDir: opts.configDir })));
+          const secrets: string[] = [];
+          const caps = server.server.getClientCapabilities();
+          const canAsk = Boolean(caps?.elicitation);
+          const ask = async (message: string, fields: AskField[]) => {
+            if (!canAsk) return undefined;
+            const properties: Record<string, object> = {};
+            for (const f of fields) properties[f.name] = { type: f.kind ?? 'string', title: f.title, description: f.description };
+            const r = await server.server.elicitInput({
+              mode: 'form', message, requestedSchema: { type: 'object', properties, required: fields.map((f) => f.name) },
+            } as never);
+            if (r.action !== 'accept' || !r.content) return undefined;
+            const content = r.content as Record<string, string | boolean>;
+            for (const v of Object.values(content)) if (typeof v === 'string' && v.length >= 6) secrets.push(v);
+            return content;
+          };
+          const progressToken = extra._meta?.progressToken;
+          let ticks = 0;
+          let last = 0;
+          const progress = (message: string) => {
+            const now = Date.now();
+            if (progressToken === undefined || now - last < PROGRESS_EVERY_MS) return;
+            last = now;
+            void extra.sendNotification({ method: 'notifications/progress', params: { progressToken, progress: ++ticks, message: redact(message).slice(0, 200) } }).catch(() => undefined);
+          };
+          const out = await tool.run(input, { cwd, configDir: opts.configDir, canAsk, ask, secrets, progress, signal: extra.signal, army: deps });
+          const mask = makeRedactor(secrets);
+          const body = typeof out === 'string' ? out : out.text;
+          return text(mask(redact(body)), typeof out !== 'string');
         }
 
         const commands = tool.commands(input);

@@ -14,16 +14,19 @@ configured.
 
 | Server | Where seen | Transport | Used for in the app-building flow | Kit today | Buyer supplies |
 |---|---|---|---|---|---|
-| **kappmaker** (new, this branch) | — | stdio, `kappmaker mcp` | Every CLI capability as typed tools: clone/create, refactor, ASC/Play setup, monetization, logo/icons/screenshots, version, publish, ios-ci, doctor | Not yet (W12 adds it to `kappmaker-army init`) | Nothing extra: reuses `~/.config/kappmaker/*` |
+| **kappmaker** (new, this branch) | — | stdio, `kappmaker mcp` | Every CLI capability as typed tools, plus `army_*` tools that set up and run App Army on the buyer's server over their own SSH key | Yes on the W12 kit branch: `kappmaker-army init` registers it for Claude Code, Codex and Gemini CLI | Nothing extra: reuses `~/.config/kappmaker/*` |
 | **stitch** (Google Stitch) | box1 (user scope) | HTTP `stitch.googleapis.com/mcp`, header `X-Goog-Api-Key` | Stitch-first UI prototype (one mobile screen, then edits), plus `stitch-fetch` / `stitch-rpc` | Yes: `kappmaker-army mcp stitch` writes the entry with a `headersHelper` that reads `$STITCH_KEY_FILE`; doctor reports it | Stitch API key (free Google account) |
 | **telegram** (plugin `telegram@claude-plugins-official`) | box1, Mac | plugin MCP (bun) | Talk to always-on workers from a phone; reply/react/attach builds and screenshots | Yes: `kappmaker-army worker add` installs it; doctor checks | BotFather bot token, their Telegram account |
 | **claude-mem** (plugin `claude-mem@thedotmack`) | box1 | plugin MCP (`mcp-search`) + hooks | Cross-session recall for long-running workers | Yes on server installs (`--claude-mem yes`), `army-claude-mem-install` | Nothing |
-| **astro** (Astro ASO) | Mac (user + several projects) | HTTP, local `127.0.0.1:8089/mcp` (served by the Astro Mac app) | ASO keyword research: `search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions` (skill `kappmaker-aso`) | No. Skill falls back to a manual brainstorm. Keyword bank imports Astro CSV exports | Astro app licence; **macOS only** (local server), so not on a Linux VPS |
-| **revenuecat** | Mac (user scope) | HTTP `mcp.revenuecat.ai/mcp`, Bearer v2 secret key or OAuth | Ad-hoc inspection/fixes of offerings, products, entitlements (skill `kappmaker-revenuecat`); the repeatable setup stays `kappmaker revenuecat setup` | No | RevenueCat account + project-scoped `sk_…` key (only if they pick RevenueCat over Adapty) |
-| **playwright** (`@playwright/mcp`) | Mac (user scope) | stdio `npx @playwright/mcp` | Landing-page / web-preview checks, screenshots of the Wasm/web build | No (INSTALL.md optional row lists `playwright-cli`) | Nothing (local browser) |
+| **astro** (Astro ASO) | Mac (user + several projects) | HTTP, local `127.0.0.1:8089/mcp` (served by the Astro Mac app) | ASO keyword research: `search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions` (skill `kappmaker-aso`) | Optional (`kappmaker-army mcp add astro`, macOS only). Skill falls back to a manual brainstorm. Keyword bank imports Astro CSV exports | Astro is a **paid third-party Mac app**: optional, never required; the local server means it does not run on a Linux VPS |
+| **revenuecat** | Mac (user scope) | HTTP `mcp.revenuecat.ai/mcp`, Bearer v2 secret key or OAuth | Ad-hoc inspection/fixes of offerings, products, entitlements (skill `kappmaker-revenuecat`); the repeatable setup stays `kappmaker revenuecat setup` | Optional (`kappmaker-army mcp add revenuecat`, key in its own 600 file) | RevenueCat account + project-scoped `sk_…` key (only if they pick RevenueCat over Adapty) |
+| **playwright** (`@playwright/mcp`) | Mac (user scope) | stdio `npx @playwright/mcp` | Landing-page / web-preview checks, screenshots of the Wasm/web build | Optional (`kappmaker-army mcp add playwright`, pinned version) | Nothing (local browser) |
 | **caveman-shrink** | box1 + Mac (project scope) | stdio | Token compression for the owner's sessions | No | — owner tooling, not needed for apps |
 | **clipugc** | Mac (user), box1 plugin | stdio `npx` / plugin | Owner's UGC marketing videos | No | — not part of app building |
 | **adloop** | Mac (user + project) | stdio `adloop` | Owner's Google Ads/GA4 work | No | — not part of app building |
+
+Corrections after review (2026-11-27): the kappmaker plugin IS installed by install.sh on app-army main (the W8 note
+was older); the rows above say what the W12 branches add.
 
 Account connectors visible on box1 sessions (Claude Docs, Gmail, Calendar, Drive) are claude.ai-account
 features, not App Army dependencies.
@@ -33,7 +36,7 @@ features, not App Army dependencies.
 | CLI | Used for | Kit today | Buyer supplies |
 |---|---|---|---|
 | `kappmaker` (npm, this repo) | Whole store/asset/build pipeline | Yes: install.sh `npm i -g kappmaker` | API keys in `~/.config/kappmaker` (fal.ai, imgbb, optional OpenAI) |
-| `kappmaker` Claude plugin (27 skills) | Routing for ASO, screenshots, ASC/GPC, publish, ios-ci | **No** (W8 finding C-27/D-26) | — |
+| `kappmaker` Claude plugin (27 skills) | Routing for ASO, screenshots, ASC/GPC, publish, ios-ci | Yes: install.sh adds the KAppMaker/KAppMaker-CLI marketplace and installs it; doctor checks it and `--fix` reinstalls (re-checked on main 41a10b6; the W8 C-27 "missing" finding predates that) | — |
 | `firebase` | Firebase project/apps/configs | Yes (setup-vps) | Google account login |
 | `asc` (App Store Connect CLI ≥ 5.9) | ASC app record, products, pricing, metadata | Yes | ASC API key (.p8, key id, issuer id), Apple ID |
 | `adapty` (≥ 0.33) | Adapty products/paywalls | Yes | Adapty account (`adapty auth login`) |

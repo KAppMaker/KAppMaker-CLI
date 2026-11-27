@@ -37,7 +37,7 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 ```bash
 npm run dev          # Run with tsx (no build needed)
 npm run build        # Compile TypeScript to dist/
-npx tsx src/index.ts mcp                           # MCP server on stdio (37 typed tools; long/paid need confirm: true) — see docs-site/docs/guides/mcp-server.md
+npx tsx src/index.ts mcp                           # MCP server on stdio (52 typed tools incl. army_* server setup over SSH; long/paid need confirm: true) — see docs-site/docs/guides/mcp-server.md
 npx tsx src/index.ts army <cmd> [args]             # Forward to kappmaker-army (App Army kit); exit code passed through
 npx tsx src/index.ts army install [--server] [--key K] [--dry-run]  # Download kappmaker.com/install.sh, verify vs install.sh.sha256, run it (key via env only)
 npx tsx src/index.ts create <AppName>              # Full end-to-end app setup (13 steps)
@@ -181,7 +181,7 @@ Rule of thumb: code change → bump CLI version (all three spots); skill change 
 Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
 maintained by hand and drift silently.
 
-Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour), `npm run test:mcp` (MCP server via the SDK client). `npm run lint` = type check.
+Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour), `npm run test:mcp` (MCP server via the SDK client), `npm run test:mcp-e2e` (opt-in: `KAPPMAKER_MCP_E2E=1 ARMY_REPO=<app-army>`, Docker VPS over real SSH). `npm run lint` = type check.
 
 ## Privacy (hard rule)
 
@@ -311,7 +311,11 @@ src/
     runner.ts               # child-process runner (KAPPMAKER_NONINTERACTIVE=1, KAPPMAKER_ASSUME_YES on confirm)
     redact.ts               # secret values from config + secret-shape patterns -> [redacted]
     errors.ts               # failed output -> one plain sentence + exact fix
-    tools/                  # tool definitions by area (health, project, assets, stores, monetization, ship)
+    tools/                  # tool definitions by area (health, project, assets, stores, monetization, ship, army-setup, army-ops, army-login)
+    army/                   # App Army over the buyer's own SSH: ssh.ts (key by PATH only, BatchMode), licence.ts (read-only
+                            # POST /api/license/check → product), plan.ts (per-purchase plan text), scripts.ts (probe, installer on
+                            # stdin, run-as-worker), common.ts (licence/token via elicitation, second yes for destructive actions)
+    army.test.ts            # army tools via SDK client, fake ssh/licence/elicitation; army.e2e.test.ts = opt-in Docker over real SSH
     mcp.test.ts             # SDK client vs server (fake runner) + one real stdio round trip
   utils/
     logger.ts               # chalk-based step/success/error logging

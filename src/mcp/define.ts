@@ -30,10 +30,41 @@ export interface CliTool<S extends z.ZodRawShape = z.ZodRawShape> extends Base<S
   planNote?: (input: z.infer<z.ZodObject<S>>) => string;
 }
 
-/** A tool answered in-process from local files (never prints, never prompts). */
+/** One field the user fills in a form their AI client shows (MCP elicitation). The value reaches this server only. */
+export interface AskField {
+  name: string;
+  title: string;
+  description: string;
+  kind?: 'string' | 'boolean';
+}
+
+export interface LocalCtx {
+  cwd: string;
+  configDir?: string;
+  /** True when the client can show the user a form (MCP elicitation); the model never sees what is typed. */
+  canAsk: boolean;
+  /** Shows the form; undefined when the user declined or the client cannot. */
+  ask: (message: string, fields: AskField[]) => Promise<Record<string, string | boolean> | undefined>;
+  /** Values that must be masked if they ever show up in output (e.g. a token the user typed). */
+  secrets: string[];
+  progress: (message: string) => void;
+  signal?: AbortSignal;
+  army: ArmyDeps;
+}
+
+/** What the App Army tools reach outside this process; tests replace each one. */
+export interface ArmyDeps {
+  ssh: import('./army/ssh.js').SshRunner;
+  fetch: import('./army/licence.js').HttpFetch;
+  /** Runs a local command (the plugin install), e.g. `claude plugin install …`. */
+  exec: (file: string, args: string[], env?: Record<string, string>) => Promise<{ exitCode: number; output: string }>;
+}
+
+/** A tool answered in-process (never prints to stdout, never prompts on a terminal). */
 export interface LocalTool<S extends z.ZodRawShape = z.ZodRawShape> extends Base<S> {
   type: 'local';
-  run: (input: z.infer<z.ZodObject<S>>, ctx: { cwd: string; configDir?: string }) => Promise<string>;
+  /** `confirm` is added by the server for long/paid tools. */
+  run: (input: z.infer<z.ZodObject<S>> & { confirm?: boolean }, ctx: LocalCtx) => Promise<string | { text: string; isError: true }>;
 }
 
 export type ToolDef = CliTool<any> | LocalTool<any>; // eslint-disable-line @typescript-eslint/no-explicit-any

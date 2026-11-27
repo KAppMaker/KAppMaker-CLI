@@ -62,6 +62,7 @@ Or add it to `~/.gemini/settings.json`. The timeout is in milliseconds, and the 
 | Stores | `appstore_setup`, `appstore_monetization_push`, `appstore_review_screenshot`, `google_play_setup`, `google_play_push`, `google_play_check`, `google_play_list` |
 | Monetization | `subscription_add`, `iap_add`, `adapty_setup`, `revenuecat_setup` |
 | Build and ship | `fastlane_configure`, `generate_keystore`, `android_release_build`, `publish`, `ios_ci_init`, `ios_ci_build`, `ios_ci_status` |
+| App Army on your server | `army_plan_setup`, `army_check_server`, `army_install_server`, `army_install_plugin`, `army_claude_login`, `army_add_worker`, `army_doctor`, `army_status`, `army_logs`, `army_update_check`, `army_update`, `army_rollback`, `army_restart_worker`, `army_remove_worker`, `army_new_app`. See [Set up App Army from your AI](./app-army-from-your-ai) |
 
 Every tool takes a `project_dir` argument: the app folder, for example `MyApp-All`. For a new app, start with
 `create_app_plan`. It returns the steps in order, the same flow as `kappmaker create`.
