@@ -1,6 +1,6 @@
 {
   "name": "kappmaker",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "The CLI behind KAppMaker AI, the agentic Kotlin Multiplatform app development kit you install on your own laptop or server: create, configure, build and ship Android and iOS apps from one command line.",
   "homepage": "https://kappmaker.com",
   "license": "MIT",
@@ -46,18 +46,21 @@
     "test:ppp": "tsx src/services/ppp-pricing.service.test.ts",
     "test:ios-ci": "tsx src/commands/ios-ci.test.ts",
     "lint": "tsc --noEmit",
-    "test": "npm run test:ppp && npm run test:ios-ci && npm run test:army && npm run test:prereqs && npm run test:headless",
+    "test": "npm run test:ppp && npm run test:ios-ci && npm run test:army && npm run test:prereqs && npm run test:headless && npm run test:mcp",
     "test:army": "tsx --test src/commands/army.test.ts",
     "test:prereqs": "tsx --test src/utils/prereqs.test.ts",
-    "test:headless": "tsx --test src/utils/headless.test.ts"
+    "test:headless": "tsx --test src/utils/headless.test.ts",
+    "test:mcp": "tsx --test src/mcp/mcp.test.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "chalk": "^6.0.1",
     "commander": "^15.1.0",
     "execa": "^10.2.1",
     "fs-extra": "^11.4.1",
     "ora": "^10.0.0",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",

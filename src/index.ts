@@ -23,6 +23,11 @@ const { createCli } = await import('./cli.js');
 const program = createCli();
 
 program.parseAsync(process.argv).catch((error) => {
+  // A prompt nobody can answer (KAPPMAKER_NONINTERACTIVE=1): one plain line, no stack.
+  if (error instanceof Error && error.name === 'NeedsAnswerError') {
+    console.error(error.message);
+    process.exit(2);
+  }
   console.error(error);
   process.exit(1);
 });

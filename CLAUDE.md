@@ -26,6 +26,8 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 - Use `run()` from `src/utils/exec.ts` for commands with spinner output
 - Use `runStreaming()` for interactive commands (e.g., `firebase login`)
 - Graceful degradation — steps that fail or detect missing dependencies warn and skip instead of aborting the entire flow
+- Prompts: `confirm()` / `promptInput()` throw `NeedsAnswerError` under `KAPPMAKER_NONINTERACTIVE=1` (the MCP server's children) instead of hanging; `confirm(msg, { assumable: true })` answers yes when `KAPPMAKER_ASSUME_YES=1` — mark ONLY re-asks of something the caller already agreed to (never deletes, never first-time questions). EOF on stdin = empty answer.
+- MCP tools never accept secrets as arguments and never print them; new tools go in `src/mcp/tools/*` and must keep the "no api_key/token/password inputs" test passing.
 - Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline and saved to config on first use — no fatal exits for missing keys
 - Missing App Store Connect config (API key, Apple ID) triggers inline interactive setup via `configAppStoreDefaults`
 - If no `~/.config/kappmaker/config.json` exists when `create`/`clone` runs, `configInit()` is called automatically before the first step — only with a terminal. Without one (agent, Telegram worker, CI, `KAPPMAKER_NONINTERACTIVE=1`) commands fail with one line naming `kappmaker config init --yes [...]` (non-interactive, flags/env/defaults) instead of prompting; `create` (inherently interactive) refuses up front and points at the standalone steps. Never strip the inherited env when spawning `./gradlew` — the kit's `gradle-slot` wrapper relies on `GRADLE_SLOT_HELD` reaching it.
@@ -35,6 +37,7 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 ```bash
 npm run dev          # Run with tsx (no build needed)
 npm run build        # Compile TypeScript to dist/
+npx tsx src/index.ts mcp                           # MCP server on stdio (37 typed tools; long/paid need confirm: true) — see docs-site/docs/guides/mcp-server.md
 npx tsx src/index.ts army <cmd> [args]             # Forward to kappmaker-army (App Army kit); exit code passed through
 npx tsx src/index.ts army install [--server] [--key K] [--dry-run]  # Download kappmaker.com/install.sh, verify vs install.sh.sha256, run it (key via env only)
 npx tsx src/index.ts create <AppName>              # Full end-to-end app setup (13 steps)
@@ -178,7 +181,7 @@ Rule of thumb: code change → bump CLI version (all three spots); skill change 
 Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
 maintained by hand and drift silently.
 
-Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour). `npm run lint` = type check.
+Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour), `npm run test:mcp` (MCP server via the SDK client). `npm run lint` = type check.
 
 ## Privacy (hard rule)
 
@@ -243,6 +246,7 @@ src/
   cli.ts                    # Commander.js program setup
   commands/
     create.ts               # Full app setup (13-step orchestrator: Firebase + logo + refactor + build + ASC + GPC + Adapty)
+    mcp.ts                  # `kappmaker mcp` — stdio MCP server entry (src/mcp/)
     army.ts                 # `kappmaker army` — forward to kappmaker-army, or install the kit via verified install.sh (army.test.ts = tests)
     clone.ts                # `kappmaker clone <AppName>` — step 1 of create as a standalone command (also called by create.ts)
     git.ts                  # `kappmaker git setup-upstream` — step 10 of create as a standalone command (also called by create.ts)
@@ -301,6 +305,14 @@ src/
     screenshot.service.ts   # Screenshot grid combine/split, locale mapping, Fastlane output
     version.service.ts      # Android + iOS version reading/writing (build.gradle.kts, pbxproj, Info.plist)
     product-id.builder.ts   # Period + price → aligned ASC / Play / Adapty product IDs (shared by subscription-add and iap-add)
+  mcp/                      # `kappmaker mcp` server: every tool runs `kappmaker <args>` in a CHILD process (stdout = protocol)
+    server.ts               # registers tools; plan unless confirm:true for long/paid; redacts output; progress notifications
+    define.ts               # ToolDef (cli | local), kinds read/write/long/paid, flags() argv builder
+    runner.ts               # child-process runner (KAPPMAKER_NONINTERACTIVE=1, KAPPMAKER_ASSUME_YES on confirm)
+    redact.ts               # secret values from config + secret-shape patterns -> [redacted]
+    errors.ts               # failed output -> one plain sentence + exact fix
+    tools/                  # tool definitions by area (health, project, assets, stores, monetization, ship)
+    mcp.test.ts             # SDK client vs server (fake runner) + one real stdio round trip
   utils/
     logger.ts               # chalk-based step/success/error logging
     exec.ts                 # execa wrapper with spinner and streaming modes

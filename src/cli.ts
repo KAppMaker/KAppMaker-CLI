@@ -50,6 +50,7 @@ import { mascotAnimate } from './commands/mascot-animate.js';
 import { gitSetupUpstreamCommand } from './commands/git.js';
 import { army } from './commands/army.js';
 import { doctor } from './commands/doctor.js';
+import { mcpCommand } from './commands/mcp.js';
 import {
   firebaseLoginCommand,
   firebaseProjectCommand,
@@ -82,6 +83,13 @@ export function createCli(): Command {
     .option('--strict', 'Exit 1 when a required tool is missing or too old', false)
     .action(async (options) => {
       process.exit(await doctor(options));
+    });
+
+  program
+    .command('mcp')
+    .description('Run the KAppMaker MCP server on stdio (for Claude Code, Codex, Gemini CLI and other MCP agents)')
+    .action(async () => {
+      await mcpCommand();
     });
 
   program
@@ -189,8 +197,17 @@ export function createCli(): Command {
     .option('--prompt <text>', 'App idea / concept (skips the interactive prompt)')
     .option('--spec <path>', 'Pre-authored logo-grid spec JSON used as the prompt (see `kappmaker spec-template logo`)')
     .option('--output <path>', 'Custom output path for the logo')
+    .option('--grid-only', 'Generate and save the 16-logo grid, then exit (non-interactive; pair with --choose)')
+    .option('--choose <n>', 'Cut logo 1-16 out of the existing grid (no AI call; requires a prior --grid-only run)')
+    .option('--zoom <factor>', 'With --choose: crop zoom factor')
+    .option('--gap <pixels>', 'With --choose: gap pixels skipped at each tile edge')
     .action(async (options) => {
-      await createLogo(options);
+      await createLogo({
+        ...options,
+        choose: options.choose !== undefined ? parseInt(options.choose, 10) : undefined,
+        zoom: options.zoom !== undefined ? parseFloat(options.zoom) : undefined,
+        gap: options.gap !== undefined ? parseInt(options.gap, 10) : undefined,
+      });
     });
 
   program

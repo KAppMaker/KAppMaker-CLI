@@ -16,30 +16,58 @@ export function isInteractive(
 export const CONFIG_INIT_HINT =
   'kappmaker config init --yes [--bundle-prefix com.yourcompany] [--organization "Your Co"]';
 
-export async function confirm(message: string): Promise<boolean> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+/**
+ * Thrown instead of prompting when nobody can answer (KAPPMAKER_NONINTERACTIVE=1,
+ * e.g. under `kappmaker mcp`). The message starts with a fixed marker so the MCP
+ * server can turn it into a plain-language "do this instead" reply.
+ */
+export class NeedsAnswerError extends Error {
+  constructor(question: string) {
+    super(`kappmaker: needs an answer: "${question.trim()}"`);
+    this.name = 'NeedsAnswerError';
+  }
+}
 
-  return new Promise((resolve) => {
-    rl.question(`${message} (y/n) `, (answer) => {
-      rl.close();
-      resolve(answer.trim().toLowerCase() === 'y');
-    });
-  });
+function explicitlyHeadless(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.KAPPMAKER_NONINTERACTIVE === '1';
+}
+
+export interface ConfirmOptions {
+  /**
+   * The question only re-asks something the caller already agreed to (e.g.
+   * "Continue with these settings?" after an MCP `confirm: true`). With
+   * KAPPMAKER_ASSUME_YES=1 such a confirm answers yes by itself. Leave unset for
+   * questions that would delete data or that nobody has answered yet.
+   */
+  assumable?: boolean;
+}
+
+export async function confirm(message: string, opts: ConfirmOptions = {}): Promise<boolean> {
+  if (opts.assumable && process.env.KAPPMAKER_ASSUME_YES === '1') {
+    console.log(`${message.trim()} yes (confirmed beforehand)`);
+    return true;
+  }
+  if (explicitlyHeadless()) throw new NeedsAnswerError(message);
+  return ask(`${message} (y/n) `).then((answer) => answer.toLowerCase() === 'y');
 }
 
 export async function promptInput(message: string): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  if (explicitlyHeadless()) throw new NeedsAnswerError(message);
+  return ask(message);
+}
 
+/** One readline question. stdin closing before an answer (no terminal, EOF) counts as an empty answer. */
+function ask(question: string): Promise<string> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(message, (answer) => {
+    let answered = false;
+    rl.question(question, (answer) => {
+      answered = true;
       rl.close();
       resolve(answer.trim());
+    });
+    rl.on('close', () => {
+      if (!answered) resolve('');
     });
   });
 }
