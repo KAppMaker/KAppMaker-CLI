@@ -162,7 +162,7 @@ export async function pushListings(
       if (!ok) throw new CliError('Listings push cancelled: nothing was changed on Play.');
     }
   } else if (toSend.some((p) => !p.isNew)) {
-    const ok = await confirm('  Apply these listing changes on Google Play?');
+    const ok = await confirm('  Apply these listing changes on Google Play?', { assumable: true });
     if (!ok) throw new CliError('Listings push cancelled: nothing was changed on Play.');
   }
 
