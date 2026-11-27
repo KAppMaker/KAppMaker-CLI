@@ -91,6 +91,23 @@ Claude will check your config, verify API keys are set, and walk you through any
 
 **Context-aware**: when a command needs inputs you didn't pass (app description, app name, brand color, tagline, keywords, etc.), the skill reads your project's `AiGuidelines/` folder first (`app-idea.md`, `prd.md`, `keywords.md`, `brand.md`), then `README.md`, then existing ASO metadata, and fills in what it finds — you're only prompted for things that aren't already written down somewhere in the project.
 
+## MCP server (Claude Code, Codex, Gemini CLI)
+
+`kappmaker mcp` serves every capability as typed MCP tools over stdio (52 tools: doctor, config check, new-app plan,
+clone, Firebase, refactor, logo/icons/screenshots/feature graphic, App Store Connect, Google Play, subscriptions, IAPs,
+Adapty, RevenueCat, version bump, build, publish, ios-ci). It can also set up App Army on your own server over your own
+SSH key: say "set up my VPS at <ip>" (guide: cli.kappmaker.com/docs/guides/app-army-from-your-ai).
+
+```bash
+claude mcp add --scope user kappmaker -- kappmaker mcp     # Claude Code
+codex mcp add kappmaker -- kappmaker mcp                   # OpenAI Codex (set tool_timeout_sec = 3600)
+gemini mcp add kappmaker kappmaker mcp                     # Gemini CLI (set "timeout": 3600000)
+```
+
+Long or paid tools return a plan first and run only when called again with `confirm: true`. No tool takes a key or
+token; they use your saved `kappmaker config`, and output is redacted. Full guide:
+[cli.kappmaker.com/docs/guides/mcp-server](https://cli.kappmaker.com/docs/guides/mcp-server).
+
 ## `kappmaker army`
 
 Bridge to the App Army kit (`kappmaker-army`), the part of KAppMaker AI that runs agents on your own machine.

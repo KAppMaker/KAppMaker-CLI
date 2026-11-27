@@ -42,6 +42,15 @@ Two asks that are easy to misroute:
   `capture-app-screens` skill, not this CLI. **kappmaker-screenshots** designs *marketing*
   screenshots (and consumes those captures as references).
 
+## MCP tools (when the `kappmaker` MCP server is connected)
+
+If tools like `doctor`, `create_app_plan`, `subscription_add` or `publish` from the **kappmaker** MCP server
+(`kappmaker mcp`) are visible in the session, prefer them over typing `kappmaker …` in a shell: they take typed
+arguments, run non-interactively, redact secrets from the output, and explain failures with the exact fix. The
+skills below still apply for what to pass. The tools that take minutes, create things on a store or spend money
+return a **plan** first. Show the plan to the user, and call the tool again with `confirm: true` only after they
+agree. Shelling out to `kappmaker` is still fine when the server is not connected.
+
 ## The usual journey
 
 Idea → **new-app** → *(interview via the project's own `new-app` skill)* → **firebase** →

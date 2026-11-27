@@ -119,7 +119,7 @@ export async function revenuecatSetup(options: CreateRevenueCatOptions): Promise
   console.log(chalk.gray('  Edit the config file to change any values before continuing.'));
   console.log('');
 
-  const shouldContinue = await confirm('  Continue with these settings?');
+  const shouldContinue = await confirm('  Continue with these settings?', { assumable: true });
   if (!shouldContinue) {
     logger.info(`Config saved at: ${configPath}`);
     logger.info('Edit the file and run the command again.');

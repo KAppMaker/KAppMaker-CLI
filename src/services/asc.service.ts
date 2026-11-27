@@ -190,6 +190,7 @@ export async function createApp(config: AppStoreAppConfig): Promise<string> {
 
   const shouldCreate = await confirm(
     '  App not found. Create it now? (requires Apple ID session)',
+    { assumable: true },
   );
 
   if (shouldCreate) {

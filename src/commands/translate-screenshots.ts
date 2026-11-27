@@ -99,7 +99,7 @@ export async function translateScreenshots(
   // Check if output directory exists, prompt to create if not
   if (!(await fs.pathExists(outputDir))) {
     logger.info(`Output directory does not exist: ${outputDir}`);
-    const ok = await confirm('Create it now?');
+    const ok = await confirm('Create it now?', { assumable: true });
     if (!ok) {
       logger.info('Aborted.');
       process.exit(0);

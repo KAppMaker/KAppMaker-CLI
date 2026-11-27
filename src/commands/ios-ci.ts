@@ -497,7 +497,7 @@ export async function iosCiBuild(options: IosCiBuildOptions): Promise<void> {
 
   const submit = options.submitForReview === true;
   if (track === 'appstore' && submit) {
-    const ok = await confirm('  Submit to App Store REVIEW after upload?');
+    const ok = await confirm('  Submit to App Store REVIEW after upload?', { assumable: true });
     if (!ok) {
       logger.info('Cancelled.');
       return;

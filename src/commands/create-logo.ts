@@ -14,6 +14,7 @@ const GRID_FILENAME = 'logo_variations.png';
 const LOGO_FILENAME = 'app_logo.png';
 
 export async function createLogo(options: CreateLogoOptions): Promise<void> {
+  if (options.choose !== undefined) return pickFromExistingGrid(options);
   const config = await loadConfig();
 
   if (!config.falApiKey) {
@@ -70,6 +71,12 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
     await fal.downloadImage(imageUrl, gridPath);
     logger.info(`Grid saved to ${gridPath}`);
 
+    if (options.gridOnly) {
+      logger.success(`Logo grid saved to ${gridPath}`);
+      logger.info('Pick one: kappmaker create-logo --choose <1-16> [--output <path>]');
+      return;
+    }
+
     // Preview
     await openPreview(gridPath);
 
@@ -95,3 +102,24 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
   logger.done();
 }
 
+
+/** `--choose N`: cut cell N out of a grid made earlier with `--grid-only`. No AI call, no cost. */
+async function pickFromExistingGrid(options: CreateLogoOptions): Promise<void> {
+  const assetsDir = options.output ? path.dirname(path.resolve(options.output)) : path.resolve(ASSETS_DIR);
+  const gridPath = path.join(assetsDir, GRID_FILENAME);
+  if (!(await fs.pathExists(gridPath))) {
+    logger.fatal(`No logo grid at ${gridPath}. Make one first: kappmaker create-logo --grid-only --prompt "..."`);
+    process.exit(1);
+  }
+  const index = options.choose!;
+  if (!Number.isInteger(index) || index < 1 || index > 16) {
+    logger.fatal('--choose must be a number between 1 and 16');
+    process.exit(1);
+  }
+  const outputPath = options.output ? path.resolve(options.output) : path.join(assetsDir, LOGO_FILENAME);
+  const extractOpts: ExtractOptions = {};
+  if (options.zoom !== undefined) extractOpts.zoom = options.zoom;
+  if (options.gap !== undefined) extractOpts.gap = options.gap;
+  await extractLogo(gridPath, index, outputPath, extractOpts);
+  logger.success(`Logo ${index} saved to ${outputPath}`);
+}

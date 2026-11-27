@@ -51,6 +51,12 @@ export interface CreateLogoOptions {
   output?: string;
   prompt?: string;
   spec?: string;
+  /** Generate and save the 4×4 grid, then stop (no picking) — for agents. */
+  gridOnly?: boolean;
+  /** Pick cell 1-16 from an existing grid without generating (pairs with gridOnly). */
+  choose?: number;
+  zoom?: number;
+  gap?: number;
 }
 
 export interface CreateMascotOptions {

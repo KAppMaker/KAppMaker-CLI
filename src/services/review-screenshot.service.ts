@@ -72,6 +72,7 @@ export async function prepareReviewScreenshot(
   logger.info(`Apple's App Store required size for review screenshots: ${REVIEW_SCREENSHOT_TARGET_WIDTH}×${REVIEW_SCREENSHOT_TARGET_HEIGHT} (iPhone 6.7" Display, portrait).`);
   const shouldResize = await confirm(
     `  Resize to exactly ${REVIEW_SCREENSHOT_TARGET_WIDTH}×${REVIEW_SCREENSHOT_TARGET_HEIGHT} (center-crop)? (Y/n)`,
+    { assumable: true },
   );
   if (!shouldResize) {
     return abs;
