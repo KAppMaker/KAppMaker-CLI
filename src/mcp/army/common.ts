@@ -38,6 +38,25 @@ export async function remote(ctx: LocalCtx, c: Conn, cmd: { remote: string; stdi
   return { ...r, why };
 }
 
+/**
+ * Terminal output as plain text: drops OSC sequences (Claude prints its sign-in link as an OSC-8 hyperlink: the URL
+ * inside the escape, then the same URL as text, with no space between), CSI colour/cursor codes and carriage returns.
+ * Without this a link matched with \S+ came out as the URL twice plus escape bytes.
+ */
+export function plainTerminal(s: string): string {
+  return s
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g, '')
+    .replace(/\x1b[@-Z\\-_]/g, '')
+    .replace(/\r/g, '');
+}
+
+/** The sign-in link in terminal output: the first https URL, each one once, escape codes removed. */
+export function firstLink(out: string): string | undefined {
+  const urls = plainTerminal(out).match(/https:\/\/[^\s"'<>]+/g) ?? [];
+  return urls.find((u) => /oauth|authorize|login/i.test(u)) ?? urls[0];
+}
+
 export function tail(out: string, lines = 40): string {
   const all = out.trim().split('\n');
   return (all.length > lines ? ['…', ...all.slice(-lines)] : all).join('\n');

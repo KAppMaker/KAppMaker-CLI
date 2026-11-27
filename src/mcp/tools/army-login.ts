@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { local, type ToolDef } from '../define.js';
 import { asWorker, workerShellCommand } from '../army/scripts.js';
 import { shq, userCommand } from '../army/ssh.js';
-import { conn, connShape, fail, isConn, remote } from '../army/common.js';
+import { conn, connShape, fail, firstLink, isConn, plainTerminal, remote } from '../army/common.js';
 import { askSecret, FIELDS } from '../army/secrets.js';
 
 /**
@@ -42,17 +42,19 @@ export const claudeLoginTool: ToolDef = local({
         'for n in $(seq 1 20); do grep -qE "https://[^ ]+" ' + LOG + ' && break; sleep 1; done',
         `tmux capture-pane -p -t ${SESSION} 2>/dev/null | tail -n 30; echo; cat ${LOG} 2>/dev/null | tail -n 30`,
       ].join('\n'));
-      const url = (r.output.replace(/\s*\n\s*/g, '\n').match(/https:\/\/\S+/g) ?? []).sort((a, b) => b.length - a.length)[0];
+      const url = firstLink(r.output);
       if (!url) {
         return fail(`The sign-in did not show a link. Sign in yourself instead (it prints a link to open):\n  ${userCommand(c, workerShellCommand(c, 'claude auth login'))}\n--- server said ---\n${r.output.trim().split('\n').slice(-12).join('\n')}`);
       }
-      const code = r.output.match(/\b(?:code|Code)[:\s]+([A-Z0-9]{4,}(?:-[A-Z0-9]{4,})*)\b/)?.[1];
+      const code = plainTerminal(r.output).match(/\b(?:code|Code)[:\s]+([A-Z0-9]{4,}(?:-[A-Z0-9]{4,})*)\b/)?.[1];
       return `Open this link in your browser and sign in with the Claude account the server should use:\n  ${url}\n${code ? `If it asks for a code, enter: ${code}\n` : ''}Then call army_claude_login with action finish.`;
     }
 
     // finish: maybe Claude waits for a code pasted back.
-    const pane = await run(`tmux capture-pane -p -t ${SESSION} 2>/dev/null | tail -n 15`);
-    if (/paste|enter.*code|code:/i.test(pane.output)) {
+    // The pane is 50 rows and the prompt sits near the top: drop blank rows before tail, else it only sees blanks
+    // and never offers the code page (W11: buyers had to ssh in and paste the code themselves). The log is a backup.
+    const pane = await run(`{ tmux capture-pane -p -J -t ${SESSION} 2>/dev/null; tail -n 5 ${LOG} 2>/dev/null; } | grep -v '^[[:space:]]*$' | tail -n 15`);
+    if (/paste|enter.*code|code:/i.test(plainTerminal(pane.output))) {
       const attach = `Finish it in your own terminal:\n  ${userCommand(c, workerShellCommand(c, `tmux attach -t ${SESSION}`))}\n(after the code is in: Ctrl-b d to leave)`;
       const got = await askSecret(ctx, `login:${c.host}`, {
         title: 'Claude sign-in code', message: 'Open this page and paste the code the Claude sign-in page showed you. It goes to your server only, not to the AI.',
