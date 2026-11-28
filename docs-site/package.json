@@ -51,6 +51,8 @@
     "webpack-dev-server": ">=5.2.4",
     "qs": ">=6.15.2",
     "joi": ">=17.13.4",
-    "shell-quote": ">=1.8.4"
+    "shell-quote": ">=1.8.4",
+    "body-parser": "^2.4.0",
+    "tinypool": "^2.1.2"
   }
 }
