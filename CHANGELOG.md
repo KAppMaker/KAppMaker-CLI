@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.2 (2026-11-28)
+
+- Setting up App Army from your AI: the one-time install code now reaches the server as a hidden setting, not as part
+  of the command, so it no longer shows in the server's process list while the install runs.
+
 ## 2.2.1 (2026-11-27)
 
 Fixes for the "Set up App Army from your AI" path, found in the end-to-end test on a fresh server.
