@@ -16,7 +16,7 @@ kappmaker create-logo --output ./custom/path/logo.png
 1. Reads app idea from `--prompt` (or prompts interactively if omitted)
 2. Generates a 4x4 grid of 16 logo variations (2K, 1:1)
 3. Opens grid in Preview.app for review
-4. Pick a logo (1-16) or R to regenerate — optional: `5 --zoom 1.1 --gap 3`
+4. Pick a logo (1-16) or R to regenerate: optional: `5 --zoom 1.1 --gap 3`
 5. Extracts chosen logo at 512x512
 
 **Output:** `Assets/app_logo.png` + `Assets/logo_variations.png`
@@ -25,14 +25,14 @@ Requires a fal.ai API key (prompted on first use if not set, or set manually: `k
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | App idea / concept (skips the interactive prompt) | — |
+| `--prompt <text>` | App idea / concept (skips the interactive prompt) | - |
 | `--output <path>` | Custom output path | `Assets/app_logo.png` |
 
 ---
 
 ## `generate-image`
 
-Generic AI image generator — a thin wrapper around fal.ai's `nano-banana-2` (text-to-image) and `nano-banana-2/edit` (with reference images). Use this any time you need a one-off image without the logo-grid selection flow.
+Generic AI image generator: a thin wrapper around fal.ai's `nano-banana-2` (text-to-image) and `nano-banana-2/edit` (with reference images). Use this any time you need a one-off image without the logo-grid selection flow.
 
 ```bash
 kappmaker generate-image --prompt "A minimalist mountain landscape at sunset"
@@ -54,13 +54,13 @@ Requires a fal.ai API key (prompted on first use if not set).
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | Text description of the image (required) | — |
+| `--prompt <text>` | Text description of the image (required) | - |
 | `--output <path>` | Output file or directory | `Assets/generated.png` |
-| `--num-images <n>` | Number of images to generate (1–8) | `1` |
+| `--num-images <n>` | Number of images to generate (1 to 8) | `1` |
 | `--aspect-ratio <ratio>` | `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9`, `9:21`, `auto` | `1:1` |
 | `--resolution <res>` | `1K`, `2K`, `4K` | `2K` |
 | `--output-format <fmt>` | `png`, `jpg`, `webp` | `png` |
-| `--reference <paths...>` | Reference images — file paths, directories, or HTTP URLs (edit mode, max 10) | — |
+| `--reference <paths...>` | Reference images: file paths, directories, or HTTP URLs (edit mode, max 10) | - |
 
 ---
 
@@ -118,7 +118,7 @@ kappmaker image-enhance photo.jpg --output improved.png
 
 ## `convert-webp <source>`
 
-Converts images (PNG, JPG, JPEG, BMP, TIFF, GIF) to WebP format using sharp — similar to Android Studio's built-in PNG-to-WebP converter. No API key needed; runs entirely locally.
+Converts images (PNG, JPG, JPEG, BMP, TIFF, GIF) to WebP format using sharp: similar to Android Studio's built-in PNG-to-WebP converter. No API key needed; runs entirely locally.
 
 ```bash
 kappmaker convert-webp icon.png                                      # Single file
@@ -134,10 +134,10 @@ Shows before/after file sizes and percentage saved for each file, with a total a
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--quality <n>` | WebP quality (0–100) | `75` |
+| `--quality <n>` | WebP quality (0 to 100) | `75` |
 | `--recursive` | Search directories recursively | `false` |
 | `--delete-originals` | Delete original files after conversion | `false` |
-| `--output <dir>` | Output directory (default: same directory as source) | — |
+| `--output <dir>` | Output directory (default: same directory as source) | - |
 
 ---
 
@@ -173,9 +173,9 @@ kappmaker translate-screenshots ./screenshots/en-US --locales de-DE ja-JP  # Spe
 
 | Play Store | App Store | | Play Store | App Store |
 |------------|-----------|---|------------|-----------|
-| `ar` | `ar-SA` | | `lt-LT` | — |
-| `bg-BG` | — | | `lv-LV` | — |
-| `bn-BD` | — | | `ms` | `ms` |
+| `ar` | `ar-SA` | | `lt-LT` | - |
+| `bg-BG` | - | | `lv-LV` | - |
+| `bn-BD` | - | | `ms` | `ms` |
 | `ca` | `ca` | | `nl-NL` | `nl-NL` |
 | `cs-CZ` | `cs` | | `no-NO` | `no` |
 | `da-DK` | `da` | | `pl-PL` | `pl` |
@@ -184,12 +184,12 @@ kappmaker translate-screenshots ./screenshots/en-US --locales de-DE ja-JP  # Spe
 | `en-AU` | `en-AU` | | `ro` | `ro` |
 | `en-GB` | `en-GB` | | `ru-RU` | `ru` |
 | `es-ES` | `es-ES` | | `sk` | `sk` |
-| `es-419` | `es-MX` | | `sl-SI` | — |
-| `et-EE` | — | | `sr` | — |
+| `es-419` | `es-MX` | | `sl-SI` | - |
+| `et-EE` | - | | `sr` | - |
 | `fi-FI` | `fi` | | `sv-SE` | `sv` |
-| `fil` | — | | `sw` | — |
-| `fr-FR` | `fr-FR` | | `ta-IN` | — |
-| `fr-CA` | `fr-CA` | | `te-IN` | — |
+| `fil` | - | | `sw` | - |
+| `fr-FR` | `fr-FR` | | `ta-IN` | - |
+| `fr-CA` | `fr-CA` | | `te-IN` | - |
 | `he-IL` | `he` | | `th` | `th` |
 | `hi-IN` | `hi` | | `tr-TR` | `tr` |
 | `hr` | `hr` | | `uk` | `uk` |
@@ -199,7 +199,7 @@ kappmaker translate-screenshots ./screenshots/en-US --locales de-DE ja-JP  # Spe
 | `ja-JP` | `ja` | | | |
 | `ko-KR` | `ko` | | | |
 
-Locales marked with **—** are Android-only (no App Store equivalent).
+Locales marked with **: ** are Android-only (no App Store equivalent).
 
 </details>
 
@@ -226,7 +226,7 @@ Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (if using reference ima
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | App description (required) | — |
+| `--prompt <text>` | App description (required) | - |
 | `--input <dir>` | Reference screenshot directory | Auto-detect `Assets/screenshots` |
 | `--style <id>` | Style preset (1-8) | `1` |
 | `--output <dir>` | Output base directory | `Assets/screenshots` |
@@ -252,7 +252,7 @@ Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (if using reference ima
 
 ## `generate-feature-image`
 
-Generate a **Google Play feature graphic** (1024×500 banner shown at the top of the Play Store listing) using OpenAI (prompt generation) + fal.ai (image generation). Optionally include the app logo and screenshots — fal.ai places them inside realistic phone device frames.
+Generate a **Google Play feature graphic** (1024×500 banner shown at the top of the Play Store listing) using OpenAI (prompt generation) + fal.ai (image generation). Optionally include the app logo and screenshots: fal.ai places them inside realistic phone device frames.
 
 ```bash
 kappmaker generate-feature-image \
@@ -287,25 +287,25 @@ MobileApp/distribution/android/playstore_metadata/<locale>/images/featureGraphic
 
 Falls back to `Assets/playstore/featureGraphic.png` outside a KAppMaker project. Override with `--output <path>`.
 
-Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (recommended when passing `--logo` or `--reference` — falls back to inline base64 data URIs otherwise).
+Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (recommended when passing `--logo` or `--reference`; falls back to inline base64 data URIs otherwise).
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | App concept / description (required) | — |
-| `--app-name <name>` | App name rendered on the banner (required) | — |
-| `--primary-color <hex>` | Brand color in hex (required, e.g. `#FF3B30`) | — |
-| `--subtitle <text>` | Tagline rendered below the app name | — |
-| `--logo <path>` | App logo PNG; rendered pixel-faithfully on the brand panel | — |
-| `--reference <paths...>` | Screenshot paths to place inside device frames (max 10) | — |
+| `--prompt <text>` | App concept / description (required) | - |
+| `--app-name <name>` | App name rendered on the banner (required) | - |
+| `--primary-color <hex>` | Brand color in hex (required, e.g. `#FF3B30`) | - |
+| `--subtitle <text>` | Tagline rendered below the app name | - |
+| `--logo <path>` | App logo PNG; rendered pixel-faithfully on the brand panel | - |
+| `--reference <paths...>` | Screenshot paths to place inside device frames (max 10) | - |
 | `--output <path>` | Custom output file path | Fastlane Supply path |
 | `--resolution <res>` | AI resolution (`1K`, `2K`, `4K`) | `2K` |
 | `--locale <code>` | Play Store locale for the default output path | `en-US` |
 
 **Tips**:
-- The logo (image #1) is rendered exactly as-is — the model is instructed not to redraw or recolor it. Pass a clean transparent-background PNG for best results.
-- Reference screenshots are placed inside modern phone device frames at a slight angle. Order matters — the first reference becomes the most prominent device on the banner.
+- The logo (image #1) is rendered exactly as-is: the model is instructed not to redraw or recolor it. Pass a clean transparent-background PNG for best results.
+- Reference screenshots are placed inside modern phone device frames at a slight angle. Order matters: the first reference becomes the most prominent device on the banner.
 - The primary color visibly dominates the brand panel background or accents.
-- Only the app name and subtitle appear as text — no AI-generated lorem copy.
+- Only the app name and subtitle appear as text: no AI-generated lorem copy.
 
 ---
 
@@ -313,7 +313,7 @@ Requires: `falApiKey`, `openaiApiKey`, and `imgbbApiKey` (recommended when passi
 
 > **2.2.0:** also writes the launch screen logo (`Assets.xcassets/ic_logo.imageset`, 1x/2x/3x); `--splash-background <hex>` / `--splash-background-dark <hex>` set `SplashBackground`; `--no-splash` skips it.
 
-Generate the full iOS `AppIcon.appiconset` (all 11 PNG sizes Apple needs + `Contents.json`) from a single source logo. **Sharp-only — no AI, no API keys, no network calls.** Same output as appicon.co, but local and instant.
+Generate the full iOS `AppIcon.appiconset` (all 11 PNG sizes Apple needs + `Contents.json`) from a single source logo. **Sharp-only: no AI, no API keys, no network calls.** Same output as appicon.co, but local and instant.
 
 ```bash
 # Auto-detect logo in Assets/ and write to MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset
@@ -327,10 +327,10 @@ kappmaker generate-ios-icons --background "#000000"
 ```
 
 **Flow:**
-1. Resolves source — `--source <path>` if given; otherwise auto-detects in `Assets/` looking for `logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png` (in that order). Prompts interactively if none found.
+1. Resolves source: `--source <path>` if given; otherwise auto-detects in `Assets/` looking for `logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png` (in that order). Prompts interactively if none found.
 2. Center-crops to a square (warns if source is non-square) and flattens alpha onto `--background` color (App Store rejects icons with transparency).
 3. Resizes via sharp Lanczos to all 11 pixel sizes: **29, 40, 57, 58, 60, 80, 87, 114, 120, 180, 1024**.
-4. Writes `Contents.json` matching appicon.co's schema (12 entries — `120.png` is shared by 40pt@3x and 60pt@2x — covering `iphone` idiom @1x/2x/3x plus the `ios-marketing` 1024).
+4. Writes `Contents.json` matching appicon.co's schema (12 entries, `120.png` is shared by 40pt@3x and 60pt@2x, covering `iphone` idiom @1x/2x/3x plus the `ios-marketing` 1024).
 5. Overwrites existing files silently.
 
 **Output:** Default is auto-detected `MobileApp/iosApp/*/Assets.xcassets/AppIcon.appiconset/` (the KAppMaker convention). Falls back to `Assets/AppIcon.appiconset/` outside a KAppMaker project. Override with `--output <dir>`.
@@ -342,9 +342,9 @@ kappmaker generate-ios-icons --background "#000000"
 | `--background <hex>` | Flatten color for transparent logos | `#FFFFFF` |
 
 **Tips:**
-- Chain with `create-logo` — generate the logo first, then run `generate-ios-icons` to mint the full iconset.
+- Chain with `create-logo`: generate the logo first, then run `generate-ios-icons` to mint the full iconset.
 - Source should be at least **1024×1024** for crisp icons at all sizes. Smaller sources are upscaled (with a warning) and will look blurry on iPhone 6.7" displays.
-- Apple's App Store requires no transparency on the 1024×1024 marketing icon — the default `#FFFFFF` flatten satisfies this regardless of source alpha.
+- Apple's App Store requires no transparency on the 1024×1024 marketing icon: the default `#FFFFFF` flatten satisfies this regardless of source alpha.
 
 ---
 
@@ -352,7 +352,7 @@ kappmaker generate-ios-icons --background "#000000"
 
 > **2.2.0:** also points the Android 12+ splash (`windowSplashScreenAnimatedIcon`) at the new icon, sets `windowBackgroundColor` with `--splash-background`, and writes a themed monochrome icon when the logo is transparent. `--no-splash` skips the splash.
 
-Generate the full Android launcher icon set — all five mipmap density buckets, both legacy and adaptive variants, plus the adaptive icon XML files and the `ic_launcher_background` color entry in `values/colors.xml` — from a single source logo. **Sharp-only — no AI, no API keys.** Same output as Android Studio's Asset Studio, but local and instant.
+Generate the full Android launcher icon set: all five mipmap density buckets, both legacy and adaptive variants, plus the adaptive icon XML files and the `ic_launcher_background` color entry in `values/colors.xml`; from a single source logo. **Sharp-only: no AI, no API keys.** Same output as Android Studio's Asset Studio, but local and instant.
 
 ```bash
 # Auto-detect logo in Assets/ and write to MobileApp/composeApp/src/androidMain/res
@@ -366,13 +366,13 @@ kappmaker generate-android-icons --foreground-padding 0.1
 ```
 
 **Flow:**
-1. Resolves source — `--source <path>` if given; otherwise auto-detects in `Assets/` looking for `logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png` (in that order). Prompts interactively if none found.
+1. Resolves source: `--source <path>` if given; otherwise auto-detects in `Assets/` looking for `logo.png`, `logo_no_bg.png`, `app_logo.png`, `app_logo_no_bg.png`, `icon.png` (in that order). Prompts interactively if none found.
 2. Center-crops to a square (warns if source is non-square or smaller than 432×432).
-3. For each of 5 density buckets — `mdpi` / `hdpi` / `xhdpi` / `xxhdpi` / `xxxhdpi`:
+3. For each of 5 density buckets: `mdpi` / `hdpi` / `xhdpi` / `xxhdpi` / `xxxhdpi`:
    - Writes `ic_launcher.webp` and `ic_launcher_round.webp` at legacy size (**48 / 72 / 96 / 144 / 192 px**).
    - Writes `ic_launcher_foreground.webp` at adaptive size (**108 / 162 / 216 / 324 / 432 px**) with the logo centered in the inner safe zone and transparent surround.
-4. Writes `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` — adaptive-icon definitions referencing `@color/ic_launcher_background` and `@mipmap/ic_launcher_foreground`.
-5. Upserts `<color name="ic_launcher_background">` in `values/colors.xml` — creates the file if missing, replaces the value if present, inserts the entry alongside any other colors otherwise.
+4. Writes `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml`: adaptive-icon definitions referencing `@color/ic_launcher_background` and `@mipmap/ic_launcher_foreground`.
+5. Upserts `<color name="ic_launcher_background">` in `values/colors.xml`: creates the file if missing, replaces the value if present, inserts the entry alongside any other colors otherwise.
 6. Overwrites existing files silently.
 
 **Output:** Default is auto-detected `MobileApp/composeApp/src/androidMain/res/` (the KMM template convention). Falls back to `MobileApp/androidApp/src/main/res/` → `app/src/main/res/` → `Assets/android/res/`. Override with `--output <dir>`.
@@ -382,21 +382,21 @@ kappmaker generate-android-icons --foreground-padding 0.1
 | `--source <path>` | Source logo PNG (≥ 432×432 recommended) | Auto-detect in `Assets/` |
 | `--output <dir>` | Output Android `res/` directory | Auto-detect under `MobileApp/` |
 | `--background <hex>` | Adaptive icon backdrop color (written to `colors.xml`) | `#FFFFFF` |
-| `--foreground-padding <ratio>` | Padding each side of the adaptive foreground (`0`–`0.5`) | `0.25` |
+| `--foreground-padding <ratio>` | Padding each side of the adaptive foreground (`0`-`0.5`) | `0.25` |
 
 **Tips:**
 - Chain with `create-logo` then `generate-android-icons` to mint the full Android iconset right after generating the logo.
 - The default `--foreground-padding 0.25` matches Android Asset Studio's default; drop to `0.1` if your logo is small and you want it to fill more of the adaptive frame.
-- The adaptive `--background` is referenced by the XML — Android renders this color behind the foreground on Android 8+ devices. On legacy launchers, the legacy `ic_launcher.webp` is used as-is.
-- `AndroidManifest.xml` should already reference `@mipmap/ic_launcher` and `@mipmap/ic_launcher_round` — this command doesn't touch the manifest.
+- The adaptive `--background` is referenced by the XML: Android renders this color behind the foreground on Android 8+ devices. On legacy launchers, the legacy `ic_launcher.webp` is used as-is.
+- `AndroidManifest.xml` should already reference `@mipmap/ic_launcher` and `@mipmap/ic_launcher_round`: this command doesn't touch the manifest.
 
 ---
 
 ## ASO Keyword Research (skill-driven)
 
-Discover high-value sub-niche keywords for your app — scored by popularity and difficulty, clustered by theme — and save them to `AiGuidelines/keywords.md`. Uses the [Astro MCP](https://tryastro.app/docs/mcp/) tools for real-time App Store data when they're connected; falls back to a manual brainstorm without scores when they aren't.
+Discover high-value sub-niche keywords for your app, scored by popularity and difficulty, clustered by theme, and save them to `AiGuidelines/keywords.md`. Uses the [Astro MCP](https://tryastro.app/docs/mcp/) tools for real-time App Store data when they're connected; falls back to a manual brainstorm without scores when they aren't.
 
-This is a **skill-driven workflow** — no `kappmaker` binary. Runs through the [Claude Code skill](army-and-mcp.md#claude-code-skill).
+This is a **skill-driven workflow**: no `kappmaker` binary. Runs through the [Claude Code skill](army-and-mcp.md#claude-code-skill).
 
 ### Usage
 
@@ -413,22 +413,22 @@ Short forms (`/kappmaker keyword research <topic>`, `find aso keywords for <topi
 
 | Arg | Default | Notes |
 |---|---|---|
-| `base` (the keyword) | _(required)_ | Can be derived from `AiGuidelines/prd.md`, `AiGuidelines/app-idea.md`, or your existing `en-US` name/subtitle if omitted — the workflow confirms before proceeding. |
+| `base` (the keyword) | _(required)_ | Can be derived from `AiGuidelines/prd.md`, `AiGuidelines/app-idea.md`, or your existing `en-US` name/subtitle if omitted: the workflow confirms before proceeding. |
 | `competitors` | _(auto-discovered)_ | Comma-separated app names or App Store IDs. Auto-discovered via `search_app_store` if not given. |
 | `min_popularity` | `30` | Keywords below this go to the "Discarded" list. |
 | `max_difficulty` | `45` | Keywords above this go to the "Discarded" list. |
-| `target_count` | `30–50` | Approximate pool size after filtering. Relaxes `max_difficulty` by +5 once if the count is too low. |
+| `target_count` | `30 to 50` | Approximate pool size after filtering. Relaxes `max_difficulty` by +5 once if the count is too low. |
 | `output` | `AiGuidelines/keywords.md` | Prompts before overwriting an existing file. |
 
 ### Output
 
 `AiGuidelines/keywords.md` with five sections:
 
-1. **Header** — base keyword, date, filter thresholds, competitor sources.
-2. **Recommended primary keywords (top 5)** — the highest-value picks for your iOS `name` / `subtitle` and as front-loaded entries in `keywords.txt`.
-3. **Sub-niche clusters** — keyword groups by semantic theme, scored and described. Each cluster maps cleanly to one of the 9 US-indexed locales in Mode 1 of metadata localization.
-4. **Discarded** — keywords that hit the filter cutoff, so you can sanity-check the threshold.
-5. **Ready-to-paste command** — a one-liner for `localize metadata mode=keyword-expansion` using the top ~10 keywords.
+1. **Header**: base keyword, date, filter thresholds, competitor sources.
+2. **Recommended primary keywords (top 5)**: the highest-value picks for your iOS `name` / `subtitle` and as front-loaded entries in `keywords.txt`.
+3. **Sub-niche clusters**: keyword groups by semantic theme, scored and described. Each cluster maps cleanly to one of the 9 US-indexed locales in Mode 1 of metadata localization.
+4. **Discarded**: keywords that hit the filter cutoff, so you can sanity-check the threshold.
+5. **Ready-to-paste command**: a one-liner for `localize metadata mode=keyword-expansion` using the top ~10 keywords.
 
 ### Workflow (with Astro MCP)
 
@@ -441,11 +441,11 @@ Short forms (`/kappmaker keyword research <topic>`, `find aso keywords for <topi
 
 ### Project convention: `AiGuidelines/`
 
-KAppMaker's ASO workflows treat `AiGuidelines/` as the home for AI-facing planning docs (`prd.md`, `app-idea.md`, and the `keywords.md` this workflow writes). When you omit `base=`, the workflow scans `AiGuidelines/*.md` for a product description first, then falls back to your `README.md`, then your `en-US` name + subtitle. Keeping a 1–2 paragraph `AiGuidelines/app-idea.md` (or `prd.md`) means subsequent runs auto-derive their base keyword instead of asking you each time. The folder is created on first write if it doesn't exist.
+KAppMaker's ASO workflows treat `AiGuidelines/` as the home for AI-facing planning docs (`prd.md`, `app-idea.md`, and the `keywords.md` this workflow writes). When you omit `base=`, the workflow scans `AiGuidelines/*.md` for a product description first, then falls back to your `README.md`, then your `en-US` name + subtitle. Keeping a 1 to 2 paragraph `AiGuidelines/app-idea.md` (or `prd.md`) means subsequent runs auto-derive their base keyword instead of asking you each time. The folder is created on first write if it doesn't exist.
 
 ### Without Astro MCP
 
-If Astro MCP isn't connected, the workflow tells you upfront and offers a manual brainstorm path: 30–50 candidates from category knowledge, clustered the same way, with `?` in the popularity/difficulty columns. The output is still useful for the next step (metadata localization) — you just need to validate the scores on Astro / AppTweak / Sensor Tower before going to production.
+If Astro MCP isn't connected, the workflow tells you upfront and offers a manual brainstorm path: 30 to 50 candidates from category knowledge, clustered the same way, with `?` in the popularity/difficulty columns. The output is still useful for the next step (metadata localization): you just need to validate the scores on Astro / AppTweak / Sensor Tower before going to production.
 
 To connect Astro MCP, follow the setup guide at [tryastro.app/docs/mcp/](https://tryastro.app/docs/mcp/) and add the MCP server to your Claude Code config.
 
@@ -463,9 +463,9 @@ Run that next to fan those keywords across the 9 US-indexed locales.
 
 ## ASO Metadata Localization (skill-driven)
 
-Generates per-locale App Store and Google Play **text** metadata (`name`, `subtitle`, `keywords`, `description` on iOS; `title`, `short_description`, `full_description` on Android) — the text counterpart to `translate-screenshots`. The two together let you ship a fully-localized listing in one session.
+Generates per-locale App Store and Google Play **text** metadata (`name`, `subtitle`, `keywords`, `description` on iOS; `title`, `short_description`, `full_description` on Android): the text counterpart to `translate-screenshots`. The two together let you ship a fully-localized listing in one session.
 
-This is a **skill-driven workflow** — it has no `kappmaker` binary because it doesn't need one. The [Claude Code skill](army-and-mcp.md#claude-code-skill) (`kappmaker:kappmaker`) reads your base-locale source files, applies the ASO strategy you pick, and writes the localized output files using the Read/Write tools directly. No AI API key required.
+This is a **skill-driven workflow**: it has no `kappmaker` binary because it doesn't need one. The [Claude Code skill](army-and-mcp.md#claude-code-skill) (`kappmaker:kappmaker`) reads your base-locale source files, applies the ASO strategy you pick, and writes the localized output files using the Read/Write tools directly. No AI API key required.
 
 ### Two modes
 
@@ -476,7 +476,7 @@ Using kappmaker, localize metadata mode=market-localization base=en-US locales="
 
 | Mode | Output language | Locales | Use case |
 |---|---|---|---|
-| `keyword-expansion` | **English** in all 9 folders | Fixed 9 US-indexed locales (`ar-SA`, `fr-FR`, `ko`, `pt-BR`, `ru`, `vi`, `zh-Hans`, `zh-Hant`, `es-MX`) | Multiply unique indexed keyword surface in the US App Store. The US store indexes those 9 locales alongside `en-US` — by writing different keywords into each, you ~9× the searchable terms. |
+| `keyword-expansion` | **English** in all 9 folders | Fixed 9 US-indexed locales (`ar-SA`, `fr-FR`, `ko`, `pt-BR`, `ru`, `vi`, `zh-Hans`, `zh-Hant`, `es-MX`) | Multiply unique indexed keyword surface in the US App Store. The US store indexes those 9 locales alongside `en-US`: by writing different keywords into each, you ~9× the searchable terms. |
 | `market-localization` | **Native** per locale | Whatever locales you pass in `locales=` | Adapt copy to local search behavior and culture. Not literal translation. |
 
 ### Output layout
@@ -486,7 +486,7 @@ Using kappmaker, localize metadata mode=market-localization base=en-US locales="
 | iOS | `MobileApp/distribution/ios/appstore_metadata/texts/<iosLocale>/{name,subtitle,keywords,description}.txt` |
 | Android | `MobileApp/distribution/android/playstore_metadata/<playLocale>/{title,short_description,full_description}.txt` |
 
-The iOS layout uses a literal `texts/` subfolder (KAppMaker convention — bridge to Fastlane `deliver` with a sync step in your release pipeline if needed).
+The iOS layout uses a literal `texts/` subfolder (KAppMaker convention: bridge to Fastlane `deliver` with a sync step in your release pipeline if needed).
 
 ### Enforced ASO rules
 
@@ -497,18 +497,18 @@ Every generated file passes these checks before being written to disk:
 - **No word overlap** across `name` / `subtitle` / `keywords` within a single iOS locale (Apple wastes the slot if you repeat a name/subtitle word in keywords)
 - **No brand name or filler** (`app`, `best`, `free`, etc.) in iOS keywords
 - **Front-loaded primary keyword** in `name` / `title` (position-weighted ranking)
-- **Native-feel test** in Mode 2 — no machine-translated phrasing
+- **Native-feel test** in Mode 2: no machine-translated phrasing
 
 ### Behavior
 
-- **Base-locale bootstrap**: if `en-US` (or whatever `base=` you pass) doesn't exist yet, the workflow asks for a 1–2 sentence app description and writes the base locale first. Never fails because the base is missing.
+- **Base-locale bootstrap**: if `en-US` (or whatever `base=` you pass) doesn't exist yet, the workflow asks for a 1 to 2 sentence app description and writes the base locale first. Never fails because the base is missing.
 - **Mode 1 overwrite**: always overwrites the 9 indexed locales without prompting (only `en-US` is protected).
 - **Mode 2 overwrite**: prompts once ("Found existing metadata in N locale(s) ... Overwrite ALL? \[y/N]") if any target locale already has files. `N` skips those locales and continues with the rest.
 - **Summary table**: prints per-field character counts for every locale at the end, flagging any cell at ≥ 95% of cap.
 
 ### Supported locales
 
-Mode 1 uses a fixed set of 9. Mode 2 accepts ~30 locale codes covering both platforms — the workflow holds the iOS↔Play mapping (e.g. iOS `ko` ↔ Play `ko-KR`, iOS `zh-Hans` ↔ Play `zh-CN`). See [the skill file](../../skills/kappmaker-aso-metadata/SKILL.md#localize-aso-metadata--per-locale-name--subtitle--keywords--description) for the full table.
+Mode 1 uses a fixed set of 9. Mode 2 accepts ~30 locale codes covering both platforms: the workflow holds the iOS↔Play mapping (e.g. iOS `ko` ↔ Play `ko-KR`, iOS `zh-Hans` ↔ Play `zh-CN`). See [the skill file](../../skills/kappmaker-aso-metadata/SKILL.md#localize-aso-metadata--per-locale-name--subtitle--keywords--description) for the full table.
 
 ### Pair with screenshot translation
 

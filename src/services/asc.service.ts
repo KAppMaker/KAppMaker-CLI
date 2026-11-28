@@ -210,7 +210,7 @@ export async function createBundleId(bundleId: string, _name: string, platform: 
   // Find the bundle ID's resource ID (needed for capabilities API)
   const resourceId = await findBundleIdResourceId(bundleId);
   if (!resourceId) {
-    logger.warn('Could not find bundle ID resource ID — skipping capability setup.');
+    logger.warn('Could not find bundle ID resource ID: skipping capability setup.');
     return;
   }
 

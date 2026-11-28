@@ -446,7 +446,7 @@ export async function setupSubscriptions(
       // Re-PATCH so regional pricing (PPP fan-out) is updated on existing
       // subscriptions instead of leaving them stuck at their original config
       // (typically US-only, from earlier CLI versions).
-      logger.info(`Subscription "${sub.product_id}" exists — patching regional pricing.`);
+      logger.info(`Subscription "${sub.product_id}" exists: patching regional pricing.`);
       await updateSubscriptionWithBasePlans(packageName, sub, playDefaultLanguage);
     } else {
       await createSubscriptionWithBasePlans(packageName, sub, playDefaultLanguage);
@@ -462,9 +462,9 @@ function printRegionAvailabilityHint(): void {
   regionAvailabilityHintPrinted = true;
   logger.info('');
   logger.info('If Play Console still shows products as "available in US only" after this run:');
-  logger.info('  1. Wait 5-10 min — Play Console UI lags after API writes.');
-  logger.info('  2. Check the verify lines above ("Stored on Google: X/Y regions") — if Y is high, the data IS on Google.');
-  logger.info('  3. Check Production track → Country availability — the APP itself must be released in countries you want product pricing visible in.');
+  logger.info('  1. Wait 5-10 min: Play Console UI lags after API writes.');
+  logger.info('  2. Check the verify lines above ("Stored on Google: X/Y regions"); if Y is high, the data IS on Google.');
+  logger.info('  3. Check Production track → Country availability: the APP itself must be released in countries you want product pricing visible in.');
   logger.info('  4. If the app is still in DRAFT (never published), per-region pricing only takes effect after the first production rollout.');
 }
 
@@ -505,8 +505,8 @@ function handleSubscriptionRetry(
   for (const r of bad) extraExclude.add(r);
   for (const r of removed) forceUnavailable.add(r);
   rememberDrift(packageName, bad);
-  if (bad.size > 0) logger.info(`Drift on ${[...bad].join(', ')} — retrying without those regions.`);
-  if (removed.size > 0) logger.info(`Google requires ${[...removed].join(', ')} to remain on product — retrying with newSubscriberAvailability=false.`);
+  if (bad.size > 0) logger.info(`Drift on ${[...bad].join(', ')}: retrying without those regions.`);
+  if (removed.size > 0) logger.info(`Google requires ${[...removed].join(', ')} to remain on product: retrying with newSubscriberAvailability=false.`);
   return false;
 }
 
@@ -525,7 +525,7 @@ function handleOneTimeProductRetry(
   if (result.ok) return true;
   if ((result.error ?? '').includes('Product ID already in use')) {
     logger.warn(`${sku} is in Google's soft-delete reservation window (a few minutes to a few hours after DELETE).`);
-    logger.info(`Wait 30+ minutes and re-run \`kappmaker gpc iap push\` (without --recreate-stuck — the product will be re-created fresh).`);
+    logger.info(`Wait 30+ minutes and re-run \`kappmaker gpc iap push\` (without --recreate-stuck: the product will be re-created fresh).`);
     stuckOneTimeProducts.add(sku);
     return true;
   }
@@ -541,8 +541,8 @@ function handleOneTimeProductRetry(
   for (const r of bad) extraExclude.add(r);
   for (const r of removed) forceUnavailable.add(r);
   rememberDrift(packageName, bad);
-  if (bad.size > 0) logger.info(`Drift on ${[...bad].join(', ')} — retrying without those regions.`);
-  if (removed.size > 0) logger.info(`Google requires ${[...removed].join(', ')} to remain on product — retrying with NO_LONGER_AVAILABLE.`);
+  if (bad.size > 0) logger.info(`Drift on ${[...bad].join(', ')}: retrying without those regions.`);
+  if (removed.size > 0) logger.info(`Google requires ${[...removed].join(', ')} to remain on product: retrying with NO_LONGER_AVAILABLE.`);
   return false;
 }
 
@@ -1037,7 +1037,7 @@ export async function setupInAppProducts(
         existingState = undefined;
       } else {
         const existingRegions = existingState?.regionalConfigs.size ?? 0;
-        logger.info(`One-time product "${product.sku}" exists — patching regional pricing (purchaseOption="${existingState?.purchaseOptionId ?? 'default'}", ${existingRegions} existing region${existingRegions === 1 ? '' : 's'}).`);
+        logger.info(`One-time product "${product.sku}" exists: patching regional pricing (purchaseOption="${existingState?.purchaseOptionId ?? 'default'}", ${existingRegions} existing region${existingRegions === 1 ? '' : 's'}).`);
       }
     }
     await createInAppProduct(packageName, product, existingState);
@@ -1062,7 +1062,7 @@ async function deleteOneTimeProduct(packageName: string, sku: string): Promise<v
     path: `/applications/${encodeURIComponent(packageName)}/oneTimeProducts/${encodeURIComponent(sku)}`,
     label: `Deleting stuck one-time product ${sku}`,
   });
-  logger.warn(`Deleted ${sku}. Google soft-deletes — the productId remains reserved for a few minutes to a few hours.`);
+  logger.warn(`Deleted ${sku}. Google soft-deletes: the productId remains reserved for a few minutes to a few hours.`);
   logger.warn(`If the recreate below fails with "Product ID already in use", wait 30+ min and re-run \`kappmaker gpc iap push\` (without --recreate-stuck).`);
 }
 
@@ -1082,11 +1082,11 @@ function printStuckProductsHint(recreateStuckWasOn: boolean): void {
   for (const id of stuckSubscriptions) logger.warn(`  • subscription: ${id}`);
   if (recreateStuckWasOn) {
     logger.info('--recreate-stuck deleted the product(s). Google holds the productId in a soft-delete reservation window for a few minutes to a few hours.');
-    logger.info('Re-run `kappmaker gpc iap push` (WITHOUT --recreate-stuck) after waiting — the products will then be created fresh with full PPP fan-out.');
+    logger.info('Re-run `kappmaker gpc iap push` (WITHOUT --recreate-stuck) after waiting: the products will then be created fresh with full PPP fan-out.');
   } else {
     logger.info('Fix options (in order of safety):');
-    logger.info('  1. RECOMMENDED — bump the product_id in your config (e.g. credit_pack_X_Y_Z → credit_pack_X_Y_Z_v2). Old product stays as-is; new product gets full PPP fan-out. No data loss, no waiting period.');
-    logger.info('  2. Use `--recreate-stuck` to DELETE the stuck product(s) and let the CLI recreate them. WARNING: Google soft-deletes — the productId is locked for a few minutes to a few hours after deletion, during which time CREATE returns "Product ID already in use". Plan downtime.');
+    logger.info('  1. RECOMMENDED: bump the product_id in your config (e.g. credit_pack_X_Y_Z → credit_pack_X_Y_Z_v2). Old product stays as-is; new product gets full PPP fan-out. No data loss, no waiting period.');
+    logger.info('  2. Use `--recreate-stuck` to DELETE the stuck product(s) and let the CLI recreate them. WARNING: Google soft-deletes; the productId is locked for a few minutes to a few hours after deletion, during which time CREATE returns "Product ID already in use". Plan downtime.');
     logger.info('  3. Manually delete on Play Console UI and re-run after Google releases the ID.');
   }
 }

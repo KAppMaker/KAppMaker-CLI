@@ -5,7 +5,7 @@ title: Git Setup Upstream
 
 # Git Setup Upstream
 
-Renames the `origin` remote to `upstream` so the template repo is preserved as the upstream remote — the user is then free to add their own `origin` later. This is step 10 of [`kappmaker create`](/project-setup/create) exposed as a standalone command, designed for the "fork from template" workflow.
+Renames the `origin` remote to `upstream` so the template repo is preserved as the upstream remote: the user is then free to add their own `origin` later. This is step 10 of [`kappmaker create`](/project-setup/create) exposed as a standalone command, designed for the "fork from template" workflow.
 
 **Command:** `kappmaker git setup-upstream [path]`
 

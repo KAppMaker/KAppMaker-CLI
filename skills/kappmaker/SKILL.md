@@ -1,13 +1,13 @@
 ---
 name: kappmaker
-description: Entry point for the KAppMaker CLI — routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos, mascots, illustrations, app icons, store screenshots, the feature graphic, building and publishing (including shipping iOS without a Mac), version bumps, renaming the package, or configuring the CLI's API keys.
+description: Entry point for the KAppMaker CLI. It routes to the right KAppMaker skill. Use when the user mentions kappmaker, or wants to work on a mobile app but which part is not yet clear: creating a new app, Firebase, subscriptions and in-app purchases, Adapty, RevenueCat, App Store Connect, Google Play Console, ASO keywords, logos, mascots, illustrations, app icons, store screenshots, the feature graphic, building and publishing (including shipping iOS without a Mac), version bumps, renaming the package, or configuring the CLI's API keys.
 argument-hint: "[command or description]"
 ---
 
 # KAppMaker CLI
 
 Each area of the CLI is its own skill, so only what you need gets loaded. Pick from the table and
-use that skill — do not hand-roll a command a skill already documents.
+use that skill: do not hand-roll a command a skill already documents.
 
 | The user wants… | Use this skill |
 |---|---|
@@ -15,20 +15,20 @@ use that skill — do not hand-roll a command a skill already documents.
 | Set an API key, configure the CLI, fix a missing credential | **kappmaker-config** |
 | Firebase, google-services, auth/analytics | **kappmaker-firebase** |
 | Subscription / IAP products, credit packs, price changes | **kappmaker-monetization** |
-| Adapty — provider dashboard, entitlements, paywalls | **kappmaker-adapty** |
-| RevenueCat — entitlements, offerings, packages | **kappmaker-revenuecat** |
+| Adapty: provider dashboard, entitlements, paywalls | **kappmaker-adapty** |
+| RevenueCat: entitlements, offerings, packages | **kappmaker-revenuecat** |
 | App Store Connect, iOS listing | **kappmaker-asc** |
 | Google Play Console, Android listing, data safety, releases | **kappmaker-gpc** |
 | Which keywords to target, ASO research | **kappmaker-aso** |
 | What to write in title / subtitle / keywords, per locale | **kappmaker-aso-metadata** |
 | The app logo / brand mark | **kappmaker-logo** |
 | An app mascot / character and its emotional states | **kappmaker-mascot** |
-| Any other image — illustrations, empty states, onboarding art | **kappmaker-image** |
-| Edit an existing image — split, remove background, enhance, WebP | **kappmaker-image-tools** |
+| Any other image: illustrations, empty states, onboarding art | **kappmaker-image** |
+| Edit an existing image: split, remove background, enhance, WebP | **kappmaker-image-tools** |
 | App icons, launcher icons | **kappmaker-app-icons** |
 | Store screenshots, or screenshots in other languages | **kappmaker-screenshots** |
 | The Play feature graphic | **kappmaker-feature-graphic** |
-| Build, sign, ship — fastlane, keystore, AAB, upload | **kappmaker-publish** |
+| Build, sign, ship: fastlane, keystore, AAB, upload | **kappmaker-publish** |
 | Ship iOS without a Mac (GitHub Actions, TestFlight) | **kappmaker-ios-ci** |
 | Bump the version | **kappmaker-version** |
 | Rename the package, bundle ID or app name | **kappmaker-refactor** |
@@ -74,27 +74,27 @@ turns out to need something earlier, follow the pointer rather than improvising.
 subcommands (**kappmaker-firebase**) and store setup (**kappmaker-asc** / **kappmaker-gpc**, which
 `create` chains automatically).
 
-## Context Gathering — Read `AiGuidelines/` First
+## Context Gathering: Read `AiGuidelines/` First
 
 **Before running ANY kappmaker command, if the user's request is missing inputs the command needs
 (app idea, app name, tagline, brand color, screenshot direction, keywords, target audience, etc.),
-read the project's `AiGuidelines/` folder first.** Do not jump straight to asking the user — the
+read the project's `AiGuidelines/` folder first.** Do not jump straight to asking the user: the
 answers are usually already written down in the project.
 
 `AiGuidelines/` is the canonical home for AI-facing planning docs in a KAppMaker project:
 
-- `app-idea.md` — short pitch / one-liner / target audience
-- `prd.md` — product requirements (features, screens, user flows)
-- `keywords.md` — ASO keyword research output
-- `brand.md` / `style.md` — brand voice, primary color, typography (if present)
+- `app-idea.md`: short pitch / one-liner / target audience
+- `prd.md`: product requirements (features, screens, user flows)
+- `keywords.md`: ASO keyword research output
+- `brand.md` / `style.md`: brand voice, primary color, typography (if present)
 
 **Cascade order** (stop at first useful match):
 
-1. `AiGuidelines/*.md` — primary source
-2. `README.md` at the project root — usually the elevator pitch
+1. `AiGuidelines/*.md`: primary source
+2. `README.md` at the project root: usually the elevator pitch
 3. Existing ASO metadata under `MobileApp/distribution/ios/appstore_metadata/texts/en-US/`
-   (`name.txt`, `subtitle.txt`, `description.txt`) — app name + tagline
-4. `Assets/googleplay-config.json` / `Assets/appstore-config.json` — `app.name`, `package_name`
+   (`name.txt`, `subtitle.txt`, `description.txt`): app name + tagline
+4. `Assets/googleplay-config.json` / `Assets/appstore-config.json`: `app.name`, `package_name`
 
 Fill CLI flags from what you find and only prompt for inputs that genuinely have no answer in the
 project. For anything inferred, **state the source briefly** ("Using app name 'Masclet' from
@@ -102,32 +102,32 @@ project. For anything inferred, **state the source briefly** ("Using app name 'M
 
 If the folder is missing and the request is rich enough, proceed without prompting. If the folder
 is missing AND the request is sparse, offer to create `AiGuidelines/app-idea.md` from a few quick
-answers — once written, every future kappmaker command in this project benefits.
+answers: once written, every future kappmaker command in this project benefits.
 
-## Template-Bundled Agent Skills — the project has its own playbook
+## Template-Bundled Agent Skills: the project has its own playbook
 
 The KAppMaker boilerplate ships ~36 agent skills **inside every scaffolded project**: a `skills/`
 folder at the repo root, auto-discovered by Claude Code via the `.claude/skills` symlink (other
 agents find them through `AGENTS.md` / `GEMINI.md` / `.cursorrules` pointers). The index is
 `<project>/skills/README.md`. They cover what this CLI does not: **writing the actual app**.
 
-- **Phase guides** — ordered blueprints: `getting-started` (run locally + MVP, no accounts),
+- **Phase guides**: ordered blueprints: `getting-started` (run locally + MVP, no accounts),
   `integrations` (Firebase, auth), `publishing`, `monetization`, `growth`. Progress lives in
-  committed `PROGRESS_FEATURES.md` / `PROGRESS_P1…P5*.md` files — read them first, continue from
+  committed `PROGRESS_FEATURES.md` / `PROGRESS_P1…P5*.md` files: read them first, continue from
   the first unchecked item. The CLI's own 13-step setup uses `PROGRESS_SETUP.md` the same way.
-- **Task skills** — one job each: `new-app` (idea → PRD interview), `build-features`,
+- **Task skills**: one job each: `new-app` (idea → PRD interview), `build-features`,
   `new-screen`, `run-the-app`, `run-quality-gates`, `verify-ui`, `capture-app-screens`, and more.
 
 **Division of labor**: this CLI does scaffolding, AI assets, store/provider automation, builds,
-publishing, ASO, versions. Project-bundled skills do in-repo development and the phase journey —
+publishing, ASO, versions. Project-bundled skills do in-repo development and the phase journey
 several of them invoke kappmaker commands at the right moment; when following one, let it drive.
 When the user asks for in-project work this CLI doesn't cover, check `<project>/skills/README.md`
-before improvising. Projects cloned from older templates may have no `skills/` folder — fall back
+before improvising. Projects cloned from older templates may have no `skills/` folder: fall back
 to normal engineering.
 
 ### Starting from a raw idea (interview-first flow)
 
-When the user arrives with only an idea — "build me a habit tracker" — and there's no app name, no
+When the user arrives with only an idea ("build me a habit tracker") and there's no app name, no
 PRD, no project directory, do **not** jump into `kappmaker create`'s prompts, and do **not** invent
 the product for them. The bundled **`new-app`** skill owns the idea-to-PRD interview; pre-clone
 your job is only the one input scaffolding needs:
@@ -136,32 +136,32 @@ your job is only the one input scaffolding needs:
    from the pick (`com.<org>.<appname>`, lowercase). Validate PascalCase. "You decide" → take the
    ✅ one and say so.
 2. **Scaffold light**: `kappmaker clone <AppName>` (not the full `create`). Phase 1 needs no
-   Firebase / store / Adapty accounts — the template ships a mock subscription provider — so
+   Firebase / store / Adapty accounts (the template ships a mock subscription provider), so
    deferring the 13-step flow keeps the user moving in minutes.
 3. **Hand off to the project's `new-app` skill** (`<project>/skills/new-app/SKILL.md`): it
-   interviews properly — in batches of 2–3 questions, each with concrete options, a ✅ recommended
-   pick, and "decide for me" / "later" escape hatches — writes `AiGuidelines/prd.md` /
+   interviews properly: in batches of 2 to 3 questions, each with concrete options, a ✅ recommended
+   pick, and "decide for me" / "later" escape hatches: writes `AiGuidelines/prd.md` /
    `user_flow.md` / `ui_ux.md`, then hands off to `getting-started`.
 4. **Infra when a phase demands it**: Firebase → the `integrations` guide; stores/monetization →
    `publishing` / `monetization` guides. The full `kappmaker create` remains right when the user
    explicitly wants everything provisioned up front.
 
 Follow the interview style, don't just reference it: **never ask an open-ended question when
-options will do, batch 2–3 questions max, always mark a ✅ recommended choice, and stop and wait
+options will do, batch 2 to 3 questions max, always mark a ✅ recommended choice, and stop and wait
 after each batch.**
 
 ## Error Handling
 
-- Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline on first use and saved to config —
+- Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline on first use and saved to config
   never a fatal exit. For key sources and all config keys → **kappmaker-config**.
 - **Firebase auth errors**: run `firebase login` first.
 - **A tool missing or too old** (asc, adapty, firebase, JDK, Android SDK, Xcode…): run
-  `kappmaker doctor` — it prints each tool's version and the exact install line for this OS
+  `kappmaker doctor`: it prints each tool's version and the exact install line for this OS
   (macOS Homebrew / Linux apt). asc must be ≥ 5.9, adapty ≥ 0.33, Node ≥ 22.12.
 - **App Army kit** (`kappmaker-army`): `kappmaker army <cmd>` forwards to it; if it is not
   installed, `kappmaker army install` (laptop) or `kappmaker army install --server` (VPS, root)
   downloads and checksum-verifies the installer. Never pass the licence key on the command line
-  yourself — let the installer prompt for it.
+  yourself: let the installer prompt for it.
 - **App name validation**: PascalCase, starts uppercase, alphanumeric only.
 - A step that needs an optional tool that is missing warns and skips. A required step that fails stops
   the command with exit 1 and a summary of the FAILED steps (since 2.2.0 nothing prints OK without a

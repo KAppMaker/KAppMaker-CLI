@@ -66,7 +66,7 @@ const INIT_KEYS = ['templateRepo', 'bundleIdPrefix', 'androidSdkPath', 'organiza
 
 const PROMPTS: Record<string, string> = {
   templateRepo: 'Template repository URL',
-  bundleIdPrefix: 'Bundle/App ID prefix (e.g., com.measify — leave empty to use com.<appname>)',
+  bundleIdPrefix: 'Bundle/App ID prefix (e.g., com.measify; leave empty to use com.<appname>)',
   androidSdkPath: 'Android SDK path',
   organization: 'Organization (leave empty to use app name for keystore)',
   falApiKey: 'fal.ai API key (optional, for logo generation)',

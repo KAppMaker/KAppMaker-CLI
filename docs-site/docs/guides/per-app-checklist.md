@@ -5,9 +5,9 @@ title: Per-App Checklist
 
 # Per-App Checklist
 
-A short, copy-and-tick list of what to run for each new app from idea to live in both stores. Each item is phrased as a natural-language prompt for the [Claude Code skill](./claude-code-skill.md) — paste it into a session and the skill picks the right command, reads `AiGuidelines/` for missing context, and prompts only for the gaps.
+A short, copy-and-tick list of what to run for each new app from idea to live in both stores. Each item is phrased as a natural-language prompt for the [Claude Code skill](./claude-code-skill.md): paste it into a session and the skill picks the right command, reads `AiGuidelines/` for missing context, and prompts only for the gaps.
 
-For the full walkthrough with copy-paste examples, sequencing rules, and the trade-offs behind each step, see [Claude Code Skill — End-to-End](./claude-code-skill.md#end-to-end-from-idea-to-production).
+For the full walkthrough with copy-paste examples, sequencing rules, and the trade-offs behind each step, see [Claude Code Skill: End-to-End](./claude-code-skill.md#end-to-end-from-idea-to-production).
 
 ## Pre-development
 

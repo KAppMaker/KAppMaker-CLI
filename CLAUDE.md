@@ -7,7 +7,7 @@ Documentation site: https://cli.kappmaker.com (source in `docs-site/`, deployed 
 The README is only the first screen (three ways in, install, config, links). The full command reference lives in
 `docs/commands/` (index: `docs/commands/README.md`): document a new or changed command there and on the docs site.
 
-KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootstrapping for the KAppMaker platform. It wraps Firebase CLI, Gradle, Fastlane, CocoaPods, Git, fal.ai, App Store Connect CLI (asc), and Adapty CLI into a single workflow. Google Play Console management is built-in (not wrapping any external CLI) — `gpc.service.ts` talks directly to `androidpublisher.googleapis.com/v3` via Node's built-in `fetch` + `crypto` (service-account JWT flow).
+KAppMaker CLI: a TypeScript/Node.js CLI tool that automates mobile app bootstrapping for the KAppMaker platform. It wraps Firebase CLI, Gradle, Fastlane, CocoaPods, Git, fal.ai, App Store Connect CLI (asc), and Adapty CLI into a single workflow. Google Play Console management is built-in (not wrapping any external CLI): `gpc.service.ts` talks directly to `androidpublisher.googleapis.com/v3` via Node's built-in `fetch` + `crypto` (service-account JWT flow).
 
 ## Tech Stack
 
@@ -30,11 +30,11 @@ KAppMaker CLI — a TypeScript/Node.js CLI tool that automates mobile app bootst
 - Use `runStreaming()` for interactive commands (e.g., `firebase login`)
 - Graceful degradation: steps that detect missing OPTIONAL dependencies warn and skip instead of aborting the entire flow. Required steps never use `allowFailure` silently: they throw `CliError` / `ApiError` (Play, with the HTTP body) / `ToolError` (asc, adapty) from `src/utils/errors.ts`, read their result back, and orchestrators record them in a `StepReport` (`src/utils/step-report.ts`) that prints a summary of FAILED steps and sets exit 1. Never print OK without a read-back.
 - `--yes` is added to every leaf command by `applyYesOption` (`src/utils/yes-option.ts`); it and `--config <file>` set `KAPPMAKER_YES=1`, which answers every `confirm()` except `{ destructive: true }` ones (and answers `{ yesAnswer: false }` ones with no). Piped stdin is read by one shared line reader, in order.
-- Prompts: `confirm()` / `promptInput()` throw `NeedsAnswerError` under `KAPPMAKER_NONINTERACTIVE=1` (the MCP server's children) instead of hanging; `confirm(msg, { assumable: true })` answers yes when `KAPPMAKER_ASSUME_YES=1` — mark ONLY re-asks of something the caller already agreed to (never deletes, never first-time questions). EOF on stdin = empty answer.
+- Prompts: `confirm()` / `promptInput()` throw `NeedsAnswerError` under `KAPPMAKER_NONINTERACTIVE=1` (the MCP server's children) instead of hanging; `confirm(msg, { assumable: true })` answers yes when `KAPPMAKER_ASSUME_YES=1`; mark ONLY re-asks of something the caller already agreed to (never deletes, never first-time questions). EOF on stdin = empty answer.
 - MCP tools never accept secrets as arguments and never print them; new tools go in `src/mcp/tools/*` and must keep the "no api_key/token/password inputs" test passing.
-- Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline and saved to config on first use — no fatal exits for missing keys
+- Missing API keys (fal.ai, OpenAI, imgbb) are prompted inline and saved to config on first use: no fatal exits for missing keys
 - Missing App Store Connect config (API key, Apple ID) triggers inline interactive setup via `configAppStoreDefaults`
-- If no `~/.config/kappmaker/config.json` exists when `create`/`clone` runs, `configInit()` is called automatically before the first step — only with a terminal. Without one (agent, Telegram worker, CI, `KAPPMAKER_NONINTERACTIVE=1`) commands fail with one line naming `kappmaker config init --yes [...]` (non-interactive, flags/env/defaults) instead of prompting; `create` (inherently interactive) refuses up front and points at the standalone steps. Never strip the inherited env when spawning `./gradlew` — the kit's `gradle-slot` wrapper relies on `GRADLE_SLOT_HELD` reaching it.
+- If no `~/.config/kappmaker/config.json` exists when `create`/`clone` runs, `configInit()` is called automatically before the first step: only with a terminal. Without one (agent, Telegram worker, CI, `KAPPMAKER_NONINTERACTIVE=1`) commands fail with one line naming `kappmaker config init --yes [...]` (non-interactive, flags/env/defaults) instead of prompting; `create` (inherently interactive) refuses up front and points at the standalone steps. Never strip the inherited env when spawning `./gradlew`: the kit's `gradle-slot` wrapper relies on `GRADLE_SLOT_HELD` reaching it.
 
 ## Commands
 
@@ -124,37 +124,37 @@ npx tsx src/index.ts convert-webp <dir> --recursive --quality 90           # Bat
 
 ## Skill-Driven Workflows (no shell command)
 
-Some features run entirely inside the `kappmaker:kappmaker` Claude Code skill — they have no `kappmaker` binary entry point because they don't need one (no external API calls, no per-command state). The skill reads/writes files directly via the Claude Code tool.
+Some features run entirely inside the `kappmaker:kappmaker` Claude Code skill: they have no `kappmaker` binary entry point because they don't need one (no external API calls, no per-command state). The skill reads/writes files directly via the Claude Code tool.
 
 Currently in this category:
 
-- **ASO keyword research** — discovers high-value keywords for a base topic using the [Astro MCP](https://tryastro.app/docs/mcp/) tools (`search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions`), filters by popularity/difficulty thresholds, clusters by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm (with `?` scores) when Astro MCP isn't connected. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "ASO Keyword Research" section. Natural chain: research → use the output keywords in `localize-metadata mode=keyword-expansion`.
+- **ASO keyword research**: discovers high-value keywords for a base topic using the [Astro MCP](https://tryastro.app/docs/mcp/) tools (`search_app_store`, `extract_competitors_keywords`, `get_keyword_suggestions`), filters by popularity/difficulty thresholds, clusters by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm (with `?` scores) when Astro MCP isn't connected. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "ASO Keyword Research" section. Natural chain: research → use the output keywords in `localize-metadata mode=keyword-expansion`.
 
-  **Project convention — `AiGuidelines/`**: `AiGuidelines/` is the canonical home for AI-facing planning docs (`prd.md`, `app-idea.md`, `keywords.md`, `brand.md`, and any other `*.md` describing the product). The kappmaker skill reads this folder **before invoking any command** to fill in missing inputs (app description, app name, tagline, brand color, etc.) so the user isn't asked for things already written down. Cascade order: `AiGuidelines/*.md` → `README.md` → existing ASO metadata under `MobileApp/distribution/ios/appstore_metadata/texts/en-US/` → `Assets/googleplay-config.json` / `Assets/appstore-config.json`. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Context Gathering" section. The folder is created on first write if missing.
+  **Project convention: `AiGuidelines/`**: `AiGuidelines/` is the canonical home for AI-facing planning docs (`prd.md`, `app-idea.md`, `keywords.md`, `brand.md`, and any other `*.md` describing the product). The kappmaker skill reads this folder **before invoking any command** to fill in missing inputs (app description, app name, tagline, brand color, etc.) so the user isn't asked for things already written down. Cascade order: `AiGuidelines/*.md` → `README.md` → existing ASO metadata under `MobileApp/distribution/ios/appstore_metadata/texts/en-US/` → `Assets/googleplay-config.json` / `Assets/appstore-config.json`. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Context Gathering" section. The folder is created on first write if missing.
 
-- **ASO metadata localization** — generates per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files into `MobileApp/distribution/{ios/appstore_metadata/texts,android/playstore_metadata}/<locale>/`. Two modes (`keyword-expansion` and `market-localization`), invoked via natural-language trigger phrases the skill router picks up. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Localize ASO Metadata" section for the full procedure, the embedded ASO guideline checks, and the 30-row locale code table.
+- **ASO metadata localization**: generates per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files into `MobileApp/distribution/{ios/appstore_metadata/texts,android/playstore_metadata}/<locale>/`. Two modes (`keyword-expansion` and `market-localization`), invoked via natural-language trigger phrases the skill router picks up. See [skills/kappmaker/SKILL.md](skills/kappmaker/SKILL.md) "Localize ASO Metadata" section for the full procedure, the embedded ASO guideline checks, and the 30-row locale code table.
 
 When adding new skill-driven workflows: place the procedure as a new `###` section in `skills/kappmaker/SKILL.md`, add a row to the routing table at the top, and link it from the appropriate ASO / image / publishing docs page. No `src/commands/` file, no `src/cli.ts` entry.
 
 ## Spec-File Image Generation (`--spec`, 1.25.0+)
 
 `generate-screenshots`, `generate-feature-image`, `generate-image`, and `create-logo` accept
-`--spec <file.json>` — a pre-authored JSON spec used directly as the fal.ai prompt. This makes the
+`--spec <file.json>`: a pre-authored JSON spec used directly as the fal.ai prompt. This makes the
 OpenAI step optional: OpenAI's only role was turning a description into that JSON, so an agent
 (Claude Code skill) or the user can author it instead and no `openaiApiKey` is needed.
 
-**Canonical templates** live in `src/templates/specs/` — one JSON per image kind (`screenshots.json`,
+**Canonical templates** live in `src/templates/specs/`: one JSON per image kind (`screenshots.json`,
 `feature-graphic.json`, `logo.json`, `image.json`, `mascot.json`, `mascot-states.json`), each preserving the proven prompt structure that
 produced good images (the schemas the OpenAI path emitted; the logo one is the JSON-ified
 `buildLogoPrompt` 4×4-grid structure). Each carries a top-level `_instructions` array explaining the
 fill rules; `loadSpec` strips all `_`-prefixed top-level keys before sending. The
 `kappmaker spec-template <kind> [--output <path>]` command prints/writes a template (`--output`
-refuses to overwrite); registry in `src/commands/spec-template.ts` — adding a new image kind = drop
+refuses to overwrite); registry in `src/commands/spec-template.ts`: adding a new image kind = drop
 a JSON into `src/templates/specs/` and register it there (tsc copies imported JSON into `dist/`).
-Templates are a proven BASELINE, not a rigid schema — `loadSpec` accepts any single JSON object, so
+Templates are a proven BASELINE, not a rigid schema: `loadSpec` accepts any single JSON object, so
 an agent or user may restructure/enrich the spec freely. Only mechanical constraints are fixed
 (screenshots: 2×4 grid + 8 entries; logo: 4×4 grid of 16 icons; mascot: 4×4 grid of 16 concepts;
-mascot-states: 4×4 grid + exactly 16 `states` entries in grid order, which name the sliced files —
+mascot-states: 4×4 grid + exactly 16 `states` entries in grid order, which name the sliced files
 post-processing slices on those; feature graphic: wide banner + real text only).
 
 `--print-prompt` on the two OpenAI-backed commands prints the full spec-authoring instructions
@@ -168,24 +168,24 @@ path remains for raw-CLI users only.
 
 ## Version Bumping (this repo's own releases)
 
-Two independent version schemes — bump ALL locations of the relevant one, they do not sync automatically:
+Two independent version schemes: bump ALL locations of the relevant one, they do not sync automatically:
 
-- **CLI (npm) version** — lives in TWO places; keep them identical:
-  1. `package.json` → `"version"` (`src/cli.ts` reads this at runtime — no hardcoded literal since 1.24.x)
-  2. `package-lock.json` → root `version` + `packages[""].version` — regenerate with `npm install --package-lock-only`, don't hand-edit
-- **Plugin skill layout** — skills live in **`skills/` at the repo root**; `.claude/skills` is a
+- **CLI (npm) version**: lives in TWO places; keep them identical:
+  1. `package.json` → `"version"` (`src/cli.ts` reads this at runtime: no hardcoded literal since 1.24.x)
+  2. `package-lock.json` → root `version` + `packages[""].version`: regenerate with `npm install --package-lock-only`, don't hand-edit
+- **Plugin skill layout**: skills live in **`skills/` at the repo root**; `.claude/skills` is a
   **symlink** to it (that symlink is what loads them for sessions working inside this repo).
   Claude Code's plugin loader scans `<plugin-root>/skills/` and nothing else, so moving them under
   `.claude/skills/` installs fine and silently hides every skill from every user. `sh
   scripts/check-plugin-layout.sh` guards this; run it before publishing.
-- **Claude Code plugin version** — `.claude-plugin/plugin.json` → `"version"`. Bump on **any** change to `skills/kappmaker/SKILL.md` (or other plugin-shipped files): Claude Code caches installed plugins by version (`~/.claude/plugins/cache/KAppMaker-CLI/kappmaker/<version>/`), so without a bump `claude plugin update` keeps serving the stale cache and skill changes never reach users.
+- **Claude Code plugin version**: `.claude-plugin/plugin.json` → `"version"`. Bump on **any** change to `skills/kappmaker/SKILL.md` (or other plugin-shipped files): Claude Code caches installed plugins by version (`~/.claude/plugins/cache/KAppMaker-CLI/kappmaker/<version>/`), so without a bump `claude plugin update` keeps serving the stale cache and skill changes never reach users.
 
 Rule of thumb: code change → bump CLI version (all three spots); skill change → bump plugin version; PR touching both → bump both.
 
-Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s — they are
+Also keep `.claude-plugin/marketplace.json`'s description in sync with `plugin.json`'s: they are
 maintained by hand and drift silently.
 
-Test scripts: `npm test` runs all of them — `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour), `npm run test:play` (fake Play API), `npm run test:asc` (fake `asc` binary on PATH), `npm run test:fixes` (the 2.2.0 bug fixes), `npm run test:mcp` (MCP server via the SDK client, army tools, `army_setup`, `mcp connect`), `npm run test:publish-guard` (self-test of `scripts/prepublish-check.mjs`, which `prepublishOnly` runs to refuse a publish that would ship a secret or maintainer id), `npm run test:mcp-e2e` (opt-in: `KAPPMAKER_MCP_E2E=1 ARMY_REPO=<app-army>`, Docker VPS over real SSH). `npm run lint` = type check.
+Test scripts: `npm test` runs all of them: `npm run test:ppp` (PPP pricing table), `npm run test:ios-ci` (ios-ci pure helpers), `npm run test:army` (army forwarding + installer checksum gate), `npm run test:prereqs` (tool detection), `npm run test:headless` (fresh-machine / no-TTY behaviour), `npm run test:play` (fake Play API), `npm run test:asc` (fake `asc` binary on PATH), `npm run test:fixes` (the 2.2.0 bug fixes), `npm run test:mcp` (MCP server via the SDK client, army tools, `army_setup`, `mcp connect`), `npm run test:publish-guard` (self-test of `scripts/prepublish-check.mjs`, which `prepublishOnly` runs to refuse a publish that would ship a secret or maintainer id), `npm run test:mcp-e2e` (opt-in: `KAPPMAKER_MCP_E2E=1 ARMY_REPO=<app-army>`, Docker VPS over real SSH). `npm run lint` = type check.
 
 ## Privacy (hard rule)
 
@@ -199,14 +199,14 @@ read-only `POST /api/license/check` (what the buyer owns; activates nothing, nev
 
 The CLI defaults to the [KAppMaker](https://kappmaker.com) boilerplate but supports custom templates via `--template-repo` or `kappmaker config set templateRepo <url>`.
 
-Steps 1–9 of the `create` command are universal (or optional). Steps 10–13 detect the boilerplate structure and skip gracefully with warnings when the expected files are not found:
+Steps 1 to 9 of the `create` command are universal (or optional). Steps 10 to 13 detect the boilerplate structure and skip gracefully with warnings when the expected files are not found:
 
-- **Step 10 (Package refactor)** — uses TypeScript refactor service (no longer depends on Gradle task)
-- **Step 11 (Build env)** — checks for `gradlew` before `local.properties`, checks for `Podfile` before CocoaPods
-- **Step 12 (Git remotes)** — always runs (works with any template)
-- **Step 13 (Fastlane build)** — checks for `Fastfile` before attempting the build
-- **Step 6 (Firebase configs)** — falls back to `Assets/` if KAppMaker directories don't exist
-- **translate-screenshots** — falls back to parent of source dir if `MobileApp/distribution` doesn't exist
+- **Step 10 (Package refactor)**: uses TypeScript refactor service (no longer depends on Gradle task)
+- **Step 11 (Build env)**: checks for `gradlew` before `local.properties`, checks for `Podfile` before CocoaPods
+- **Step 12 (Git remotes)**: always runs (works with any template)
+- **Step 13 (Fastlane build)**: checks for `Fastfile` before attempting the build
+- **Step 6 (Firebase configs)**: falls back to `Assets/` if KAppMaker directories don't exist
+- **translate-screenshots**: falls back to parent of source dir if `MobileApp/distribution` doesn't exist
 
 ## Create Command Flow (13 steps)
 
@@ -214,18 +214,18 @@ The `create` command is the main orchestrator that runs everything end-to-end:
 
 1. Clone template repository
 2. Firebase login
-3. Create Firebase project — if creation fails, warns and skips steps 4-6
+3. Create Firebase project: if creation fails, warns and skips steps 4-6
 4. Create Firebase apps (Android + iOS)
 5. Enable anonymous authentication (Identity Toolkit REST API; if brand-new project, prompts user to click "Get started" in Firebase Console, then retries)
 6. Download Firebase SDK configs (KAppMaker paths or `Assets/` fallback; verifies google-services.json package matches config)
-7. Logo generation (optional — asks user, then auto-removes background)
-8. Package refactor — renames packages, IDs, and app name across all modules (shared, androidApp, desktopApp, webApp, designsystem, libs; also walks legacy `composeApp/` for pre-rename projects)
-9. Build environment + keystore — local.properties, signing keystore if missing (iOS deps via SwiftPM)
+7. Logo generation (optional: asks user, then auto-removes background)
+8. Package refactor: renames packages, IDs, and app name across all modules (shared, androidApp, desktopApp, webApp, designsystem, libs; also walks legacy `composeApp/` for pre-rename projects)
+9. Build environment + keystore: local.properties, signing keystore if missing (iOS deps via SwiftPM)
 10. Git remotes (template as upstream)
     ↕ Pre-store reminder: prompts user to create Google Play Console app; ASC is created automatically
-11. App Store Connect setup (optional — calls `createAppStoreApp`; app is created automatically via `asc web apps create`)
-12. Google Play Console setup (optional) — Fastlane builds + uploads AAB to internal track first (so billing is enabled for subscriptions), then calls `createPlayApp`
-13. Adapty setup (optional — calls `adaptySetup`)
+11. App Store Connect setup (optional: calls `createAppStoreApp`; app is created automatically via `asc web apps create`)
+12. Google Play Console setup (optional): Fastlane builds + uploads AAB to internal track first (so billing is enabled for subscriptions), then calls `createPlayApp`
+13. Adapty setup (optional: calls `adaptySetup`)
 
 ## Project Structure
 
@@ -384,12 +384,12 @@ Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fann
 **Why explicit fan-out instead of `otherRegionsConfig` / `newRegionsConfig`**: Google's auto-conversion from USD/EUR anchors only fanned out to a couple of regions in practice (the user reported "US + Mongolia only"). Explicit per-region pricing is reliable and gives us PPP control over what each region sees.
 
 **Helper module**: `src/services/ppp-pricing.service.ts`:
-- `getMultiplier(alpha2)` — chained lookup PPP_MULTIPLIERS → FALLBACK_NEIGHBOUR → 0.60 default
-- `applyPpp(usd, alpha2, { round99 })` — charm-rounds to the NEAREST .49/.99 ending by default (1.13.18+; ties round up; was floor+.99 before, which inflated mid-dollar values like 2.45 → 2.99)
-- `expandPlayRegions(usd, exclude)` — returns ~175 USD-priced entries (Google's `convertRegionPrices` displays local currency at runtime)
-- `expandAscTerritories(usd, exclude)` — returns ~155 alpha-3 (territory, target USD) pairs; caller resolves price-points
-- `findClosestPricePointForPrice(appId, territory, target)` — minimises `|customerPrice − target|`; per-territory cache so each catalog is fetched once per run
-- `findExactPricePointForPrice(...)` — legacy exact-match (used by `createPricing` for app-level pricing)
+- `getMultiplier(alpha2)`: chained lookup PPP_MULTIPLIERS → FALLBACK_NEIGHBOUR → 0.60 default
+- `applyPpp(usd, alpha2, { round99 })`: charm-rounds to the NEAREST .49/.99 ending by default (1.13.18+; ties round up; was floor+.99 before, which inflated mid-dollar values like 2.45 → 2.99)
+- `expandPlayRegions(usd, exclude)`: returns ~175 USD-priced entries (Google's `convertRegionPrices` displays local currency at runtime)
+- `expandAscTerritories(usd, exclude)`: returns ~155 alpha-3 (territory, target USD) pairs; caller resolves price-points
+- `findClosestPricePointForPrice(appId, territory, target)`: minimises `|customerPrice − target|`; per-territory cache so each catalog is fetched once per run
+- `findExactPricePointForPrice(...)`: legacy exact-match (used by `createPricing` for app-level pricing)
 
 **Override rule**: user-listed `regional_configs` (Play) and `prices` (ASC) win. The fan-out spreads PPP entries first and user entries last, then dedupes by region/territory (`Map.set` last-write-wins).
 
@@ -399,27 +399,27 @@ Subscriptions and one-time IAPs (Play and ASC, both monetization paths) are fann
 - `AppStoreSubscription.ppp_enabled`
 - `AppStoreInAppPurchase.ppp_enabled`
 
-**ASC implementation detail (1.7.0+ — bulk CSV import)**: requires **asc CLI ≥ 5.9.0** (rorkai/App-Store-Connect-CLI, renamed from rudrankriyam; 2.0.0 moved to the 5.x command surface — `pricing availability create`, `prices import --confirm`, group-version localizations, `subscriptions setup --no-verify`). Both subscriptions and IAPs land their per-territory PPP fan-out in a **single API call** per product:
+**ASC implementation detail (1.7.0+: bulk CSV import)**: requires **asc CLI ≥ 5.9.0** (rorkai/App-Store-Connect-CLI, renamed from rudrankriyam; 2.0.0 moved to the 5.x command surface; `pricing availability create`, `prices import --confirm`, group-version localizations, `subscriptions setup --no-verify`). Both subscriptions and IAPs land their per-territory PPP fan-out in a **single API call** per product:
 
-- **Subscriptions**: `asc subscriptions pricing prices import --input <csv>` (added in asc 1.4.0). KAppMaker writes a temp CSV with `territory,price,price_point_id` rows for all 175 territories and pipes it in. ~1 API call per subscription instead of ~155 — eliminates the rate-limit cascade we hit in 1.6.x. **Two-pass import (1.13.19+)**: pass 1 omits `--start-date` (rows land as STARTING prices — correct for never-approved subs; future-dated rows are rejected on fresh subs with "Create a starting price before creating future prices"). On an APPROVED subscription Apple rejects every starting-price row with _"Initial price cannot be created again after subscription is approved"_ — pre-1.13.19 this only produced a warning and prices silently never changed on re-runs. Pass 2 collects those territories and re-imports them with `--start-date` (tomorrow UTC; if Apple answers _"must be on or after YYYY-MM-DD"_ — its day boundary runs ahead of UTC — a third pass retries with the exact date Apple demands). Price decreases apply to existing subscribers automatically; increases trigger Apple's subscriber-consent flow. Neither needs App Review.
+- **Subscriptions**: `asc subscriptions pricing prices import --input <csv>` (added in asc 1.4.0). KAppMaker writes a temp CSV with `territory,price,price_point_id` rows for all 175 territories and pipes it in. ~1 API call per subscription instead of ~155: eliminates the rate-limit cascade we hit in 1.6.x. **Two-pass import (1.13.19+)**: pass 1 omits `--start-date` (rows land as STARTING prices; correct for never-approved subs; future-dated rows are rejected on fresh subs with "Create a starting price before creating future prices"). On an APPROVED subscription Apple rejects every starting-price row with _"Initial price cannot be created again after subscription is approved"_: pre-1.13.19 this only produced a warning and prices silently never changed on re-runs. Pass 2 collects those territories and re-imports them with `--start-date` (tomorrow UTC; if Apple answers _"must be on or after YYYY-MM-DD"_, its day boundary runs ahead of UTC, a third pass retries with the exact date Apple demands). Price decreases apply to existing subscribers automatically; increases trigger Apple's subscriber-consent flow. Neither needs App Review.
 - **IAPs**: `asc iap pricing schedules create --prices "PP_ID:DATE,..."` (already batch from earlier versions).
 
-**Tier resolution (1.7.0+)**: Apple's price-point IDs are base64 `{s, t, p}` (s = catalog-specific identifier, t = territory alpha-3, p = `10000 + tier`). We resolve each unique PPP USD target → tier ONCE via USA's catalog (where customerPrice is in USD). This replaced 1.6.x's broken "compare USD target to local-currency price-points" which picked the **FREE tier (¥0)** for JPN/IDR/INR/KRW/etc. NOTE (established in 1.13.17): tier N is NOT the same USD-equivalent in every territory — several local grids diverge from FX proportionality — so the tier number alone is only used for the USA point and as a last-resort fallback; per-territory IDs come from equalizations (below).
+**Tier resolution (1.7.0+)**: Apple's price-point IDs are base64 `{s, t, p}` (s = catalog-specific identifier, t = territory alpha-3, p = `10000 + tier`). We resolve each unique PPP USD target → tier ONCE via USA's catalog (where customerPrice is in USD). This replaced 1.6.x's broken "compare USD target to local-currency price-points" which picked the **FREE tier (¥0)** for JPN/IDR/INR/KRW/etc. NOTE (established in 1.13.17): tier N is NOT the same USD-equivalent in every territory, several local grids diverge from FX proportionality, so the tier number alone is only used for the USA point and as a last-resort fallback; per-territory IDs come from equalizations (below).
 
-**Equalization-based fan-out (1.13.17+, replaces 1.13.8's local-tier override)**: Apple's per-territory price grids are NOT FX-proportional at the same tier number — several markets are far cheaper than FX (KZT tier N ≈ 0.15× proportional; PKR/INR/RUB/TZS/VND ≈ 0.25–0.55×) and others non-linear the other way (JPY/KRW/BRL/IDR). Synthesising `{s, t, p}` IDs with the USA tier number therefore under-priced Kazakhstan-style markets ($6.99 base → 240 KZT ≈ $0.46), and 1.13.8's `resolveLocalTier` heuristic (`targetLocal = tier1_local × usaTierNumber`) over-priced JPN/KOR/BRA/IDN by 2–4× (it assumed local grids are linear in tier number; only Turkey happened to come out right). 1.13.17 replaces both with Apple's own **equalizations** endpoint: for each unique PPP USD target, resolve the USA price point, then `fetchEqualizations(usaPricePointId, { catalog })` (`asc … price-points equalizations`, one call per unique target, ~6 per base price, cached per run) returns the value-matched price point for every territory — the same mapping ASC's UI uses when it fills all countries from a base price. Territory keys are decoded from each returned ID's base64 `t` field. Territories missing from the response fall back to tier synthesis with a warning; `LOCAL_PRICE_TERRITORIES` / `resolveLocalTier` are removed. Equalizations subcommands exist for all three catalogs: `asc pricing price-points equalizations --price-point`, `asc subscriptions pricing price-points equalizations --price-point-id`, `asc iap pricing price-points equalizations --id`.
+**Equalization-based fan-out (1.13.17+, replaces 1.13.8's local-tier override)**: Apple's per-territory price grids are NOT FX-proportional at the same tier number; several markets are far cheaper than FX (KZT tier N ≈ 0.15× proportional; PKR/INR/RUB/TZS/VND ≈ 0.25 to 0.55×) and others non-linear the other way (JPY/KRW/BRL/IDR). Synthesising `{s, t, p}` IDs with the USA tier number therefore under-priced Kazakhstan-style markets ($6.99 base → 240 KZT ≈ $0.46), and 1.13.8's `resolveLocalTier` heuristic (`targetLocal = tier1_local × usaTierNumber`) over-priced JPN/KOR/BRA/IDN by 2 to 4× (it assumed local grids are linear in tier number; only Turkey happened to come out right). 1.13.17 replaces both with Apple's own **equalizations** endpoint: for each unique PPP USD target, resolve the USA price point, then `fetchEqualizations(usaPricePointId, { catalog })` (`asc … price-points equalizations`, one call per unique target, ~6 per base price, cached per run) returns the value-matched price point for every territory; the same mapping ASC's UI uses when it fills all countries from a base price. Territory keys are decoded from each returned ID's base64 `t` field. Territories missing from the response fall back to tier synthesis with a warning; `LOCAL_PRICE_TERRITORIES` / `resolveLocalTier` are removed. Equalizations subcommands exist for all three catalogs: `asc pricing price-points equalizations --price-point`, `asc subscriptions pricing price-points equalizations --price-point-id`, `asc iap pricing price-points equalizations --id`.
 
 **Three catalogs, distinct `s` fields (1.13.13+)**:
-- `appPricePoints` (`asc pricing price-points --app`) — app-level catalog. `s = appId`. Used by `createPricing` for the app's own price; NOT valid for IAP schedules.
-- `iapPricePoints` (`asc iap pricing price-points list --iap-id`) — per-IAP catalog. `s = the IAP's own internal ID` (NOT the appId — verified empirically against a live catalog 2026-06). Used by `applyPppToIap`. The `s` must be extracted from a real USA price-point response, exactly like subscriptions.
-- `subscriptionPricePoints` (`asc subscriptions pricing price-points list`) — per-subscription catalog. `s = subscription-internal ID` (different per subscription, must be extracted from a real USA price-point response, NOT the app ID).
+- `appPricePoints` (`asc pricing price-points --app`): app-level catalog. `s = appId`. Used by `createPricing` for the app's own price; NOT valid for IAP schedules.
+- `iapPricePoints` (`asc iap pricing price-points list --iap-id`): per-IAP catalog. `s = the IAP's own internal ID` (NOT the appId: verified empirically against a live catalog 2026-06). Used by `applyPppToIap`. The `s` must be extracted from a real USA price-point response, exactly like subscriptions.
+- `subscriptionPricePoints` (`asc subscriptions pricing price-points list`): per-subscription catalog. `s = subscription-internal ID` (different per subscription, must be extracted from a real USA price-point response, NOT the app ID).
 
 Mixing IDs across catalogs triggers "The provided entity is invalid". **1.13.12 and earlier had a bug here**: `applyPppToIap` used the app-level catalog (`s = appId`) for IAP price-point synthesis, so every `asc iap pricing schedules create` was rejected and IAPs kept auto-converted ("May Adjust Automatically") prices instead of PPP. Fixed in 1.13.13 by switching IAPs to the per-IAP catalog (`catalog: 'iap'` in `ppp-pricing.service.ts`, `s` extracted from `resolveUsdTierWithS`). The schedule-create result is now error-checked + logged so a rejection is no longer silent.
 
-**IAP territory availability (1.13.13+)**: IAPs have their OWN availability, independent of both app-level availability and of pricing — set via `asc iap pricing availability set --iap-id <id> --territories <list>`. `setupInAppPurchases` now accepts an `availability?: AppStoreAvailability` param (sourced from `config.pricing.availability`) and calls `setIapAvailability` per IAP before the PPP fan-out. Without it, an IAP stayed available only in its base territory (USA) even after PPP prices were set for ~175 territories. `create-appstore-app`, `appstore-monetization-push`, and `iap add` all pass it (the latter defaults to `include_all: true`).
+**IAP territory availability (1.13.13+)**: IAPs have their OWN availability, independent of both app-level availability and of pricing; set via `asc iap pricing availability set --iap-id <id> --territories <list>`. `setupInAppPurchases` now accepts an `availability?: AppStoreAvailability` param (sourced from `config.pricing.availability`) and calls `setIapAvailability` per IAP before the PPP fan-out. Without it, an IAP stayed available only in its base territory (USA) even after PPP prices were set for ~175 territories. `create-appstore-app`, `appstore-monetization-push`, and `iap add` all pass it (the latter defaults to `include_all: true`).
 
-**Idempotency on re-runs (1.7.0+)**: when a subscription / IAP `setup` call reports "already been used", KAppMaker now logs `existing — refreshing pricing` and continues into the PPP fan-out (the previous behaviour was to skip pricing entirely, leaving stale prices on re-runs). The asc CLI's `--subscription-id` and `--iap-id` flags accept the product_id directly, so the lookup is free.
+**Idempotency on re-runs (1.7.0+)**: when a subscription / IAP `setup` call reports "already been used", KAppMaker now logs `already exists: refreshing pricing` and continues into the PPP fan-out (the previous behaviour was to skip pricing entirely, leaving stale prices on re-runs). The asc CLI's `--subscription-id` and `--iap-id` flags accept the product_id directly, so the lookup is free.
 
-**App Review screenshots (1.7.1+)**: Apple requires a review screenshot on every subscription and IAP — without one, products stay in `MISSING_METADATA` state and per-territory pricing won't "resolve" (visible via `asc subscriptions pricing prices list --resolved`). Config supports a global default and per-product overrides:
+**App Review screenshots (1.7.1+)**: Apple requires a review screenshot on every subscription and IAP; without one, products stay in `MISSING_METADATA` state and per-territory pricing won't "resolve" (visible via `asc subscriptions pricing prices list --resolved`). Config supports a global default and per-product overrides:
 
 ```json
 {
@@ -439,13 +439,13 @@ Mixing IDs across catalogs triggers "The provided entity is invalid". **1.13.12 
 }
 ```
 
-Upload uses `asc subscriptions review screenshots create --file <path>` for subscriptions and `asc iap review-screenshots create --file <path>` for IAPs (NOT `asc iap images` — that's a different category for promotional images; pre-1.9.1 incorrectly uploaded there). **Idempotent on re-runs** — both paths call `view --iap-id` / `view --subscription-id` before upload; if a screenshot is already attached, the upload is skipped. **Missing files silently skipped** — if the resolved path doesn't exist, KAppMaker logs an info message and continues (the product just stays in MISSING_METADATA until a screenshot is added).
+Upload uses `asc subscriptions review screenshots create --file <path>` for subscriptions and `asc iap review-screenshots create --file <path>` for IAPs (NOT `asc iap images`: that's a different category for promotional images; pre-1.9.1 incorrectly uploaded there). **Idempotent on re-runs**: both paths call `view --iap-id` / `view --subscription-id` before upload; if a screenshot is already attached, the upload is skipped. **Missing files silently skipped**: if the resolved path doesn't exist, KAppMaker logs an info message and continues (the product just stays in MISSING_METADATA until a screenshot is added).
 
-**Required size**: Apple's recommended size for App Review screenshots is **1290 × 2796 px** (iPhone 6.7" Display, portrait — matches App Store listing screenshot dimensions). Minimum is 640 × 920 px. Format: PNG or JPG. Constants are at `src/services/review-screenshot.service.ts` (`REVIEW_SCREENSHOT_TARGET_WIDTH` / `REVIEW_SCREENSHOT_TARGET_HEIGHT`).
+**Required size**: Apple's recommended size for App Review screenshots is **1290 × 2796 px** (iPhone 6.7" Display, portrait; matches App Store listing screenshot dimensions). Minimum is 640 × 920 px. Format: PNG or JPG. Constants are at `src/services/review-screenshot.service.ts` (`REVIEW_SCREENSHOT_TARGET_WIDTH` / `REVIEW_SCREENSHOT_TARGET_HEIGHT`).
 
-**Auto-resize prompt (1.7.3+, exact-crop in 1.9.1+)**: when a file's dimensions don't match 1290 × 2796, KAppMaker prompts: `Resize to exactly 1290×2796 (center-crop)? (Y/n)`. On Y, sharp resizes with `fit: 'cover'` + `position: 'center'` so the output is EXACTLY 1290 × 2796 (Apple's review surface rejects off-spec dimensions). Pre-1.9.1 used `fit: 'inside'` which preserved aspect ratio but produced under-sized outputs like 1290 × 726 for non-portrait sources — Apple wouldn't accept those. Some edge pixels may be cropped if the source aspect ratio differs from 1:2.166. On N, the original file is uploaded as-is. Same prompt fires in both `create-appstore-app`'s setup flow and the standalone replace commands. Files that are already 1290 × 2796 skip the prompt entirely.
+**Auto-resize prompt (1.7.3+, exact-crop in 1.9.1+)**: when a file's dimensions don't match 1290 × 2796, KAppMaker prompts: `Resize to exactly 1290×2796 (center-crop)? (Y/n)`. On Y, sharp resizes with `fit: 'cover'` + `position: 'center'` so the output is EXACTLY 1290 × 2796 (Apple's review surface rejects off-spec dimensions). Pre-1.9.1 used `fit: 'inside'` which preserved aspect ratio but produced under-sized outputs like 1290 × 726 for non-portrait sources: Apple wouldn't accept those. Some edge pixels may be cropped if the source aspect ratio differs from 1:2.166. On N, the original file is uploaded as-is. Same prompt fires in both `create-appstore-app`'s setup flow and the standalone replace commands. Files that are already 1290 × 2796 skip the prompt entirely.
 
-**Standalone replace commands (1.7.3+ — appstore-prefixed)**: replace existing screenshots without running the full setup flow.
+**Standalone replace commands (1.7.3+: appstore-prefixed)**: replace existing screenshots without running the full setup flow.
 
 ```bash
 # Replace screenshot on every subscription using one file
@@ -460,20 +460,20 @@ kappmaker appstore-update-subscription-review-screenshot \
     --product-id forevly.premium.weekly.v1.699.v1
 ```
 
-Both commands use **delete + create** under the hood (not `asc … update`, which empirically doesn't swap the binary — verified that subscription `screenshots update` only marks an out-of-band upload as complete via `--uploaded`/`--checksum`, and IAP `images update --file` returns success without actually replacing). The new screenshot record gets a fresh ID.
+Both commands use **delete + create** under the hood (not `asc … update`, which empirically doesn't swap the binary: verified that subscription `screenshots update` only marks an out-of-band upload as complete via `--uploaded`/`--checksum`, and IAP `images update --file` returns success without actually replacing). The new screenshot record gets a fresh ID.
 
 Options:
-- `--file <path>` — apply to ALL matched products. Overrides per-product `review_screenshot` in the config.
-- `--config <path>` — point at a different config file.
-- `--product-id <id>` — target ONE product (matches by `product_id` or `ref_name`).
+- `--file <path>`: apply to ALL matched products. Overrides per-product `review_screenshot` in the config.
+- `--config <path>`: point at a different config file.
+- `--product-id <id>`: target ONE product (matches by `product_id` or `ref_name`).
 
-**Smoke test**: `npm run test:ppp` runs `src/services/ppp-pricing.service.test.ts` — 16 assertions covering multiplier lookup, .99 rounding, fan-out length, and exclusion-set behaviour.
+**Smoke test**: `npm run test:ppp` runs `src/services/ppp-pricing.service.test.ts`; 16 assertions covering multiplier lookup, .99 rounding, fan-out length, and exclusion-set behaviour.
 
-**Re-run idempotency on existing products (1.6.1+)**: when `gpc subscriptions push` / `gpc iap push` finds a product that already exists on Play, the CLI no longer just skips — it PATCHes the existing product with the freshly-built body (full PPP region fan-out). This is the back-fill path: a user who upgraded from 1.5.x has products that are currently US-only; a single `kappmaker gpc setup` (or just `subscriptions push` + `iap push`) re-runs and applies PPP regional pricing to all 175 regions. Subscriptions go through `PATCH /subscriptions/{id}?updateMask=basePlans,listings`; one-time products use the existing `PATCH /onetimeproducts/{id}?allowMissing=true` (already upsert). Google may reject region-removal or price-decrease changes on active base plans — the CLI logs a tip suggesting a `v1 → v2` product_id bump if that happens.
+**Re-run idempotency on existing products (1.6.1+)**: when `gpc subscriptions push` / `gpc iap push` finds a product that already exists on Play, the CLI no longer just skips; it PATCHes the existing product with the freshly-built body (full PPP region fan-out). This is the back-fill path: a user who upgraded from 1.5.x has products that are currently US-only; a single `kappmaker gpc setup` (or just `subscriptions push` + `iap push`) re-runs and applies PPP regional pricing to all 175 regions. Subscriptions go through `PATCH /subscriptions/{id}?updateMask=basePlans,listings`; one-time products use the existing `PATCH /onetimeproducts/{id}?allowMissing=true` (already upsert). Google may reject region-removal or price-decrease changes on active base plans: the CLI logs a tip suggesting a `v1 → v2` product_id bump if that happens.
 
-**Billable region filter (1.6.2+)**: not every ISO region is billable on Google Play at a given `regionsVersion` — sanctioned countries (AF, IR, KP, SY, CU, BY, etc.) are rejected with HTTP 400 _"Region code X is not billable at the specified regions version 2022/02"_. The CLI calls `POST /applications/{pkg}/pricing:convertRegionPrices` once per (package, base USD price) tuple, and uses the response's region keys as the authoritative billable set.
+**Billable region filter (1.6.2+)**: not every ISO region is billable on Google Play at a given `regionsVersion`; sanctioned countries (AF, IR, KP, SY, CU, BY, etc.) are rejected with HTTP 400 _"Region code X is not billable at the specified regions version 2022/02"_. The CLI calls `POST /applications/{pkg}/pricing:convertRegionPrices` once per (package, base USD price) tuple, and uses the response's region keys as the authoritative billable set.
 
-**Native-currency PPP (1.6.3+)**: Google Play also rejects `regionalConfigs` entries whose currency doesn't match the region's native currency (HTTP 400 _"Invalid currency for region code AE: expected AED but got USD"_). 1.6.2's USD-everywhere approach was wrong. `fetchConvertedRegionPrices(packageName, baseUsdMoney)` in `gpc-monetization.service.ts` now returns a `Map<region, native Money>` covering both the billable filter AND the FX conversion in one API call. `expandPlayRegionsLocal()` then multiplies each native price by the region's PPP multiplier and charm-rounds: zero-decimal currencies (JPY/KRW/CLP/ISK/VND/etc. — `ZERO_DECIMAL_CURRENCIES` set) round to X99 / X9 / X integer; decimal currencies (USD/EUR/INR/etc.) round to the nearest .49/.99 ending via the shared `charmRound` helper (1.13.18+; previously floor + .99). `buildBasePlanBody`, `buildSubscriptionBody`, and `createInAppProduct` are now async. Cache is per (packageName, baseUsdPriceString) — typical apps with 5 distinct base prices make ~5 convertRegionPrices calls per setup run.
+**Native-currency PPP (1.6.3+)**: Google Play also rejects `regionalConfigs` entries whose currency doesn't match the region's native currency (HTTP 400 _"Invalid currency for region code AE: expected AED but got USD"_). 1.6.2's USD-everywhere approach was wrong. `fetchConvertedRegionPrices(packageName, baseUsdMoney)` in `gpc-monetization.service.ts` now returns a `Map<region, native Money>` covering both the billable filter AND the FX conversion in one API call. `expandPlayRegionsLocal()` then multiplies each native price by the region's PPP multiplier and charm-rounds: zero-decimal currencies (JPY/KRW/CLP/ISK/VND/etc.; `ZERO_DECIMAL_CURRENCIES` set) round to X99 / X9 / X integer; decimal currencies (USD/EUR/INR/etc.) round to the nearest .49/.99 ending via the shared `charmRound` helper (1.13.18+; previously floor + .99). `buildBasePlanBody`, `buildSubscriptionBody`, and `createInAppProduct` are now async. Cache is per (packageName, baseUsdPriceString): typical apps with 5 distinct base prices make ~5 convertRegionPrices calls per setup run.
 
 **Two pricing modes via `ppp_enabled` (1.6.4+)**: each subscription base plan and one-time product has an opt-out flag.
 
@@ -482,29 +482,29 @@ Options:
 
 The default is the right pick for most apps; `ppp_enabled: false` is for users who explicitly want uniform USD-anchor pricing without PPP discounts.
 
-**Proto3 partial-Money gotcha (1.6.6+)**: Google's JSON response omits Money fields with default values — i.e. `units` is missing when the price is `< 1 unit` (e.g. `convertRegionPrices` returns `{ currencyCode: "USD", nanos: 990000000 }` for $0.99, no `units` field). `parseInt(undefined, 10) === NaN`, and once `NaN` enters the multiplication pipeline it becomes the string `"NaN"` in the request body → HTTP 400 _"Invalid value at '...price.units' (TYPE_INT64), 'NaN'"_. 1.6.6 adds `normalizeMoney()` at the convertRegionPrices boundary (defaults missing `units` to `"0"` and missing `nanos` to `0`), hardens `moneyToFloat` to coerce non-numeric inputs to 0, and adds a non-finite guard inside `applyPppCharmRound` that falls back to the source Money rather than emitting NaN.
+**Proto3 partial-Money gotcha (1.6.6+)**: Google's JSON response omits Money fields with default values; i.e. `units` is missing when the price is `< 1 unit` (e.g. `convertRegionPrices` returns `{ currencyCode: "USD", nanos: 990000000 }` for $0.99, no `units` field). `parseInt(undefined, 10) === NaN`, and once `NaN` enters the multiplication pipeline it becomes the string `"NaN"` in the request body → HTTP 400 _"Invalid value at '...price.units' (TYPE_INT64), 'NaN'"_. 1.6.6 adds `normalizeMoney()` at the convertRegionPrices boundary (defaults missing `units` to `"0"` and missing `nanos` to `0`), hardens `moneyToFloat` to coerce non-numeric inputs to 0, and adds a non-finite guard inside `applyPppCharmRound` that falls back to the source Money rather than emitting NaN.
 
 **regionsVersion (2.2.0+)**: default `2026/01` (`DEFAULT_REGIONS_VERSION` in `src/services/gpc-regions.ts`), resolved per run: `--regions-version` > config `playRegionsVersion` > default. The 2022/02 drift tables below apply only when 2022/02 is chosen. `ppp_enabled: false` still prices every billable region (plain conversion). Every product is read back and reported as `N of M regions priced` (`printCoverageReport`); short = exit 1.
 
-**regionsVersion=2022/02 drift handling (1.6.8+)**: `convertRegionPrices` returns "today's" currencies + billable set, but the subscription / one-time-product PATCH uses `regionsVersion=2022/02` (matches what AndroidPoet's `playconsole-cli` hardcodes — no documented newer version). The two surfaces disagree for a handful of regions. Five known drift cases as of 2026-05:
-- **BG (Bulgaria, Eurozone 2025)**, **HR (Croatia, Eurozone 2023)** — `convertRegionPrices` → EUR, `2022/02` expects BGN/HRK.
-- **CI (Côte d'Ivoire)**, **CM (Cameroon)** — `convertRegionPrices` → XOF/XAF (CFA), `2022/02` expects USD.
-- **MN (Mongolia)** — `convertRegionPrices` lists as billable; `2022/02` says not billable at all (different error sentence).
+**regionsVersion=2022/02 drift handling (1.6.8+)**: `convertRegionPrices` returns "today's" currencies + billable set, but the subscription / one-time-product PATCH uses `regionsVersion=2022/02` (matches what AndroidPoet's `playconsole-cli` hardcodes; no documented newer version). The two surfaces disagree for a handful of regions. Five known drift cases as of 2026-05:
+- **BG (Bulgaria, Eurozone 2025)**, **HR (Croatia, Eurozone 2023)**: `convertRegionPrices` → EUR, `2022/02` expects BGN/HRK.
+- **CI (Côte d'Ivoire)**, **CM (Cameroon)**: `convertRegionPrices` → XOF/XAF (CFA), `2022/02` expects USD.
+- **MN (Mongolia)**: `convertRegionPrices` lists as billable; `2022/02` says not billable at all (different error sentence).
 
 Three defenses (all wired in `gpc-monetization.service.ts`):
-- **`KNOWN_2022_02_DRIFT_REGIONS = {BG, HR, CI, CM, MN}`** — preseed skip-list filtered out of `expandPlayRegionsLocal` (fast path, no API roundtrip).
+- **`KNOWN_2022_02_DRIFT_REGIONS = {BG, HR, CI, CM, MN}`**: preseed skip-list filtered out of `expandPlayRegionsLocal` (fast path, no API roundtrip).
 - **`extractDriftRegions(errorText)`** parses BOTH error sentence formats from a 400 response: `Invalid currency for region code (\w+)` AND `Region code (\w+) is not billable`. Used by the retry loop in all three PATCH paths.
-- **`sessionDriftCache: Map<packageName, Set<region>>`** — when a region is discovered as drifted during a PATCH (e.g. RO joining Eurozone someday), it's added to this run-scoped cache. Subsequent products in the same `gpc setup` run skip it up front instead of re-paying the 3-call discovery cost.
+- **`sessionDriftCache: Map<packageName, Set<region>>`**: when a region is discovered as drifted during a PATCH (e.g. RO joining Eurozone someday), it's added to this run-scoped cache. Subsequent products in the same `gpc setup` run skip it up front instead of re-paying the 3-call discovery cost.
 
 The retry loop accumulates `extraExclude` across up to 5 attempts per product, rebuilds the body each pass, and stops on either success or a non-drift error. The session cache ensures product N+1 starts with all of product N's discovered drift regions already excluded.
 
 The `Committing Play Console edit: 400 Only releases with status draft may be created on draft app` warning at step 7 is unrelated (about the listings edit / track-release pipeline, not monetization). Monetization steps 8-9 run independently and now succeed even if step 7 fails.
 
-**Post-PATCH verification + diagnostic hint (1.6.9+)**: after every successful subscription / one-time-product PATCH, `verifySubscriptionRegions` / `verifyOneTimeProductRegions` GETs the product back and logs `Stored on Google: X/Y regions available` — the authoritative count of what's actually saved on Google's side, independent of Play Console UI lag. End of `setupSubscriptions` / `setupInAppProducts` prints a one-shot diagnostic checklist (UI lag, app-level country availability in the Production track, draft-app caveats) so users have something concrete to check when Play Console still shows "USA only" after a successful run. Also: `activateBasePlan` now includes the required `packageName` / `productId` / `basePlanId` / `latencyTolerance: LATENCY_SENSITIVE` fields in the request body per the v3 discovery doc — earlier versions sent `{}` and may have silently no-op'd on Google's side.
+**Post-PATCH verification + diagnostic hint (1.6.9+)**: after every successful subscription / one-time-product PATCH, `verifySubscriptionRegions` / `verifyOneTimeProductRegions` GETs the product back and logs `Stored on Google: X/Y regions available`; the authoritative count of what's actually saved on Google's side, independent of Play Console UI lag. End of `setupSubscriptions` / `setupInAppProducts` prints a one-shot diagnostic checklist (UI lag, app-level country availability in the Production track, draft-app caveats) so users have something concrete to check when Play Console still shows "USA only" after a successful run. Also: `activateBasePlan` now includes the required `packageName` / `productId` / `basePlanId` / `latencyTolerance: LATENCY_SENSITIVE` fields in the request body per the v3 discovery doc; earlier versions sent `{}` and may have silently no-op'd on Google's side.
 
-**Existing-region preservation on PATCH (1.6.10+)**: Google's "once added, never removed" rule applies at the per-region level too — once an active base plan (or purchase option) has a regional config for `X`, every subsequent PATCH must include `X` or Google rejects with HTTP 400 _"Regional configs were removed from the base plan: X, Y, Z"_. This bit users who had Forevly-style legacy subscriptions: Google had stored `BG, CI, CM, HR, SN` on the base plan years ago at the original currencies; the CLI's fresh `convertRegionPrices` fan-out now treats those as drift (BG/HR moved to EUR post-Eurozone, CI/CM moved to XOF/XAF, MN delisted), so they got skipped from the new body — Google then saw the omission as a removal request. Fixed in 1.6.10 by reading existing state first: `fetchExistingSubscriptionState` GETs `Map<basePlanId, Map<regionCode, ExistingRegionalConfig>>` before the retry loop; `buildBasePlanBody` then echoes every previously-stored region verbatim (currency + price + availability) for regions the fresh PPP fan-out doesn't already cover. Same pattern for one-time products via `fetchExistingOneTimeProductState`. Net effect on existing products: fresh PPP fan-out for ~150 healthy regions + verbatim echo of any pre-existing drift regions = no removal-rejection, full PPP coverage on subsequent re-runs.
+**Existing-region preservation on PATCH (1.6.10+)**: Google's "once added, never removed" rule applies at the per-region level too; once an active base plan (or purchase option) has a regional config for `X`, every subsequent PATCH must include `X` or Google rejects with HTTP 400 _"Regional configs were removed from the base plan: X, Y, Z"_. This bit users who had Forevly-style legacy subscriptions: Google had stored `BG, CI, CM, HR, SN` on the base plan years ago at the original currencies; the CLI's fresh `convertRegionPrices` fan-out now treats those as drift (BG/HR moved to EUR post-Eurozone, CI/CM moved to XOF/XAF, MN delisted), so they got skipped from the new body; Google then saw the omission as a removal request. Fixed in 1.6.10 by reading existing state first: `fetchExistingSubscriptionState` GETs `Map<basePlanId, Map<regionCode, ExistingRegionalConfig>>` before the retry loop; `buildBasePlanBody` then echoes every previously-stored region verbatim (currency + price + availability) for regions the fresh PPP fan-out doesn't already cover. Same pattern for one-time products via `fetchExistingOneTimeProductState`. Net effect on existing products: fresh PPP fan-out for ~150 healthy regions + verbatim echo of any pre-existing drift regions = no removal-rejection, full PPP coverage on subsequent re-runs.
 
-**Currency override for regionsVersion 2022/02 drift (1.6.11+)**: 1.6.10's "skip drift regions and re-inject as unavailable" approach was suboptimal. The drift regions (except MN) are actually billable at 2022/02 — just under a different currency than the live `convertRegionPrices` API returns. 1.6.11+ replaces drop-and-mark-unavailable with a per-region currency override inside the fresh fan-out (`applyCurrencyOverrideFor2022_02` in `gpc-monetization.service.ts`):
+**Currency override for regionsVersion 2022/02 drift (1.6.11+)**: 1.6.10's "skip drift regions and re-inject as unavailable" approach was suboptimal. The drift regions (except MN) are actually billable at 2022/02: just under a different currency than the live `convertRegionPrices` API returns. 1.6.11+ replaces drop-and-mark-unavailable with a per-region currency override inside the fresh fan-out (`applyCurrencyOverrideFor2022_02` in `gpc-monetization.service.ts`):
 
 | Region | Live API | 2022/02 expects | Resolution |
 |---|---|---|---|
@@ -517,11 +517,11 @@ The override runs BEFORE the PPP multiplier, so per-tier discounts stay consiste
 
 **Result**: products land with `173/173 regions available` on Play Console (vs 168/173 in 1.6.10 where 5 drift regions were force-unavailable). BG users see BGN-priced subs, CI/CM/SN users see USD with their PPP tier applied, AR/IN/PK get the steepest discounts, CH/NO pay the premium. Google's storage layer auto-converts our submitted currency to each region's actual current currency when displaying to end users (we send BG/BGN → Google displays EUR; we send CI/USD → Google displays XOF).
 
-**`newRegionsConfig.availability: AVAILABLE` always (1.6.11+)**: for one-time products `newRegionsConfig` is now ALWAYS included when there's a USD anchor (was previously only set when `ppp_enabled: false`). Mirrors what subscriptions already do via `otherRegionsConfig`. In Play Console this surfaces as **"New countries and regions: Available"** — any region Google adds to its billable catalog in the future automatically gets USD/EUR-anchor pricing.
+**`newRegionsConfig.availability: AVAILABLE` always (1.6.11+)**: for one-time products `newRegionsConfig` is now ALWAYS included when there's a USD anchor (was previously only set when `ppp_enabled: false`). Mirrors what subscriptions already do via `otherRegionsConfig`. In Play Console this surfaces as **"New countries and regions: Available"**; any region Google adds to its billable catalog in the future automatically gets USD/EUR-anchor pricing.
 
 **`NEVER_BILLABLE_AT_2022_02` + `--recreate-stuck` (1.6.11+)**: regions like MN that 2022/02 removed entirely cannot coexist with the PATCH at all. The CLI detects this deadlock (region rejected even with NO_LONGER_AVAILABLE/forceUnavailable+correct-currency) and tracks the product in `stuckOneTimeProducts` / `stuckSubscriptions`. Final summary lists stuck products with three fix options:
-1. **Recommended** — bump `product_id` in config (`v1` → `v2`). New product, full PPP fan-out, no downtime.
-2. `--recreate-stuck` — opt-in flag that DELETEs the stuck product then recreates. WARNING: Google soft-deletes one-time products — the productId is reserved for a few minutes to a few hours after deletion. CLI catches the "Product ID already in use" error and tells the user to wait + re-run.
+1. **Recommended**: bump `product_id` in config (`v1` → `v2`). New product, full PPP fan-out, no downtime.
+2. `--recreate-stuck`: opt-in flag that DELETEs the stuck product then recreates. WARNING: Google soft-deletes one-time products; the productId is reserved for a few minutes to a few hours after deletion. CLI catches the "Product ID already in use" error and tells the user to wait + re-run.
 3. Manually delete on Play Console UI, wait, re-run.
 
 **Refactor (1.6.12)**: extracted `handleSubscriptionRetry` + `handleOneTimeProductRetry` helpers to dedupe the retry/deadlock logic that was copy-pasted across the create-subscription, update-subscription, and create-IAP loops (~80 lines saved). Demoted internal-only exports (`priceToMoney`, `deriveAnchorPrices`, `activateBasePlan`) to private. Net file size: 1433 → 1320 lines.
@@ -553,7 +553,7 @@ Default consumable in-app purchases (credit packs) ship in all three templates a
 | Product ID (ASC, Play, Adapty iOS, Adapty Android) | `credit_pack_{credits}_{priceDigits}_{appname}` | `credit_pack_10_499_myapp` |
 | ASC `ref_name` | `{AppName} {LocalizedName} v1 ({price})` | `MyApp Basic Credit Pack v1 (4.99)` |
 
-**Default credit packs** ($USD): Basic — 10 credits / $4.99, Pro — 30 credits / $9.99, Ultimate — 80 credits / $19.99.
+**Default credit packs** ($USD): Basic (10 credits, $4.99), Pro (30 credits, $9.99), Ultimate (80 credits, $19.99).
 
 The Adapty template also adds a `Credits Paywall` (linking the three credit pack products) and a `credits_pack` placement (Adapty `developer_id`) so the app can fetch them with `Adapty.getPaywall("credits_pack")`.
 
@@ -574,27 +574,27 @@ kappmaker iap add --credits 100 --price 24.99 --platform ios
 ```
 
 **Behaviour:**
-- **Push only, no config writes** — the local `Assets/*-config.json` files are read for context (app name, package, bundle ID, ASC subscription group) but never modified. Source of truth lives on the stores.
-- **Per-platform graceful skip** — if any platform's prerequisites aren't met (missing config, no service-account key, no uploaded build, no ASC group), that platform is logged as skipped and the others still run. The command errors only if ALL selected platforms were skipped.
-- **Adapty intentionally excluded from `subscription add`** — Adapty mirrors store prices at runtime via store integrations (per the existing "Adapty Prices Are Not Developer-Set" section), so creating a new subscription via `adapty.createProduct` adds noise without unlocking anything the SDK can't already fetch live from the stores. Adapty product entries remain managed via `kappmaker adapty setup` for the canonical product set. `iap add` still includes Adapty because credit packs use Adapty paywalls + `credit_pack_access` to gate consumable entitlements that have no store-side equivalent.
-- **Auto-aligned IDs** — `subscription add --period weekly --price 9.99` produces:
+- **Push only, no config writes**: the local `Assets/*-config.json` files are read for context (app name, package, bundle ID, ASC subscription group) but never modified. Source of truth lives on the stores.
+- **Per-platform graceful skip**: if any platform's prerequisites aren't met (missing config, no service-account key, no uploaded build, no ASC group), that platform is logged as skipped and the others still run. The command errors only if ALL selected platforms were skipped.
+- **Adapty intentionally excluded from `subscription add`**: Adapty mirrors store prices at runtime via store integrations (per the existing "Adapty Prices Are Not Developer-Set" section), so creating a new subscription via `adapty.createProduct` adds noise without unlocking anything the SDK can't already fetch live from the stores. Adapty product entries remain managed via `kappmaker adapty setup` for the canonical product set. `iap add` still includes Adapty because credit packs use Adapty paywalls + `credit_pack_access` to gate consumable entitlements that have no store-side equivalent.
+- **Auto-aligned IDs**: `subscription add --period weekly --price 9.99` produces:
   - ASC `product_id`: `{appname}.premium.weekly.v1.999.v1`, `ref_name`: `{AppName} Premium Weekly v1 (9.99)`
   - Play `product_id`: `{appname}.premium.weekly.v1`, base plan `autorenew-weekly-999-v1`
-- **`--product-version <n>` for new product lines** — bumps every `v` marker in the IDs together. `--product-version 2` turns the above into `{appname}.premium.weekly.v2.999.v2` (ASC — both `v` markers bump), `{appname}.premium.weekly.v2` (Play), `autorenew-weekly-999-v2` (Play base plan), and `{AppName} Premium Weekly v2 (9.99)` (ref_name). Lets you stand up a fresh product family alongside the existing v1 — useful for stuck-product workarounds per the v3 PATCH constraints, or for relaunching pricing without disturbing v1 subscribers. For IAPs, `--product-version 2` appends `_v2` to the credit-pack ID (`credit_pack_10_499_myapp_v2`); v1 stays unsuffixed for back-compat with template defaults.
-- **`--name <text>` controls the ASC localization name; Play title is auto-derived** — ASC subscriptions are shown inside a group (e.g. "Premium Access"), so the conventional name is short like `"Weekly Premium"` (no app-name prefix). The Play listing title is automatically `"<AppName> <ASC name>"` (e.g. ASC "Weekly Premium" → Play "Mangit Weekly Premium"), because Play listings appear standalone in search/UI without group context. Default ASC name when `--name` omitted: `"<Period> Premium"` (e.g. `"Weekly Premium"`). Matches Forevly's `appstore-config.json` + `googleplay-config.json` shape.
-- **`--description <text>`** — explicit localized description (en-US). Defaults to a period-derived sentence: `weekly → "Full access for one week."`, `monthly → "Full access for one month."`, `twomonths → "Full access for two months."`, `quarterly → "Full access for three months."`, `semiannual → "Full access for six months."`, `yearly → "Full access for one year."`. Applied to BOTH the ASC localization `description` AND the Play listing `description` so the two stores stay in sync.
-- **`--review-screenshot <path>`** — per-call override of the App Review screenshot. Defaults to the top-level `review_screenshot` from `Assets/appstore-config.json`. Set on the in-memory subscription / IAP object AND passed as `defaultReviewScreenshot` so `ascMoney.setupSubscriptions` / `setupInAppPurchases` will resize + upload it (subject to the existing 1290 × 2796 prompt). Missing files are silently skipped per existing convention.
-- **Territory availability defaults to "everywhere"** — when `Assets/appstore-config.json` does not exist (or has no `subscriptions.availability` block), `subscription add` defaults to `{ include_all: true, territories: [], available_in_new_territories: true }`. Without this default, `asc subscriptions setup` omits `--territories` and Apple falls back to making the subscription available only in the anchor price's territory (USA) — even though the PPP fan-out sets prices for ~155 territories. The two are independent: PPP only writes prices; territory availability is a separate field. To restrict, define `subscriptions.availability.territories` in the config and re-run.
-- **`--group <ref>` + `--group-name <text>` for auto-creating ASC subscription groups** — when the group reference doesn't yet exist on App Store Connect, `subscription add` auto-creates it via `asc subscriptions setup --group-reference-name <ref>` AND attaches an en-US localization so the group has a proper App-Store-facing display name (Apple requires one). Resolution order for the localized name: `--group-name <text>` → matching group's existing `localizations[0].name` in `Assets/appstore-config.json` → fallback `"Premium Access"`. For pre-existing groups, the duplicate-create localization call gracefully fails (`allowFailure: true` in `setupSubscriptions`) so existing names stay intact. Lets users create entirely new groups like `myapp.premium.v3` without first running `create-appstore-app` or editing the config.
-- **Idempotency** — Play and ASC pushes go through the same `setupSubscriptions` / `setupInAppProducts` paths as `gpc subscriptions push` and `create-appstore-app`, so re-running the same `subscription add` is safe (existing products get pricing refreshed with full PPP fan-out). For `iap add`, Adapty also pre-lists products by title and skips if already present.
-- **`--platform` semantics** — for `subscription add`: `all` (default) = Play + ASC, `ios` = ASC only, `android` = Play only. For `iap add`: `all` = Play + ASC + Adapty (single Adapty product spans both `ios_product_id` and `android_product_id`), `ios` = ASC only, `android` = Play only.
-- **No `--free-trial`** — intro offers / free trials aren't wired through these commands yet; for those, fall back to editing the config file and running `gpc subscriptions push` / `create-appstore-app`.
+- **`--product-version <n>` for new product lines**: bumps every `v` marker in the IDs together. `--product-version 2` turns the above into `{appname}.premium.weekly.v2.999.v2` (ASC: both `v` markers bump), `{appname}.premium.weekly.v2` (Play), `autorenew-weekly-999-v2` (Play base plan), and `{AppName} Premium Weekly v2 (9.99)` (ref_name). Lets you stand up a fresh product family alongside the existing v1: useful for stuck-product workarounds per the v3 PATCH constraints, or for relaunching pricing without disturbing v1 subscribers. For IAPs, `--product-version 2` appends `_v2` to the credit-pack ID (`credit_pack_10_499_myapp_v2`); v1 stays unsuffixed for back-compat with template defaults.
+- **`--name <text>` controls the ASC localization name; Play title is auto-derived**: ASC subscriptions are shown inside a group (e.g. "Premium Access"), so the conventional name is short like `"Weekly Premium"` (no app-name prefix). The Play listing title is automatically `"<AppName> <ASC name>"` (e.g. ASC "Weekly Premium" → Play "Mangit Weekly Premium"), because Play listings appear standalone in search/UI without group context. Default ASC name when `--name` omitted: `"<Period> Premium"` (e.g. `"Weekly Premium"`). Matches Forevly's `appstore-config.json` + `googleplay-config.json` shape.
+- **`--description <text>`**: explicit localized description (en-US). Defaults to a period-derived sentence: `weekly → "Full access for one week."`, `monthly → "Full access for one month."`, `twomonths → "Full access for two months."`, `quarterly → "Full access for three months."`, `semiannual → "Full access for six months."`, `yearly → "Full access for one year."`. Applied to BOTH the ASC localization `description` AND the Play listing `description` so the two stores stay in sync.
+- **`--review-screenshot <path>`**: per-call override of the App Review screenshot. Defaults to the top-level `review_screenshot` from `Assets/appstore-config.json`. Set on the in-memory subscription / IAP object AND passed as `defaultReviewScreenshot` so `ascMoney.setupSubscriptions` / `setupInAppPurchases` will resize + upload it (subject to the existing 1290 × 2796 prompt). Missing files are silently skipped per existing convention.
+- **Territory availability defaults to "everywhere"**: when `Assets/appstore-config.json` does not exist (or has no `subscriptions.availability` block), `subscription add` defaults to `{ include_all: true, territories: [], available_in_new_territories: true }`. Without this default, `asc subscriptions setup` omits `--territories` and Apple falls back to making the subscription available only in the anchor price's territory (USA): even though the PPP fan-out sets prices for ~155 territories. The two are independent: PPP only writes prices; territory availability is a separate field. To restrict, define `subscriptions.availability.territories` in the config and re-run.
+- **`--group <ref>` + `--group-name <text>` for auto-creating ASC subscription groups**: when the group reference doesn't yet exist on App Store Connect, `subscription add` auto-creates it via `asc subscriptions setup --group-reference-name <ref>` AND attaches an en-US localization so the group has a proper App-Store-facing display name (Apple requires one). Resolution order for the localized name: `--group-name <text>` → matching group's existing `localizations[0].name` in `Assets/appstore-config.json` → fallback `"Premium Access"`. For pre-existing groups, the duplicate-create localization call gracefully fails (`allowFailure: true` in `setupSubscriptions`) so existing names stay intact. Lets users create entirely new groups like `myapp.premium.v3` without first running `create-appstore-app` or editing the config.
+- **Idempotency**: Play and ASC pushes go through the same `setupSubscriptions` / `setupInAppProducts` paths as `gpc subscriptions push` and `create-appstore-app`, so re-running the same `subscription add` is safe (existing products get pricing refreshed with full PPP fan-out). For `iap add`, Adapty also pre-lists products by title and skips if already present.
+- **`--platform` semantics**: for `subscription add`: `all` (default) = Play + ASC, `ios` = ASC only, `android` = Play only. For `iap add`: `all` = Play + ASC + Adapty (single Adapty product spans both `ios_product_id` and `android_product_id`), `ios` = ASC only, `android` = Play only.
+- **No `--free-trial`**: intro offers / free trials aren't wired through these commands yet; for those, fall back to editing the config file and running `gpc subscriptions push` / `create-appstore-app`.
 
 Source: [src/commands/subscription-add.ts](src/commands/subscription-add.ts), [src/commands/iap-add.ts](src/commands/iap-add.ts), [src/services/product-id.builder.ts](src/services/product-id.builder.ts).
 
 ### RevenueCat (`kappmaker revenuecat`)
 
-Talks straight to REST API v2 (`api.revenuecat.com/v2`, Bearer key) — no external CLI, unlike Adapty.
+Talks straight to REST API v2 (`api.revenuecat.com/v2`, Bearer key): no external CLI, unlike Adapty.
 
 - **Keys are PROJECT-scoped.** A v2 secret key (`sk_...`) is minted inside one RevenueCat project and
   can only see that project, so one global key cannot serve an account with several apps. Resolution
@@ -604,62 +604,62 @@ Talks straight to REST API v2 (`api.revenuecat.com/v2`, Bearer key) — no exter
   the key, because the bundle ID is what selects the key.
 - **Cross-check**: if the config already carries a `project_id` and the key belongs to a different
   project, setup fails loudly rather than writing products into the wrong app.
-- **Play subscriptions connect as `productId:basePlanId`** — RevenueCat rejects the bare
+- **Play subscriptions connect as `productId:basePlanId`**: RevenueCat rejects the bare
   subscription ID as ambiguous. iOS products and Play one-time products use their plain IDs.
 - Offerings: `default` (subscriptions) and `credits_pack` (credit packs). The credits identifier
   deliberately matches Adapty's placement `developer_id`, so app code keeps one constant either way.
 - Package keys use RevenueCat's conventions (`$rc_weekly`, `$rc_monthly`, `$rc_annual`, ...);
   credit packs get `credit_pack_<credits>`.
-- The docs prose and the published OpenAPI spec disagree — the spec is authoritative. Offerings take
+- The docs prose and the published OpenAPI spec disagree: the spec is authoritative. Offerings take
   `lookup_key` (not `identifier`); entitlement attach takes a flat `product_ids` array while package
   attach takes `products: [{product_id, eligibility_criteria}]`.
 
-### iOS from CI (`kappmaker ios-ci`) — shipping without a Mac
+### iOS from CI (`kappmaker ios-ci`): shipping without a Mac
 
 Xcode is the only genuinely Mac-locked step; app records, products, pricing, metadata and ASO all go
 over the API from Linux. `ios-ci` rents a GitHub-hosted macOS runner for the compile.
 
 - The BOILERPLATE ships `.github/workflows/publish_ios_appstore.yml`; the CLI targets that same file
   rather than adding a second pipeline. `ios-ci init` leaves an up-to-date workflow alone and only
-  rewrites one that predates the match-based version — there is always exactly one iOS workflow.
+  rewrites one that predates the match-based version: there is always exactly one iOS workflow.
 - **Signing material is shared per Apple ACCOUNT, not per app.** A distribution certificate belongs
   to the developer account and Apple allows only 3; a provisioning profile is the per-app piece.
   So one private repo (`iosCertsRepo`, default `<owner>/apple-certificates`) holds the certificate
-  plus every app's profile. A per-app store mints a certificate per app and dies on the fourth —
+  plus every app's profile. A per-app store mints a certificate per app and dies on the fourth
   this was shipped briefly and corrected. MATCH_PASSWORD is keyed to the STORE, not the app.
   Reaching that second repo needs a PAT (`iosCertsRepoToken`); GITHUB_TOKEN is scoped to its own repo.
 - The workflow's build-key list comes from `MobileApp/local.properties.example` at run time (sed +
-  `toJSON(secrets)`), and `ios-ci init` reads the same file — one source of truth, so adding a key
+  `toJSON(secrets)`), and `ios-ci init` reads the same file: one source of truth, so adding a key
   means editing that file and setting a same-named secret, never the workflow.
 - `ios-ci init` is idempotent: `match` password stored in
   `~/.config/kappmaker/match-passwords.json` (0600), secrets pushed via `gh secret set` with the
   value on **stdin** (never argv), `.github/workflows/ios-release.yml` written, and a
-  `ci_appstore_release` lane inserted INSIDE `platform :ios do` — it must be inside that block
+  `ci_appstore_release` lane inserted INSIDE `platform :ios do`: it must be inside that block
   because it uses the `bundle_id` / `output_dir` / metadata paths defined at the top of it.
   Marker-guarded (`<kappmaker-ci-lane>`) so re-running does not duplicate it.
 - **`match`, not Xcode automatic signing.** Automatic signing mints a NEW distribution certificate
-  per run and Apple caps those at 3 per account — the naive version goes green three times, then
+  per run and Apple caps those at 3 per account: the naive version goes green three times, then
   fails permanently.
 - **Build numbers auto-advance** past the latest on TestFlight (`bump_build`, default on). CI builds
-  from a clean checkout so the number in git never moves, and Apple rejects a repeat — without this,
+  from a clean checkout so the number in git never moves, and Apple rejects a repeat: without this,
   every second build fails.
 - The CI lane takes the same options as the local `appstore_release` (metadata, screenshots,
   submit-for-review, track) writing to the same metadata paths: a remote release is not a downgrade.
   Metadata/screenshots apply to the `appstore` track only; TestFlight takes a build, not a listing.
-- `MATCH_GIT_BASIC_AUTHORIZATION` needs a PAT that can read the certs repo — the built-in
+- `MATCH_GIT_BASIC_AUTHORIZATION` needs a PAT that can read the certs repo: the built-in
   `GITHUB_TOKEN` only reaches the repo it runs in. Missing it fails at the `match` step with a clone
   error that reads misleadingly like a signing problem.
 - **match runs READONLY by default** (`MATCH_READONLY=false` for the one bootstrap run). Apple issues
   only TWO Apple Distribution certificates per account, shared by every app; with write access match
   re-issues whenever it is unsatisfied, so a couple of builds can consume both slots and lock the
   account out of iOS releases. "Could not create another Distribution certificate" means the cap is
-  reached — revoke one in the portal, do not try to force another.
+  reached: revoke one in the portal, do not try to force another.
 - **Signing rules that cost six real builds to establish**: settings go on the app
   target via `update_code_signing_settings(targets: [...])`, never through `xcargs`
   (which hits every target, and SPM deps reject provisioning profiles); signing must
   be MANUAL (automatic hunts for a Development profile while match installs an App
   Store one); `DEVELOPMENT_TEAM` must be passed because the template sets none;
-  and `-allowProvisioningUpdates` takes no value — passing one makes xcodebuild
+  and `-allowProvisioningUpdates` takes no value: passing one makes xcodebuild
   parse it as a build action.
 - Trigger is `workflow_dispatch` only, on purpose: macOS minutes bill at ~10x Linux against the
   account allowance (~10 twenty-minute builds/month on a free plan), so build-on-push would drain it.
@@ -672,7 +672,7 @@ Legacy configs with the singular `access_level` field are auto-migrated to `acce
 
 ### Adapty Consumable Period Workaround
 
-The Adapty CLI v0.1.5 (the current shipping version) hardcodes a period whitelist that does NOT include `consumable` — only `weekly|monthly|two_months|trimonthly|semiannual|annual|lifetime`. The Adapty REST API at `https://api-admin.adapty.io/api/v1/developer/apps/{appId}/products/` does accept `consumable` directly. `adapty.service.ts` routes any product with `period: "consumable"` through a direct REST call (`createProductViaApi`) using the cached token at `~/.config/adapty/config.json` (or `ADAPTY_TOKEN` env var). Subscriptions and lifetime products still go through the CLI. When/if a future Adapty CLI release adds `consumable` to its whitelist, the API workaround becomes a no-op transparently.
+The Adapty CLI v0.1.5 (the current shipping version) hardcodes a period whitelist that does NOT include `consumable`: only `weekly|monthly|two_months|trimonthly|semiannual|annual|lifetime`. The Adapty REST API at `https://api-admin.adapty.io/api/v1/developer/apps/{appId}/products/` does accept `consumable` directly. `adapty.service.ts` routes any product with `period: "consumable"` through a direct REST call (`createProductViaApi`) using the cached token at `~/.config/adapty/config.json` (or `ADAPTY_TOKEN` env var). Subscriptions and lifetime products still go through the CLI. When/if a future Adapty CLI release adds `consumable` to its whitelist, the API workaround becomes a no-op transparently.
 
 ### Adapty Prices Are Not Developer-Set
 
@@ -680,17 +680,17 @@ The Adapty CLI v0.1.5 (the current shipping version) hardcodes a period whitelis
 `price_usd`), and KAppMaker sends `price` there when the installed adapty is ≥ 0.33. Store prices
 still come from ASC / Play; the paragraphs below describe the pre-0.33 API. Also new in 0.33:
 `paywalls create --products '<json>'` replaces the deprecated `--product-id` (used automatically on
-≥ 0.33), and EU accounts (`adapty auth login --region eu`) live on `api-eu-admin.adapty.io` — the
+≥ 0.33), and EU accounts (`adapty auth login --region eu`) live on `api-eu-admin.adapty.io`: the
 consumable REST workaround follows `ADAPTY_API_URL` / `ADAPTY_REGION` / the stored `region`.
 `consumable` is still not in the CLI's `--period` list in 0.33, so the workaround stays.
 
-Adapty's developer API **strips price-related fields** from product create/get responses (verified via OPTIONS metadata: "_Strips response to plan-specified fields (id, title, vendor_products)_" and confirmed against 7 price-field variants — `price`, `currency_code`, `localized_price`, `price_string`, `display_price`, `vendor_products.app_store.price`, `prices[]` — all silently dropped). Prices show up in the Adapty dashboard **only after** the user connects App Store Connect + Google Play integrations in the dashboard (Settings → Integrations) — those are dashboard-only steps; the CLI/API doesn't expose them.
+Adapty's developer API **strips price-related fields** from product create/get responses (verified via OPTIONS metadata: "_Strips response to plan-specified fields (id, title, vendor_products)_" and confirmed against 7 price-field variants, `price`, `currency_code`, `localized_price`, `price_string`, `display_price`, `vendor_products.app_store.price`, `prices[]`, all silently dropped). Prices show up in the Adapty dashboard **only after** the user connects App Store Connect + Google Play integrations in the dashboard (Settings → Integrations): those are dashboard-only steps; the CLI/API doesn't expose them.
 
 The `price` field on each `AdaptyProduct` is therefore used only by KAppMaker for:
-1. ID generation — embedded as `priceDigits` in subscription / credit-pack product IDs
+1. ID generation: embedded as `priceDigits` in subscription / credit-pack product IDs
 2. Mirroring into ASC + GPC where prices ARE developer-set (we drive both via `create-appstore-app` and `gpc setup`)
 
-`printPostSetupChecklist()` at the end of `adapty setup` prints a one-time reminder pointing the user to the Adapty dashboard integrations page. Mobile SDK behaviour is unaffected by the dashboard view — Adapty fetches live prices from native store APIs at runtime regardless.
+`printPostSetupChecklist()` at the end of `adapty setup` prints a one-time reminder pointing the user to the Adapty dashboard integrations page. Mobile SDK behaviour is unaffected by the dashboard view: Adapty fetches live prices from native store APIs at runtime regardless.
 
 ### Adapty Idempotency
 
@@ -698,7 +698,7 @@ The `price` field on each `AdaptyProduct` is therefore used only by KAppMaker fo
 
 The subscription name (shown on Play's checkout sheet) is auto-filled as `{AppName} Premium {PeriodLabel}` (e.g. `Mangit Premium Weekly`).
 
-**`priceDigits`** is the price with the decimal removed (e.g. `6.99` → `699`, `29.99` → `2999`). `{period}` is one of `weekly`, `monthly`, `twomonths`, `quarterly`, `semiannual`, `yearly` — derived from the App Store subscription period or the Google Play `billing_period` (ISO 8601: `P1W`, `P1M`, `P2M`, `P3M`, `P6M`, `P1Y`).
+**`priceDigits`** is the price with the decimal removed (e.g. `6.99` → `699`, `29.99` → `2999`). `{period}` is one of `weekly`, `monthly`, `twomonths`, `quarterly`, `semiannual`, `yearly`: derived from the App Store subscription period or the Google Play `billing_period` (ISO 8601: `P1W`, `P1M`, `P2M`, `P3M`, `P6M`, `P1Y`).
 
 ### Privacy Interactive Prompts
 
@@ -706,7 +706,7 @@ During interactive config setup (when no config file exists), `create-appstore-a
 
 ### App Store Global Defaults
 
-Stored at `~/.config/kappmaker/appstore-defaults.json`. Used by `create-appstore-app` as a base layer — shared fields like review contact, privacy, age rating, encryption, subscriptions, and credit-pack IAPs are loaded from here.
+Stored at `~/.config/kappmaker/appstore-defaults.json`. Used by `create-appstore-app` as a base layer: shared fields like review contact, privacy, age rating, encryption, subscriptions, and credit-pack IAPs are loaded from here.
 
 Config resolution: built-in template → global defaults → local `./Assets/appstore-config.json` → interactive prompts.
 
@@ -714,15 +714,15 @@ Config resolution: built-in template → global defaults → local `./Assets/app
 
 ### Adapty Global Defaults
 
-Stored at `~/.config/kappmaker/adapty-defaults.json`. Used by `adapty setup` as a base layer — shared fields like access level, products (subs + credit packs), paywalls (Default / Onboarding / Credits), and placements (default / onboarding / `credits_pack`).
+Stored at `~/.config/kappmaker/adapty-defaults.json`. Used by `adapty setup` as a base layer: shared fields like access level, products (subs + credit packs), paywalls (Default / Onboarding / Credits), and placements (default / onboarding / `credits_pack`).
 
 Config resolution: built-in template → global defaults → local `./Assets/adapty-config.json` → interactive prompts.
 
-`kappmaker config adapty-defaults --init` snapshots the built-in template (with all default credit-pack entries baked in) into the global defaults file. Re-running `--init` against an existing file backfills any of `products`, `paywalls`, `placements` that are empty/missing from the template — useful when upgrading from pre-1.4 defaults that didn't have credit packs. The `deepMerge` helper in `adapty-setup.ts` similarly preserves template content when globals contain empty arrays.
+`kappmaker config adapty-defaults --init` snapshots the built-in template (with all default credit-pack entries baked in) into the global defaults file. Re-running `--init` against an existing file backfills any of `products`, `paywalls`, `placements` that are empty/missing from the template: useful when upgrading from pre-1.4 defaults that didn't have credit packs. The `deepMerge` helper in `adapty-setup.ts` similarly preserves template content when globals contain empty arrays.
 
 ### Google Play Console management (`kappmaker gpc`)
 
-Talks directly to `androidpublisher.googleapis.com/v3` via a built-in service-account JWT → access-token flow (no external CLI, no new npm deps — uses Node's `crypto` and `fetch`). Auth shares `googleServiceAccountPath` with `publish --platform android`.
+Talks directly to `androidpublisher.googleapis.com/v3` via a built-in service-account JWT → access-token flow (no external CLI, no new npm deps: uses Node's `crypto` and `fetch`). Auth shares `googleServiceAccountPath` with `publish --platform android`.
 
 **Command tree:**
 
@@ -749,7 +749,7 @@ kappmaker gpc
 1. Validate `googleServiceAccountPath` and obtain an access token
 2. Load config (`./Assets/googleplay-config.json` or interactive prompts)
 3. Review summary and confirm
-4. Verify app exists on Play Console (fails fast with a deep link if not — Google does not allow app creation via the public API)
+4. Verify app exists on Play Console (fails fast with a deep link if not: Google does not allow app creation via the public API)
 5. Update app details (default language + contact website/email/phone) inside an edit
 6. Update store listings per locale (title, short/full description, video). Empty listing titles are auto-filled from `config.app.name`
 7. Commit the edit
@@ -761,13 +761,13 @@ kappmaker gpc
     - **App activity:** only App interactions (`PSL_USER_INTERACTION`), NOT "Other app activity"
     - **Data handling for ALL types:** ephemeral=YES, user control=REQUIRED (can't turn off), collected only (not shared)
     - **Encrypted in transit:** YES
-11. Print a full checklist of manual-only Play Console declarations that the Publisher API does NOT expose: content rating (IARC), target audience, ads, health apps, financial features, government apps, news apps, gambling, COVID-19 tracing, app access, advertising ID usage, families policy, and app pricing tier. Verified against the v3 discovery document — none of these have REST endpoints.
+11. Print a full checklist of manual-only Play Console declarations that the Publisher API does NOT expose: content rating (IARC), target audience, ads, health apps, financial features, government apps, news apps, gambling, COVID-19 tracing, app access, advertising ID usage, families policy, and app pricing tier. Verified against the v3 discovery document: none of these have REST endpoints.
 
 **Idempotency:** `subscriptions push` and `iap push` call `listSubscriptions`/`listInAppProducts` first and skip already-existing product IDs / SKUs. Safe to rerun.
 
-**Individual push commands** reuse the same config file (`Assets/googleplay-config.json`) and operate on just one section — useful when iterating on listings copy or subscription prices without rerunning the full flow. All require the config to already exist (run `gpc setup` first or create it manually).
+**Individual push commands** reuse the same config file (`Assets/googleplay-config.json`) and operate on just one section: useful when iterating on listings copy or subscription prices without rerunning the full flow. All require the config to already exist (run `gpc setup` first or create it manually).
 
-**`gpc app-check`** is a side-effect-free probe (GET, no edit created) — exits 0 if the app exists and 2 if it doesn't.
+**`gpc app-check`** is a side-effect-free probe (GET, no edit created): exits 0 if the app exists and 2 if it doesn't.
 
 ### Default Inputs
 

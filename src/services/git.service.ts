@@ -17,7 +17,7 @@ export async function cloneTemplate(templateRepo: string, targetDir: string): Pr
   if (code === 0 || !https) return;
   // Older configs saved the SSH URL; a machine without a GitHub SSH key
   // cannot use it, but the public template clones fine over HTTPS.
-  logger.warn(`SSH clone failed (no GitHub SSH key on this machine?) — retrying over HTTPS: ${https}`);
+  logger.warn(`SSH clone failed (no GitHub SSH key on this machine?): retrying over HTTPS: ${https}`);
   await fs.remove(targetDir);
   await runStreaming('git', ['clone', https, targetDir], { label: `Cloning template into ${targetDir}` });
   logger.info(`To skip the SSH attempt next time: kappmaker config set templateRepo ${https}`);

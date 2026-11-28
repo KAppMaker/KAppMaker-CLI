@@ -47,7 +47,7 @@ export async function mascotAddState(options: MascotAddStateOptions): Promise<vo
     aspectRatio: '1:1',
   });
   await fal.pollUntilComplete(config.falApiKey, queue.status_url, {
-    label: 'Generating state — this usually takes about a minute',
+    label: 'Generating state (usually takes about a minute)',
   });
   const url = await fal.fetchResult(config.falApiKey, queue.response_url);
 

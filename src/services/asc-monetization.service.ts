@@ -307,7 +307,7 @@ async function setupSubscription(
     // created or reused (a non-zero exit with an id = a later setup step failed;
     // the steps below redo pricing and the screenshot anyway)
   } else if (alreadyExists) {
-    logger.info(`Subscription "${sub.ref_name}" (${sub.product_id}) already exists — refreshing pricing.`);
+    logger.info(`Subscription "${sub.ref_name}" (${sub.product_id}) already exists: refreshing pricing.`);
   } else {
     const errMsg = result.stderr || result.stdout;
     recordFailure(`Could not create subscription "${sub.ref_name}": ${errMsg.slice(0, 400)}`);
@@ -434,7 +434,7 @@ async function applyPppToSubscription(
   }
   if (synthesised > 0) {
     logger.warn(
-      `PPP ${sub.ref_name}: ${synthesised} territories missing from Apple's equalizations — used tier synthesis fallback (may misprice non-proportional markets).`,
+      `PPP ${sub.ref_name}: ${synthesised} territories missing from Apple's equalizations; used tier synthesis fallback (may misprice non-proportional markets).`,
     );
   }
 
@@ -488,7 +488,7 @@ async function applyPppToSubscription(
     // reparse and retry once with the exact date it asked for.
     let startDate = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 10);
     logger.info(
-      `PPP ${sub.ref_name}: subscription already approved — scheduling ${retryRows.length} territories as price changes starting ${startDate}. Decreases apply to existing subscribers automatically; increases trigger Apple's consent flow.`,
+      `PPP ${sub.ref_name}: subscription already approved; scheduling ${retryRows.length} territories as price changes starting ${startDate}. Decreases apply to existing subscribers automatically; increases trigger Apple's consent flow.`,
     );
     let pass2 = await importSubscriptionPriceRows(
       appId, subscriptionId, sub.ref_name, header, chunkRows(retryRows), startDate,
@@ -584,7 +584,7 @@ async function importSubscriptionPriceRows(
         // Fall through.
       }
       if (!parsed) {
-        logger.warn(`PPP ${refName} batch ${chunkIdx + 1}: import failed — ${(result.stderr || result.stdout).slice(0, 300)}`);
+        logger.warn(`PPP ${refName} batch ${chunkIdx + 1}: import failed; ${(result.stderr || result.stdout).slice(0, 300)}`);
         out.failed += chunk.length;
         out.failures.push(...chunk.map((row) => ({ territory: row.split(',')[0], error: 'import call failed (no JSON response)' })));
         continue;
@@ -721,7 +721,7 @@ async function setupInAppPurchase(
   }
 
   if (alreadyExists) {
-    logger.info(`IAP "${iap.ref_name}" (${iap.product_id}) already exists — refreshing pricing.`);
+    logger.info(`IAP "${iap.ref_name}" (${iap.product_id}) already exists: refreshing pricing.`);
   } else if (result.exitCode !== 0) {
     const errMsg = result.stderr || result.stdout;
     recordFailure(`Could not create IAP "${iap.ref_name}": ${errMsg.slice(0, 400)}`);
@@ -825,7 +825,7 @@ async function applyPppToIap(
   }
   if (synthesised > 0) {
     logger.warn(
-      `PPP IAP ${iap.ref_name}: ${synthesised} territories missing from Apple's equalizations — used tier synthesis fallback (may misprice non-proportional markets).`,
+      `PPP IAP ${iap.ref_name}: ${synthesised} territories missing from Apple's equalizations; used tier synthesis fallback (may misprice non-proportional markets).`,
     );
   }
 
@@ -897,7 +897,7 @@ export async function uploadSubscriptionReviewScreenshot(
     promptOnSizeMismatch: opts.promptOnSizeMismatch ?? false,
   });
   if (!abs) {
-    logger.info(`Review screenshot for "${refName}" not found at ${filePath} — skipping upload.`);
+    logger.info(`Review screenshot for "${refName}" not found at ${filePath}: skipping upload.`);
     return;
   }
 
@@ -927,7 +927,7 @@ export async function uploadSubscriptionReviewScreenshot(
   if (existingId && !opts.force) {
     // Default: idempotent — skip when something is already attached. Used by
     // `create-appstore-app`'s setup flow so re-runs don't re-upload.
-    logger.info(`Review screenshot already uploaded for "${refName}" — skipping.`);
+    logger.info(`Review screenshot already uploaded for "${refName}": skipping.`);
     return;
   }
 
@@ -990,7 +990,7 @@ export async function uploadIapReviewScreenshot(
     promptOnSizeMismatch: opts.promptOnSizeMismatch ?? false,
   });
   if (!abs) {
-    logger.info(`Review screenshot for "${refName}" not found at ${filePath} — skipping upload.`);
+    logger.info(`Review screenshot for "${refName}" not found at ${filePath}: skipping upload.`);
     return;
   }
 
@@ -1019,7 +1019,7 @@ export async function uploadIapReviewScreenshot(
   }
 
   if (existingId && !opts.force) {
-    logger.info(`Review screenshot already uploaded for "${refName}" — skipping.`);
+    logger.info(`Review screenshot already uploaded for "${refName}": skipping.`);
     return;
   }
 

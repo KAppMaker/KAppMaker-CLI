@@ -20,14 +20,14 @@ kappmaker create Remimi
 | 4 | Create Firebase apps | Android + iOS apps (reuses existing if found) |
 | 5 | Enable anonymous auth | If brand-new project, prompts user to click "Get started" in Firebase Console, then enables via API |
 | 6 | Download SDK configs | `google-services.json` + `GoogleService-Info.plist` (verifies package match, falls back to `Assets/`) |
-| 7 | Logo generation | *Optional* — AI logo + automatic background removal |
+| 7 | Logo generation | *Optional*: AI logo + automatic background removal |
 | 8 | Package refactor | Renames packages, IDs, app name across all modules (shared, androidApp, desktopApp, webApp, designsystem, libs; also walks legacy `composeApp/` for pre-rename projects) |
 | 9 | Build environment | `local.properties`, generates signing keystore if missing (iOS deps resolve via SwiftPM) |
 | 10 | Git remotes | Renames origin to upstream |
 | | *Pre-store reminder* | *Prompts user to create Google Play Console app; App Store Connect is created automatically* |
-| 11 | App Store Connect | *Optional* — full app setup (metadata, subs, privacy); app created automatically via `asc web apps create` |
-| 12 | Google Play Console | *Optional* — Fastlane builds + uploads AAB to internal track, then runs full gpc setup |
-| 13 | Adapty setup | *Optional* — products, paywalls, placements (links to ASC + Play products created in 11-12) |
+| 11 | App Store Connect | *Optional*: full app setup (metadata, subs, privacy); app created automatically via `asc web apps create` |
+| 12 | Google Play Console | *Optional*: Fastlane builds + uploads AAB to internal track, then runs full gpc setup |
+| 13 | Adapty setup | *Optional*: products, paywalls, placements (links to ASC + Play products created in 11-12) |
 
 **Options:**
 
@@ -40,7 +40,7 @@ kappmaker create Remimi
 
 ## `clone <app-name>`
 
-Clones the template repository into `<AppName>-All`. This is step 1 of `create` exposed as a standalone command — useful when you only want to scaffold a project and apply your own changes (e.g. clone + refactor without Firebase, ASC, etc.).
+Clones the template repository into `<AppName>-All`. This is step 1 of `create` exposed as a standalone command: useful when you only want to scaffold a project and apply your own changes (e.g. clone + refactor without Firebase, ASC, etc.).
 
 ```bash
 kappmaker clone Remimi
@@ -54,7 +54,7 @@ kappmaker clone Remimi --target-dir ./projects/Remimi
 3. If the target directory already exists, prompts to delete and start fresh
 4. Runs `git clone <templateRepo> <targetDir>`
 
-**Minimal flow** — clone + refactor without anything else:
+**Minimal flow**: clone + refactor without anything else:
 
 ```bash
 kappmaker clone MyApp
@@ -71,7 +71,7 @@ kappmaker refactor --app-id com.example.myapp --app-name MyApp
 
 ## `git setup-upstream`
 
-Renames the `origin` remote to `upstream`. Step 10 of `create` as a standalone command — designed for the "fork from template" workflow where the template repo becomes upstream and you add your own origin later.
+Renames the `origin` remote to `upstream`. Step 10 of `create` as a standalone command: designed for the "fork from template" workflow where the template repo becomes upstream and you add your own origin later.
 
 ```bash
 kappmaker git setup-upstream                    # Run from inside the cloned repo
@@ -90,7 +90,7 @@ Exits non-zero if the path is not a git repository.
 
 > **2.2.0:** an app name with spaces (`--app-name "Lab Rat"`) keeps its spaces as the display name, while `rootProject.name`, Xcode `PRODUCT_NAME` and the iOS publish workflow's `app_name` get the Gradle-safe `LabRat`.
 
-Refactors package names, application ID, bundle ID, and app name across the entire project. Implemented in TypeScript — no Gradle build system required.
+Refactors package names, application ID, bundle ID, and app name across the entire project. Implemented in TypeScript: no Gradle build system required.
 
 ```bash
 kappmaker refactor --app-id com.example.myapp --app-name MyApp
@@ -106,7 +106,7 @@ Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` 
 4. Updates the app display name in manifests, settings, and platform-specific files
 
 **Skip-package-rename mode (`--skip-package-rename`):**
-Only updates `applicationId` / bundle ID, Firebase configs, iOS files, GitHub workflows, and app name — keeps Kotlin package directories intact. Useful for creating multiple apps from one codebase without merge conflicts.
+Only updates `applicationId` / bundle ID, Firebase configs, iOS files, GitHub workflows, and app name: keeps Kotlin package directories intact. Useful for creating multiple apps from one codebase without merge conflicts.
 
 | Flag | Description | Required |
 |------|-------------|----------|
@@ -157,9 +157,9 @@ kappmaker config init
 Or set keys individually:
 
 ```bash
-kappmaker config set falApiKey <your-key>       # For AI features (logo, screenshots) — or prompted on first use
-kappmaker config set imgbbApiKey <your-key>      # For screenshot translation/generation — or prompted on first use
-kappmaker config set openaiApiKey <your-key>     # For generate-screenshots — or prompted on first use
+kappmaker config set falApiKey <your-key>       # For AI features (logo, screenshots): or prompted on first use
+kappmaker config set imgbbApiKey <your-key>      # For screenshot translation/generation: or prompted on first use
+kappmaker config set openaiApiKey <your-key>     # For generate-screenshots: or prompted on first use
 kappmaker config set templateRepo <your-repo>    # Use your own template (default: KAppMaker)
 ```
 
@@ -192,16 +192,16 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 | `bundleIdPrefix` | Bundle/package ID prefix (e.g., `com.measify`) | `com.<appname>` |
 | `androidSdkPath` | Android SDK location | `~/Library/Android/sdk` |
 | `organization` | Organization for Fastlane signing | App name |
-| `falApiKey` | fal.ai API key | — |
-| `imgbbApiKey` | imgbb API key ([api.imgbb.com](https://api.imgbb.com/)) | — |
-| `openaiApiKey` | OpenAI API key | — |
+| `falApiKey` | fal.ai API key | - |
+| `imgbbApiKey` | imgbb API key ([api.imgbb.com](https://api.imgbb.com/)) | - |
+| `openaiApiKey` | OpenAI API key | - |
 | `openaiModel` | OpenAI model for the `--prompt` spec-authoring path (also `KAPPMAKER_OPENAI_MODEL`); gpt-4.1 shuts down 2027-01-14 | `gpt-4.1` |
 | `ascAuthName` | ASC keychain credential name | `KAppMaker` |
-| `ascKeyId` | App Store Connect API Key ID | — |
-| `ascIssuerId` | App Store Connect Issuer ID | — |
-| `ascPrivateKeyPath` | Path to `.p8` private key | — |
-| `appleId` | Apple ID email (for app creation & privacy setup) | — |
-| `googleServiceAccountPath` | Google Play service account JSON — used by both Fastlane publish and `kappmaker gpc` | `~/credentials/google-service-app-publisher.json` |
+| `ascKeyId` | App Store Connect API Key ID | - |
+| `ascIssuerId` | App Store Connect Issuer ID | - |
+| `ascPrivateKeyPath` | Path to `.p8` private key | - |
+| `appleId` | Apple ID email (for app creation & privacy setup) | - |
+| `googleServiceAccountPath` | Google Play service account JSON: used by both Fastlane publish and `kappmaker gpc` | `~/credentials/google-service-app-publisher.json` |
 
 ### Global defaults
 
@@ -212,6 +212,6 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 
 Global defaults are merged as a base layer so shared settings (review contact, privacy, subscriptions, credit-pack IAPs, paywalls, placements, etc.) don't need to be re-entered per app.
 
-**Re-init backfills missing entries.** Re-running `--init` against an existing defaults file (e.g. one saved before the credit-pack templates landed) auto-adds any missing arrays from the built-in template — credit-pack IAPs for App Store, products / paywalls / placements for Adapty. Empty arrays in your saved defaults no longer wipe out the template content during a `create-appstore-app` or `adapty setup` run either; the CLI preserves template entries when globals have an empty array.
+**Re-init backfills missing entries.** Re-running `--init` against an existing defaults file (e.g. one saved before the credit-pack templates landed) auto-adds any missing arrays from the built-in template: credit-pack IAPs for App Store, products / paywalls / placements for Adapty. Empty arrays in your saved defaults no longer wipe out the template content during a `create-appstore-app` or `adapty setup` run either; the CLI preserves template entries when globals have an empty array.
 
 ---

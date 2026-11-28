@@ -37,7 +37,7 @@ export async function resolveContext(
   // ID → global fallback) rather than demanding one global key.
   const apiKey = await rc.resolveApiKey(bundleId);
   if (!apiKey) {
-    logger.warn('Skipping RevenueCat — no API key for this app.');
+    logger.warn('Skipping RevenueCat: no API key for this app.');
     logger.info('Run `kappmaker revenuecat setup --api-key sk_...` once (per-project key, saved for this app),');
     logger.info('or set a global fallback: kappmaker config set revenuecatApiKey sk_...');
     return null;
@@ -54,7 +54,7 @@ export async function resolveContext(
     if (projects.length === 1) {
       projectId = projects[0].id;
     } else {
-      logger.warn('Skipping RevenueCat — could not resolve a project.');
+      logger.warn('Skipping RevenueCat: could not resolve a project.');
       logger.info('Run `kappmaker revenuecat setup` first, or set: kappmaker config set revenuecatProjectId proj...');
       return null;
     }
@@ -72,7 +72,7 @@ export async function resolveContext(
     }
   }
   if (!iosAppId && !androidAppId) {
-    logger.warn('Skipping RevenueCat — no matching apps in the project.');
+    logger.warn('Skipping RevenueCat: no matching apps in the project.');
     logger.info('Run `kappmaker revenuecat setup` to create them.');
     return null;
   }

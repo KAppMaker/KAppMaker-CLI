@@ -67,7 +67,7 @@ kappmaker image-enhance photo.jpg --output improved.png
 
 ## convert-webp
 
-Converts images (PNG, JPG, JPEG, BMP, TIFF, GIF) to WebP format — similar to Android Studio's built-in converter. Runs entirely locally using sharp, no API key needed.
+Converts images (PNG, JPG, JPEG, BMP, TIFF, GIF) to WebP format: similar to Android Studio's built-in converter. Runs entirely locally using sharp, no API key needed.
 
 ```bash
 kappmaker convert-webp icon.png                                      # Single file
@@ -83,7 +83,7 @@ Shows before/after file sizes and percentage saved for each file, with a total a
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--quality <n>` | WebP quality (0–100) | `75` |
+| `--quality <n>` | WebP quality (0 to 100) | `75` |
 | `--recursive` | Search directories recursively | `false` |
 | `--delete-originals` | Delete original files after conversion | `false` |
-| `--output <dir>` | Output directory (default: same as source) | — |
+| `--output <dir>` | Output directory (default: same as source) | - |

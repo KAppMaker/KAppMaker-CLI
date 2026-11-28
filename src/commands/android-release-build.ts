@@ -18,13 +18,13 @@ export async function androidReleaseBuild(options: AndroidReleaseBuildOptions): 
 
   const gradlewPath = path.join(mobileDir, 'gradlew');
   if (!(await fs.pathExists(gradlewPath))) {
-    logger.error('gradlew not found — cannot build Android release.');
+    logger.error('gradlew not found: cannot build Android release.');
     process.exit(1);
   }
 
   // Ensure keystore exists
   if (!(await hasKeystore(mobileDir))) {
-    logger.info('Keystore not found — generating a new one...');
+    logger.info('Keystore not found: generating a new one...');
     const userConfig = await loadConfig();
     const organization = options.organization || userConfig.organization;
     const firstName = options.firstName ?? '';

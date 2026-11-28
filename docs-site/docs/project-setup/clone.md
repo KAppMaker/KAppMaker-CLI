@@ -5,7 +5,7 @@ title: Clone Template
 
 # Clone Template
 
-Clone the KAppMaker template (or any custom template) into a new project directory. This is step 1 of [`kappmaker create`](/project-setup/create) exposed as a standalone command — useful when you only want to scaffold a project and apply your own changes (e.g. clone + refactor without touching Firebase, ASC, or stores).
+Clone the KAppMaker template (or any custom template) into a new project directory. This is step 1 of [`kappmaker create`](/project-setup/create) exposed as a standalone command: useful when you only want to scaffold a project and apply your own changes (e.g. clone + refactor without touching Firebase, ASC, or stores).
 
 **Command:** `kappmaker clone <app-name>`
 
@@ -24,7 +24,7 @@ kappmaker clone Remimi --target-dir ./projects/Remimi
 
 ## App Name Rules
 
-PascalCase, starts uppercase, alphanumeric only — same rules as [`create`](/project-setup/create).
+PascalCase, starts uppercase, alphanumeric only: same rules as [`create`](/project-setup/create).
 
 ## What It Does
 
@@ -35,7 +35,7 @@ PascalCase, starts uppercase, alphanumeric only — same rules as [`create`](/pr
 
 ## Minimal Flow
 
-Clone + refactor — without Firebase, ASC, Play Console, or Adapty:
+Clone + refactor: without Firebase, ASC, Play Console, or Adapty:
 
 ```bash
 kappmaker clone MyApp

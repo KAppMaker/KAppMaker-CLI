@@ -329,7 +329,7 @@ export async function fetchVideoResult(
         ? `fal.ai model error: ${detail.msg ?? detail.type ?? 'unknown'} — this is a model-side failure (failed requests are not billed).`
         : 'No video URL in fal.ai response.',
     );
-    logger.fatal('Video generation failed — try again later or a different model (--model seedance-mini | ltx | seedance).');
+    logger.fatal('Video generation failed: try again later or a different model (--model seedance-mini | ltx | seedance).');
     process.exit(1);
   }
   return data.video.url;
@@ -449,12 +449,12 @@ export async function pollUntilComplete(
     const data = (await res.json()) as { status: string; error?: string };
 
     if (data.status === 'COMPLETED') {
-      spinner.succeed(`${label} — done (${formatElapsed()})`);
+      spinner.succeed(`${label}: done (${formatElapsed()})`);
       return;
     }
 
     if (data.status === 'FAILED') {
-      spinner.fail(`${label} — failed`);
+      spinner.fail(`${label}: failed`);
       logger.error(data.error ?? 'Unknown error from fal.ai');
       process.exit(1);
     }

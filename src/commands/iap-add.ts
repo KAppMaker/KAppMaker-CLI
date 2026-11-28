@@ -194,12 +194,12 @@ async function pushToPlay(
   price: string,
 ): Promise<boolean> {
   if (!ctx.packageName) {
-    logger.warn('Skipping Google Play — no package name.');
+    logger.warn('Skipping Google Play: no package name.');
     return false;
   }
   const userConfig = await loadConfig();
   if (!userConfig.googleServiceAccountPath) {
-    logger.warn('Skipping Google Play — googleServiceAccountPath not set.');
+    logger.warn('Skipping Google Play: googleServiceAccountPath not set.');
     logger.info('Set it with: kappmaker config set googleServiceAccountPath <path-to-json>');
     return false;
   }
@@ -209,7 +209,7 @@ async function pushToPlay(
 
   const state = await gpc.fetchAppState(ctx.packageName);
   if (state && !state.hasUploadedBuild) {
-    logger.warn('Skipping Google Play — no build uploaded to any track.');
+    logger.warn('Skipping Google Play: no build uploaded to any track.');
     logger.info('Run: kappmaker publish --platform android --track internal');
     return false;
   }
@@ -241,12 +241,12 @@ async function pushToAsc(
   reviewScreenshot: string | undefined,
 ): Promise<boolean> {
   if (!ctx.bundleId) {
-    logger.warn('Skipping App Store — no bundle ID.');
+    logger.warn('Skipping App Store: no bundle ID.');
     return false;
   }
   const userConfig = await loadConfig();
   if (!userConfig.appleId || !userConfig.ascKeyId) {
-    logger.warn('Skipping App Store — asc auth not configured.');
+    logger.warn('Skipping App Store: asc auth not configured.');
     logger.info('Run: kappmaker config appstore-defaults --init');
     return false;
   }
@@ -260,7 +260,7 @@ async function pushToAsc(
     appId = await asc.findAppByBundleId(ctx.bundleId);
   }
   if (!appId) {
-    logger.warn(`Skipping App Store — could not find app for bundle ID ${ctx.bundleId}.`);
+    logger.warn(`Skipping App Store: could not find app for bundle ID ${ctx.bundleId}.`);
     logger.info('Run `kappmaker create-appstore-app` first.');
     return false;
   }
@@ -298,7 +298,7 @@ async function pushToAdapty(
   price: string,
 ): Promise<boolean> {
   if (!ctx.bundleId || !ctx.packageName) {
-    logger.warn('Skipping Adapty — needs both bundle ID and package name.');
+    logger.warn('Skipping Adapty: needs both bundle ID and package name.');
     return false;
   }
 
@@ -312,7 +312,7 @@ async function pushToAdapty(
     if (existing) appId = existing.id;
   }
   if (!appId) {
-    logger.warn(`Skipping Adapty — could not find app for bundle ID ${ctx.bundleId}.`);
+    logger.warn(`Skipping Adapty: could not find app for bundle ID ${ctx.bundleId}.`);
     logger.info('Run `kappmaker adapty setup` first.');
     return false;
   }
@@ -322,7 +322,7 @@ async function pushToAdapty(
   const accessLevelId =
     levels.find((l) => l.sdk_id === 'credit_pack_access')?.id ?? levels[0]?.id;
   if (!accessLevelId) {
-    logger.warn('Skipping Adapty — no access level found.');
+    logger.warn('Skipping Adapty: no access level found.');
     logger.info('Run `kappmaker adapty setup` to create one (default: "credit_pack_access").');
     return false;
   }

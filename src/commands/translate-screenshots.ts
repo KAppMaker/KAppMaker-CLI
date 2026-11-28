@@ -277,6 +277,6 @@ function detectDistributionDir(srcPath: string): string {
     return kappmakerDefault;
   }
   const fallback = path.dirname(srcPath);
-  logger.info(`Could not detect distribution root — defaulting to parent: ${fallback}`);
+  logger.info(`Could not detect distribution root: defaulting to parent: ${fallback}`);
   return fallback;
 }

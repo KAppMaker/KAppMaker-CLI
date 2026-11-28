@@ -5,9 +5,9 @@ title: Metadata Localization
 
 # Metadata Localization
 
-Generate localized ASO text metadata — `name`, `subtitle`, `keywords`, `description` for iOS and `title`, `short_description`, `full_description` for Android — directly into Fastlane-compatible locale folders.
+Generate localized ASO text metadata: `name`, `subtitle`, `keywords`, `description` for iOS and `title`, `short_description`, `full_description` for Android; directly into Fastlane-compatible locale folders.
 
-This is a **skill-driven workflow**: it runs through the [Claude Code skill](../guides/claude-code-skill.md) (`kappmaker:kappmaker`), not as a `kappmaker` shell command. Claude reads your `en-US` source files, applies the ASO strategy you pick, and writes the localized output files directly. No API key is required — all generation happens in the model conversation.
+This is a **skill-driven workflow**: it runs through the [Claude Code skill](../guides/claude-code-skill.md) (`kappmaker:kappmaker`), not as a `kappmaker` shell command. Claude reads your `en-US` source files, applies the ASO strategy you pick, and writes the localized output files directly. No API key is required: all generation happens in the model conversation.
 
 ## Two modes
 
@@ -39,19 +39,19 @@ The skill router also picks up shorter phrasings like "localize aso", "localize 
 | iOS | `MobileApp/distribution/ios/appstore_metadata/texts/<iosLocale>/{name,subtitle,keywords,description}.txt` |
 | Android | `MobileApp/distribution/android/playstore_metadata/<playLocale>/{title,short_description,full_description}.txt` |
 
-The iOS layout uses a literal `texts/` subfolder. This is intentional — it's KAppMaker's chosen convention and is NOT standard Fastlane `deliver` layout (Fastlane expects `<locale>/` directly under `appstore_metadata/`). Bridge to Fastlane with a small sync step in your release pipeline, or upload the text files via the App Store Connect API directly.
+The iOS layout uses a literal `texts/` subfolder. This is intentional: it's KAppMaker's chosen convention and is NOT standard Fastlane `deliver` layout (Fastlane expects `<locale>/` directly under `appstore_metadata/`). Bridge to Fastlane with a small sync step in your release pipeline, or upload the text files via the App Store Connect API directly.
 
 `en-US` (or your chosen base locale) is **never** overwritten once it exists.
 
-## Mode 1 — Keyword Expansion
+## Mode 1: Keyword Expansion
 
 ```
-Using kappmaker, localize metadata mode=keyword-expansion keywords="<10–15 target keywords, comma-separated>"
+Using kappmaker, localize metadata mode=keyword-expansion keywords="<10 to 15 target keywords, comma-separated>"
 ```
 
 ### Locale set (fixed)
 
-The 9 US-indexed locales. You don't choose these — they're the locales the US App Store indexes alongside `en-US`.
+The 9 US-indexed locales. You don't choose these: they're the locales the US App Store indexes alongside `en-US`.
 
 | iOS folder | Play folder |
 |---|---|
@@ -67,15 +67,15 @@ The 9 US-indexed locales. You don't choose these — they're the locales the US 
 
 ### Behavior
 
-- Reads `en-US` as the source of truth (app voice, value prop, tone). If `en-US` doesn't exist, the workflow prompts for a 1–2 sentence app description and bootstraps `en-US` first — see [Bootstrap behavior](#bootstrap-behavior) below. Never fails because the base is missing.
+- Reads `en-US` as the source of truth (app voice, value prop, tone). If `en-US` doesn't exist, the workflow prompts for a 1 to 2 sentence app description and bootstraps `en-US` first: see [Bootstrap behavior](#bootstrap-behavior) below. Never fails because the base is missing.
 - Distributes your target keywords across the 9 locales by semantic cluster (e.g. "design" keywords to one locale, "AI" keywords to another) so each locale stays coherent and searchable.
 - Generates fresh **English** content in each locale's 4 iOS files and 3 Android files (63 files total).
-- The iOS `description.txt` per locale is freshly written to naturally embed that locale's assigned keywords — it's not translated and not copy-pasted from `en-US`.
+- The iOS `description.txt` per locale is freshly written to naturally embed that locale's assigned keywords: it's not translated and not copy-pasted from `en-US`.
 - Always overwrites the 9 locales without prompting (only `en-US` is protected).
 
 ### Uniqueness rules
 
-- **Within a locale** (hard): zero word overlap across `name`, `subtitle`, and `keywords`. Apple does not re-index a word from name/subtitle when it also appears in keywords — it's wasted space.
+- **Within a locale** (hard): zero word overlap across `name`, `subtitle`, and `keywords`. Apple does not re-index a word from name/subtitle when it also appears in keywords: it's wasted space.
 - **Across the 9 locales** (preferred): every keyword appears in exactly one locale, so each one indexes a different surface. When the strong-keyword pool is exhausted, high-value keywords may repeat across locales rather than padding with weak filler.
 
 ### Summary table
@@ -92,7 +92,7 @@ After the run completes, the workflow prints a table:
 
 Any cell at ≥ 95% of its cap is flagged.
 
-## Mode 2 — Market Localization
+## Mode 2: Market Localization
 
 ```
 Using kappmaker, localize metadata mode=market-localization base=en-US locales="de-DE, fr-FR, ja, es-ES"
@@ -101,8 +101,8 @@ Using kappmaker, localize metadata mode=market-localization base=en-US locales="
 ### Required arguments
 
 - `mode=market-localization`
-- `locales=` — comma- or space-separated list of locale codes, OR a named preset (see below). No silent autodetect.
-- `base=` — optional, defaults to `en-US`. The base locale is the source of truth for app voice and value prop.
+- `locales=`: comma- or space-separated list of locale codes, OR a named preset (see below). No silent autodetect.
+- `base=`: optional, defaults to `en-US`. The base locale is the source of truth for app voice and value prop.
 
 ### Locale presets
 
@@ -121,9 +121,9 @@ Instead of typing locale codes, you can use named presets and the workflow expan
 | `Chinese` | `zh-Hans, zh-Hant` |
 | `MENA` / `Arabic` | `ar-SA` |
 
-Combiners are recognized too — e.g. `top 10 plus hi and id`, `tier 1 markets but skip ru and zh-Hans`. The workflow shows you the expanded list and asks for confirmation before generating, so you can sanity-check it.
+Combiners are recognized too: e.g. `top 10 plus hi and id`, `tier 1 markets but skip ru and zh-Hans`. The workflow shows you the expanded list and asks for confirmation before generating, so you can sanity-check it.
 
-**Which preset?** `top 10` is the right default for paid utilities and B2C SaaS — those markets concentrate App Store / Play Store revenue. `top 15` adds the next EU + MENA + Eastern Europe layer. `top 20` is the better default if you're Android-heavy and target South / Southeast Asia. `all` is rarely the right call unless you're a free game with very broad appeal — localizing well costs effort even when the workflow handles the typing.
+**Which preset?** `top 10` is the right default for paid utilities and B2C SaaS: those markets concentrate App Store / Play Store revenue. `top 15` adds the next EU + MENA + Eastern Europe layer. `top 20` is the better default if you're Android-heavy and target South / Southeast Asia. `all` is rarely the right call unless you're a free game with very broad appeal: localizing well costs effort even when the workflow handles the typing.
 
 ### Behavior
 
@@ -181,13 +181,13 @@ Pass any of these in `locales=`. The workflow accepts either the iOS or Play for
 | `zh-Hans` | `zh-CN`   | Chinese (Simplified) |
 | `zh-Hant` | `zh-TW`   | Chinese (Traditional) |
 
-A code not in this table is rejected upfront — the workflow aborts with the full list printed before creating any folders. If you need a locale that's not here, ask in the skill conversation and Claude can add it.
+A code not in this table is rejected upfront: the workflow aborts with the full list printed before creating any folders. If you need a locale that's not here, ask in the skill conversation and Claude can add it.
 
 ## Bootstrap behavior
 
 If the base locale (`en-US` by default) doesn't have its 4 iOS files and 3 Android files filled in, the workflow does **not** fail. It enters bootstrap mode:
 
-1. Asks you to describe the app in 1–2 sentences.
+1. Asks you to describe the app in 1 to 2 sentences.
 2. For Mode 1, uses that description plus your `keywords=` list to compose the base locale files.
 3. For Mode 2, uses just the description.
 4. Writes the missing base files first, holding them to the same field rules as the localized output (char limits, no spaces after commas, front-loaded primary keyword, etc.).
@@ -209,6 +209,6 @@ If any output would exceed a limit, the workflow shortens it (preferring synonym
 
 ## See also
 
-- [ASO Guidelines](guidelines.md) — character limits, keyword field rules, and the strategy trade-off explained.
-- [Screenshot Translation](translate-screenshots.md) — the image-side ASO tool. Pair the two for end-to-end localized listings.
-- [Claude Code Skill](../guides/claude-code-skill.md) — how the `kappmaker:kappmaker` skill is installed and invoked.
+- [ASO Guidelines](guidelines.md): character limits, keyword field rules, and the strategy trade-off explained.
+- [Screenshot Translation](translate-screenshots.md): the image-side ASO tool. Pair the two for end-to-end localized listings.
+- [Claude Code Skill](../guides/claude-code-skill.md): how the `kappmaker:kappmaker` skill is installed and invoked.

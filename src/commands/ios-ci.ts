@@ -215,7 +215,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   );
   if (missing.length > 0) {
     logger.fatal(`App Store Connect credentials missing: ${missing.join(', ')}`);
-    logger.info('Set them with `kappmaker config set <key> <value>` — the same key you use for');
+    logger.info('Set them with `kappmaker config set <key> <value>`: the same key you use for');
     logger.info('`kappmaker create-appstore-app`. Get one at App Store Connect → Users and Access →');
     logger.info('Integrations → App Store Connect API.');
     process.exit(1);
@@ -251,7 +251,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
         logger.info('Make it private in GitHub settings, then re-run.');
         process.exit(1);
       }
-      logger.info('Using the existing store — this app will add only its own provisioning profile.');
+      logger.info('Using the existing store: this app will add only its own provisioning profile.');
     } else {
       await gha.createPrivateRepo(certsRepo, 'Apple signing certificates and provisioning profiles (fastlane match)');
       logger.success(`Created private repo ${certsRepo}`);
@@ -268,9 +268,9 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   const existing = (await fs.readFile(workflowPath, 'utf8').catch(() => '')) as string;
   const isCurrent = workflowIsCurrent(existing);
   if (isCurrent) {
-    logger.info(`${WORKFLOW_PATH} is up to date — leaving it alone.`);
+    logger.info(`${WORKFLOW_PATH} is up to date: leaving it alone.`);
   } else if (existing) {
-    logger.warn(`${WORKFLOW_PATH} is out of date — updating it.`);
+    logger.warn(`${WORKFLOW_PATH} is out of date: updating it.`);
   }
 
   // ---- match password
@@ -346,7 +346,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   // ---- workflow + lane, only if this project predates them
   logger.step(6, INIT_STEPS, 'Ensuring the workflow and fastlane lane exist');
   if (isCurrent) {
-    logger.info('Workflow already current — not rewriting.');
+    logger.info('Workflow already current: not rewriting.');
   } else {
     const appName = path.basename(root).replace(/-All$/, '');
     const workflow = getIosCiWorkflowTemplate()
@@ -360,7 +360,7 @@ export async function iosCiInit(options: IosCiInitOptions): Promise<void> {
   const fastfilePath = path.join(mobileDir, 'fastlane', 'Fastfile');
   const fastfile = (await fs.readFile(fastfilePath, 'utf8').catch(() => '')) as string;
   if (!fastfile) {
-    logger.warn('No fastlane/Fastfile yet — run `kappmaker fastlane configure`, then re-run this.');
+    logger.warn('No fastlane/Fastfile yet: run `kappmaker fastlane configure`, then re-run this.');
   } else if (fastfile.includes('ci_appstore_release')) {
     logger.info('CI lane already in the Fastfile.');
   } else {
@@ -426,7 +426,7 @@ function printInitChecklist(info: {
 }): void {
   console.log('');
   if (info.dryRun) {
-    console.log(chalk.yellow('  Dry run — nothing was created on GitHub and no secrets were set.'));
+    console.log(chalk.yellow('  Dry run: nothing was created on GitHub and no secrets were set.'));
     console.log(chalk.gray('  Re-run without --dry-run to apply.'));
     console.log('');
   }
@@ -439,8 +439,8 @@ function printInitChecklist(info: {
   }
   console.log(chalk.bold('  Before the first build:'));
   console.log('');
-  console.log(`    ${chalk.gray('☐')} Commit and push ${chalk.cyan(info.workflowPath)} — GitHub only runs workflows that are on the default branch.`);
-  console.log(`    ${chalk.gray('☐')} The App Store Connect app record must exist — ${chalk.cyan('kappmaker create-appstore-app')}`);
+  console.log(`    ${chalk.gray('☐')} Commit and push ${chalk.cyan(info.workflowPath)}: GitHub only runs workflows that are on the default branch.`);
+  console.log(`    ${chalk.gray('☐')} The App Store Connect app record must exist: ${chalk.cyan('kappmaker create-appstore-app')}`);
   if (info.needsToken) {
     console.log('');
     console.log(`    ${chalk.yellow('!')} ${chalk.bold('A token that can read')} ${chalk.cyan(info.certsRepo)} ${chalk.bold('is required.')}`);
@@ -451,7 +451,7 @@ function printInitChecklist(info: {
   }
   if (info.unseededKeys.length > 0) {
     console.log('');
-    console.log(`    ${chalk.yellow('!')} ${chalk.bold('These build keys have no value yet')} — the build will still go GREEN,`);
+    console.log(`    ${chalk.yellow('!')} ${chalk.bold('These build keys have no value yet')}: the build will still go GREEN,`);
     console.log(chalk.gray('      but ship with empty/placeholder values (broken sign-in, paywall, analytics):'));
     for (const key of info.unseededKeys) {
       console.log(chalk.gray(`        gh secret set ${key} --repo ${info.repo}`));
@@ -507,7 +507,7 @@ export async function iosCiBuild(options: IosCiBuildOptions): Promise<void> {
   // Apple rejects a build number it has already accepted, and CI builds exactly
   // what is committed — so the bump belongs in `kappmaker update-version` before
   // this, not as magic inside the pipeline.
-  logger.info('Build number comes from the commit — run `kappmaker update-version` first if this is a re-release.');
+  logger.info('Build number comes from the commit: run `kappmaker update-version` first if this is a re-release.');
 
   logger.step(1, 2, `Starting the build on GitHub (${track})`);
   const before = await gha.latestRuns(config.repo, 1);
@@ -540,7 +540,7 @@ export async function iosCiBuild(options: IosCiBuildOptions): Promise<void> {
   logger.step(2, 2, 'Waiting for the runner (macOS builds take ~15-25 minutes)');
   const run = await waitForNewRun(config.repo, beforeId);
   if (!run) {
-    logger.warn('Could not find the new run — check GitHub directly.');
+    logger.warn('Could not find the new run: check GitHub directly.');
     logger.info(`https://github.com/${config.repo}/actions/workflows/${gha.WORKFLOW_FILE}`);
     return;
   }
@@ -569,7 +569,7 @@ async function pollRun(repo: string, runId: number, track: string): Promise<void
     const runs = await gha.latestRuns(repo, 10);
     const run = runs.find((entry) => entry.databaseId === runId);
     if (!run) {
-      logger.warn('Run disappeared from the list — check GitHub.');
+      logger.warn('Run disappeared from the list: check GitHub.');
       return;
     }
     if (run.status !== lastStatus) {
@@ -581,7 +581,7 @@ async function pollRun(repo: string, runId: number, track: string): Promise<void
         logger.success(
           track === 'appstore'
             ? 'Uploaded to App Store Connect.'
-            : 'Uploaded to TestFlight — it appears once Apple finishes processing (usually 5-15 min).',
+            : 'Uploaded to TestFlight. It appears once Apple finishes processing (usually 5-15 min).',
         );
       } else {
         const step = await gha.failedStep(repo, runId);
@@ -613,7 +613,7 @@ export async function iosCiStatus(): Promise<void> {
   }
 
   console.log('');
-  console.log(chalk.bold(`  Recent iOS builds — ${config.repo}`));
+  console.log(chalk.bold(`  Recent iOS builds: ${config.repo}`));
   console.log('');
   for (const run of runs) {
     const state = run.status === 'completed' ? (run.conclusion ?? 'unknown') : run.status;

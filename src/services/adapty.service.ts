@@ -336,7 +336,7 @@ async function createProductViaApi(
 ): Promise<string> {
   const { token, apiBase } = await getAdaptyAuth();
   if (!token) {
-    logger.warn(`Skipping "${product.title}" — could not read Adapty auth token. Run "adapty auth login" and retry.`);
+    logger.warn(`Skipping "${product.title}": could not read Adapty auth token. Run "adapty auth login" and retry.`);
     return '';
   }
 
@@ -369,7 +369,7 @@ async function createProductViaApi(
   if (response.ok) {
     try {
       const data = await response.json() as { id?: string; product_id?: string };
-      logger.info(`Creating product: ${product.title} (consumable, via API) — id ${data.id ?? data.product_id ?? '?'}`);
+      logger.info(`Creating product: ${product.title} (consumable, via API); id ${data.id ?? data.product_id ?? '?'}`);
       return data.id ?? data.product_id ?? '';
     } catch {
       return '';

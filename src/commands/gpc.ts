@@ -206,7 +206,7 @@ export async function gpcMonetizationPush(options: GpcMonetizationPushOptions): 
       logger.info(`Pushing ${config.subscriptions.length} subscription(s) to Google Play…`);
       await gpcMoney.setupSubscriptions(config.app.package_name, config.subscriptions, defaultLanguage);
     } else {
-      logger.info('No subscriptions in config — skipping.');
+      logger.info('No subscriptions in config: skipping.');
     }
   }
 
@@ -217,7 +217,7 @@ export async function gpcMonetizationPush(options: GpcMonetizationPushOptions): 
         recreateStuck: options.recreateStuck === true,
       });
     } else {
-      logger.info('No in-app products in config — skipping.');
+      logger.info('No in-app products in config: skipping.');
     }
   }
 

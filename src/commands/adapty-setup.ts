@@ -238,14 +238,14 @@ function printPostSetupChecklist(appId: string): void {
   console.log('');
   console.log(chalk.bold('  Prices not appearing in the Adapty dashboard?'));
   console.log('');
-  console.log(chalk.gray('  Adapty does not accept developer-set prices via the API — it pulls them live from'));
+  console.log(chalk.gray('  Adapty does not accept developer-set prices via the API: it pulls them live from'));
   console.log(chalk.gray('  store integrations. Connect them in the Adapty dashboard (one-time, dashboard-only step):'));
   console.log('');
-  console.log(`    ${chalk.gray('☐')} ${chalk.bold('App Store Connect')} — paste the same .p8 / Key ID / Issuer ID you use for ${chalk.cyan('kappmaker create-appstore-app')}`);
-  console.log(`    ${chalk.gray('☐')} ${chalk.bold('Google Play')} — upload the same service-account JSON you use for ${chalk.cyan('kappmaker gpc setup')}`);
+  console.log(`    ${chalk.gray('☐')} ${chalk.bold('App Store Connect')}: paste the same .p8 / Key ID / Issuer ID you use for ${chalk.cyan('kappmaker create-appstore-app')}`);
+  console.log(`    ${chalk.gray('☐')} ${chalk.bold('Google Play')}: upload the same service-account JSON you use for ${chalk.cyan('kappmaker gpc setup')}`);
   console.log('');
   console.log(chalk.gray(`  Dashboard: https://app.adapty.io/${appId} → Settings → Integrations`));
-  console.log(chalk.gray('  Even before connecting, the mobile Adapty SDK shows the right prices in-app —'));
+  console.log(chalk.gray('  Even before connecting, the mobile Adapty SDK shows the right prices in-app:'));
   console.log(chalk.gray('  it fetches them directly from the native store APIs at runtime.'));
   console.log('');
 }

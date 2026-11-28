@@ -63,7 +63,7 @@ export async function createLogo(options: CreateLogoOptions): Promise<void> {
     const prompt = specPrompt ?? buildLogoPrompt(appIdea);
     const queue = await fal.submitGeneration(config.falApiKey, prompt);
     await fal.pollUntilComplete(config.falApiKey, queue.status_url, {
-      label: 'Generating logos — this usually takes 1–2 minutes',
+      label: 'Generating logos (usually takes 1 to 2 minutes)',
     });
     const imageUrl = await fal.fetchResult(config.falApiKey, queue.response_url);
 

@@ -29,7 +29,7 @@ export async function configureFastlane(mobileDir: string): Promise<void> {
 
   // Create Gemfile
   if (await fs.pathExists(gemfilePath)) {
-    logger.warn('Gemfile already exists — skipping.');
+    logger.warn('Gemfile already exists: skipping.');
   } else {
     await fs.writeFile(gemfilePath, GEMFILE_CONTENT, 'utf8');
     logger.success('Created Gemfile');
@@ -37,7 +37,7 @@ export async function configureFastlane(mobileDir: string): Promise<void> {
 
   // Create fastlane/Fastfile
   if (await fs.pathExists(fastfilePath)) {
-    logger.warn('fastlane/Fastfile already exists — skipping.');
+    logger.warn('fastlane/Fastfile already exists: skipping.');
   } else {
     const fastfileContent = await getFastfileContent();
     await fs.ensureDir(fastlaneDir);

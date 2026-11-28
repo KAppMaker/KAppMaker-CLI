@@ -28,7 +28,7 @@ export async function doctor(options: { json?: boolean; strict?: boolean }): Pro
       const tool = TOOLS.find((t) => t.id === r.id)!;
       const version = r.version ? chalk.dim(` ${r.version}`) : '';
       const min = r.status === 'outdated' && r.min ? chalk.yellow(` (needs ${r.min}+)`) : '';
-      console.log(`  ${MARK[r.status].padEnd(13)} ${r.name}${version}${min}  ${chalk.dim(`— ${tool.usedBy}`)}`);
+      console.log(`  ${MARK[r.status].padEnd(13)} ${r.name}${version}${min}  ${chalk.dim(`: ${tool.usedBy}`)}`);
       if (r.hint && r.status !== 'ok') console.log(`               ${chalk.cyan(r.hint)}`);
     }
     console.log('');

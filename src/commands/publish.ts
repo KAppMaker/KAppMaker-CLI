@@ -33,11 +33,11 @@ export async function publishCommand(options: PublishCommandOptions): Promise<vo
   const gemfilePath = path.join(mobileDir, 'Gemfile');
   const fastfilePath = path.join(mobileDir, 'fastlane', 'Fastfile');
   if (!remoteIosOnly && !(await fs.pathExists(gemfilePath))) {
-    logger.error('Gemfile not found — Fastlane/Bundler is required for publishing.');
+    logger.error('Gemfile not found: Fastlane/Bundler is required for publishing.');
     process.exit(1);
   }
   if (!remoteIosOnly && !(await fs.pathExists(fastfilePath))) {
-    logger.error('fastlane/Fastfile not found — required for publishing.');
+    logger.error('fastlane/Fastfile not found: required for publishing.');
     process.exit(1);
   }
 

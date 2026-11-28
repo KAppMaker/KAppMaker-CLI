@@ -10,7 +10,7 @@ export async function firstTimeBuild(
 ): Promise<void> {
   // Ensure keystore exists
   if (!(await hasKeystore(mobileDir))) {
-    logger.info('Keystore not found — generating a new one...');
+    logger.info('Keystore not found: generating a new one...');
     await generateKeystore(mobileDir, '', organization);
   }
 

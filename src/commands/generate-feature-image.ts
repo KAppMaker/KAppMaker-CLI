@@ -124,7 +124,7 @@ export async function generateFeatureImage(
     if (config.imgbbApiKey) {
       useImgbb = true;
     } else {
-      logger.info('imgbbApiKey not set — using inline data URIs. Set it with `kappmaker config set imgbbApiKey <key>` for faster uploads.');
+      logger.info('imgbbApiKey not set: using inline data URIs. Set it with `kappmaker config set imgbbApiKey <key>` for faster uploads.');
     }
 
     const upSpinner = ora({

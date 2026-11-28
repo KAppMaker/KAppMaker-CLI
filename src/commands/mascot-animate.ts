@@ -63,7 +63,7 @@ export async function mascotAnimate(options: MascotAnimateOptions): Promise<void
   if (!options.yes) {
     const answer = (await promptInput('Proceed? (Y/n): ')).trim().toLowerCase();
     if (answer === 'n' || answer === 'no') {
-      logger.info('Cancelled — nothing was generated.');
+      logger.info('Cancelled: nothing was generated.');
       return;
     }
   }
@@ -83,7 +83,7 @@ export async function mascotAnimate(options: MascotAnimateOptions): Promise<void
     resolution,
   });
   await fal.pollUntilComplete(config.falApiKey, queue.status_url, {
-    label: 'Generating animation — this can take a few minutes',
+    label: 'Generating animation (can take a few minutes)',
     intervalMs: 10_000,
   });
   const videoUrl = await fal.fetchVideoResult(config.falApiKey, queue.response_url);
@@ -109,7 +109,7 @@ async function flattenIfTransparent(sourcePath: string): Promise<string> {
   if (!meta.hasAlpha) return sourcePath;
   const flatPath = sourcePath.replace(/(\.[^.]+)$/, '_flat$1');
   await sharp(sourcePath).flatten({ background: '#FFFFFF' }).png().toFile(flatPath);
-  logger.info('Source has transparency — flattened onto white for the video model.');
+  logger.info('Source has transparency: flattened onto white for the video model.');
   return flatPath;
 }
 
@@ -147,8 +147,8 @@ async function convertToGifLoop(mp4Path: string): Promise<void> {
 
 function logFfmpegFailure(error: unknown, what: string, why: string): void {
   if ((error as { code?: string }).code === 'ENOENT') {
-    logger.info(`ffmpeg not found — ${what}. Install it ${why}: ${installHint(toolById('ffmpeg'))}`);
+    logger.info(`ffmpeg not found: ${what}. Install it ${why}: ${installHint(toolById('ffmpeg'))}`);
   } else {
-    logger.warn(`ffmpeg failed — ${what}: ${(error as Error).message.split('\n')[0]}`);
+    logger.warn(`ffmpeg failed: ${what}: ${(error as Error).message.split('\n')[0]}`);
   }
 }

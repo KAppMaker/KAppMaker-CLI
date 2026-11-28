@@ -1,12 +1,12 @@
 ---
 name: kappmaker-ios-ci
-description: Build and ship a KAppMaker iOS app from GitHub Actions, so no Mac is needed locally — TestFlight and App Store releases, signing, metadata and screenshots included. Use when the user has no Mac, when an iOS build fails because Xcode is missing (Linux boxes, CI, a Windows machine), or when they ask to publish/ship/release iOS, send a build to TestFlight, or set up iOS CI.
+description: Build and ship a KAppMaker iOS app from GitHub Actions, so no Mac is needed locally. TestFlight and App Store releases, signing, metadata and screenshots are included. Use when the user has no Mac, when an iOS build fails because Xcode is missing (Linux boxes, CI, a Windows machine), or when they ask to publish/ship/release iOS, send a build to TestFlight, or set up iOS CI.
 ---
 
-# KAppMaker — iOS from CI (no Mac needed)
+# KAppMaker: iOS from CI (no Mac needed)
 
 Xcode only runs on macOS, so a Linux box cannot compile an iOS app. Everything
-*around* the compile — App Store Connect records, products, metadata, ASO — the
+*around* the compile (App Store Connect records, products, metadata, ASO) the
 CLI already does over the API from anywhere. This skill closes the one real gap
 by renting a Mac for the ~20 minutes the compile takes: a GitHub-hosted macOS
 runner does the build, signs it, and uploads it.
@@ -16,15 +16,15 @@ certificate, never owns Apple hardware.
 
 ## Before running any command
 
-1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`), plus
+1. **Prerequisites**: `kappmaker --version` (install: `npm i -g kappmaker`), plus
    `gh` logged in (`gh auth login`) since everything runs through the user's own
    GitHub account.
-2. **App Store Connect API key in config** — `ascKeyId`, `ascIssuerId`,
+2. **App Store Connect API key in config**: `ascKeyId`, `ascIssuerId`,
    `ascPrivateKeyPath`, exactly as for `kappmaker create-appstore-app`.
 3. The project must be a GitHub repo, and the ASC app record must exist
    (**kappmaker-asc**).
 
-### ios-ci init — one-time setup
+### ios-ci init: one-time setup
 
 **Syntax**: `kappmaker ios-ci init [--repo <owner/name>] [--certs-repo <owner/name>]
 [--match-password <value>] [--mobile-dir <path>] [--dry-run]`
@@ -33,7 +33,7 @@ Run it from the project root. It:
 
 1. reads the bundle ID from the Xcode project and the repo from the git remote,
 2. checks `.github/workflows/publish_ios_appstore.yml` by capability, not by a
-   version marker — **the boilerplate already ships this workflow**, so an
+   version marker: **the boilerplate already ships this workflow**, so an
    up-to-date project is left alone. Only a project missing part of the pipeline
    (the match lane, the certs repo, the bootstrap switch, the key list) gets it
    rewritten, and the fastlane lane is added only when absent. There is always
@@ -52,7 +52,7 @@ An iOS **distribution certificate belongs to the Apple Developer account, not to
 an app**, and Apple allows only **two**. A **provisioning profile** is the
 per-app piece: it binds one bundle ID to that shared certificate.
 
-So signing material lives in ONE private repo per account — default
+So signing material lives in ONE private repo per account: default
 `<owner>/apple-certificates`, overridable with `--certs-repo` and remembered as
 the `iosCertsRepo` config value. The first app creates the certificate; every
 later app finds it and adds only its own profile. Give each app its own store and
@@ -62,8 +62,8 @@ The lane pins the store to the repo's **`main`** branch: match would otherwise
 write to `master` and split the store across two branches of a repo whose
 default is `main`. Moving an existing `master`-based store is a one-time merge.
 
-`MATCH_PASSWORD` is therefore keyed to the **store**, not the app — all apps
-sharing it need the same passphrase — and lives in
+`MATCH_PASSWORD` is therefore keyed to the **store**, not the app. All apps
+sharing it need the same passphrase, and it lives in
 `~/.config/kappmaker/match-passwords.json`.
 
 Reaching a second private repo needs a **PAT** (`iosCertsRepoToken`): the runner's
@@ -76,7 +76,7 @@ match mints a new one whenever it is not satisfied with what it finds, so a
 couple of unlucky builds can consume both slots and lock the account out of iOS
 releases. Builds therefore only ever *use* the store.
 
-Populating an empty store is the one exception — set the repository **variable**
+Populating an empty store is the one exception: set the repository **variable**
 `MATCH_READONLY=false` (`gh variable set`), run one build, then delete it. The
 lane reads that value *before* `setup_ci`, because that action sets
 `MATCH_READONLY=true` itself; anything read after it is already overwritten. A
@@ -90,15 +90,15 @@ only its own build keys.
 
 Idempotent: re-running reuses the stored password and leaves an up-to-date
 workflow and lane untouched.
-`--dry-run` writes the files locally and touches nothing on GitHub — it needs
+`--dry-run` writes the files locally and touches nothing on GitHub: it needs
 `--repo` because it deliberately makes no API calls.
 
 **One thing `init` cannot do for the user**, and it blocks the first build:
-**commit and push the workflow** — GitHub only runs workflows present on the
+**commit and push the workflow**: GitHub only runs workflows present on the
 default branch. On an up-to-date project it is already committed, so there is
 nothing to do.
 
-### ios-ci build — ship it
+### ios-ci build: ship it
 
 **Syntax**: `kappmaker ios-ci build [--track testflight|appstore] [--submit-for-review]
 [--upload-metadata] [--upload-screenshots] [--no-wait] [--ref <branch>]`
@@ -108,13 +108,13 @@ minutes of runner time, triggers the workflow, then follows it and reports the
 failing step by name if it goes red.
 
 `--upload-metadata` / `--upload-screenshots` push the App Store listing text and
-screenshots from `distribution/ios/appstore_metadata/` — the same paths and the
+screenshots from `distribution/ios/appstore_metadata/`: the same paths and the
 same fastlane action the local `appstore_release` lane uses. They apply to the
 **appstore track only**; TestFlight takes a build, not a listing, and the lane
 says so rather than silently ignoring them.
 
 **Build numbers come from the commit.** Apple rejects a build number it has
-already accepted, and CI builds exactly what is in git — so run
+already accepted, and CI builds exactly what is in git: so run
 **kappmaker-version** (`kappmaker update-version`) before re-releasing, the same
 as for a local publish. There is deliberately no auto-bump in the pipeline: one
 way to move the number, and it stays auditable in git.
@@ -135,10 +135,10 @@ of an opaque Xcode error.
 
 | Task | Needs a Mac? |
 |---|---|
-| Compile the app, make the `.ipa` | Yes — that is what the runner is for |
-| Sign it | No — `match` runs on the runner with certs from the private repo |
-| Upload build, metadata, screenshots | No — App Store Connect API |
-| Create the app record, products, pricing | No — **kappmaker-asc**, works from Linux today |
+| Compile the app, make the `.ipa` | Yes: that is what the runner is for |
+| Sign it | No: `match` runs on the runner with certs from the private repo |
+| Upload build, metadata, screenshots | No: App Store Connect API |
+| Create the app record, products, pricing | No: **kappmaker-asc**, works from Linux today |
 
 ## Cost
 
@@ -146,7 +146,7 @@ GitHub-hosted macOS minutes bill at a multiple of Linux minutes and draw from th
 account's included allowance, which works out to roughly ten 20-minute iOS builds
 a month on a free plan. Enough for a normal release cadence; a team building all
 day will pay per minute beyond it. Worth telling the user before they wire up a
-build-on-every-push trigger — the workflow is deliberately `workflow_dispatch`
+build-on-every-push trigger: the workflow is deliberately `workflow_dispatch`
 only for this reason.
 
 ---

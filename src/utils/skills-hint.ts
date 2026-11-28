@@ -13,7 +13,7 @@ export async function printBundledSkillsHint(projectPath: string): Promise<void>
   if (!(await fs.pathExists(skillsIndex))) return;
 
   console.log(chalk.bold('  Next steps (agent skills bundled with your project):'));
-  console.log('    Your project ships its own AI-agent skills in ' + chalk.cyan('skills/') + ' — auto-discovered');
+  console.log('    Your project ships its own AI-agent skills in ' + chalk.cyan('skills/') + ': auto-discovered');
   console.log('    by Claude Code (and readable by any agent, or by hand). Index: ' + chalk.cyan('skills/README.md'));
   console.log('    ' + chalk.cyan('*') + ' Starting from an idea? Run the ' + chalk.cyan('new-app') + ' skill first (interview -> PRD).');
   console.log('    ' + chalk.cyan('*') + ' Then follow the ' + chalk.cyan('getting-started') + ' guide: run the app locally + build your MVP.');

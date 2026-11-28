@@ -145,7 +145,7 @@ export const TOOLS: ToolSpec[] = [
     platforms: ['macos'],
     install: {
       macos: 'install Xcode from the App Store, then: sudo xcode-select -s /Applications/Xcode.app',
-      linux: 'not available on Linux — build iOS on a GitHub macOS runner: kappmaker ios-ci init, then kappmaker publish --platform ios --remote',
+      linux: 'not available on Linux; build iOS on a GitHub macOS runner: kappmaker ios-ci init, then kappmaker publish --platform ios --remote',
     },
   },
 ];

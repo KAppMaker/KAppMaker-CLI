@@ -9,7 +9,7 @@ title: Package & App Name Refactoring
 :::
 # Package & App Name Refactoring
 
-Refactor package names, application ID, bundle ID, and app name across the entire project. Implemented in TypeScript — no Gradle build system required.
+Refactor package names, application ID, bundle ID, and app name across the entire project. Implemented in TypeScript: no Gradle build system required.
 
 **Command:** `kappmaker refactor`
 
@@ -40,6 +40,6 @@ Run from the project root (containing `MobileApp/`) or from inside `MobileApp/` 
 
 ## Skip-Package-Rename Mode
 
-Only updates `applicationId` / bundle ID, Firebase configs, iOS files, GitHub workflows, and app name — keeps Kotlin package directories intact.
+Only updates `applicationId` / bundle ID, Firebase configs, iOS files, GitHub workflows, and app name: keeps Kotlin package directories intact.
 
 Useful for creating multiple apps from one codebase without merge conflicts.

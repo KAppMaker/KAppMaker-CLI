@@ -59,7 +59,7 @@ export async function appstoreMonetizationPush(options: AppStoreMonetizationPush
         await ascMoney.setupSubscriptions(appId, group, config.subscriptions?.availability, reviewOpts);
       }
     } else {
-      logger.info('No subscription groups in config — skipping.');
+      logger.info('No subscription groups in config: skipping.');
     }
   }
 
@@ -70,7 +70,7 @@ export async function appstoreMonetizationPush(options: AppStoreMonetizationPush
       logger.info(`Pushing ${iaps.length} IAP(s) to App Store Connect…`);
       await ascMoney.setupInAppPurchases(appId, iaps, reviewOpts, config.pricing?.availability);
     } else {
-      logger.info('No IAPs in config — skipping.');
+      logger.info('No IAPs in config: skipping.');
     }
   }
 

@@ -13,8 +13,8 @@ kappmaker fastlane configure
 Run from the project root (containing `MobileApp/`) or inside `MobileApp/` directly.
 
 **What it creates:**
-- `Gemfile` — Ruby gem dependencies (fastlane)
-- `fastlane/Fastfile` — Build and upload lanes for Android (Play Store) and iOS (App Store)
+- `Gemfile`: Ruby gem dependencies (fastlane)
+- `fastlane/Fastfile`: Build and upload lanes for Android (Play Store) and iOS (App Store)
 
 If files already exist, they are skipped (not overwritten).
 
@@ -38,8 +38,8 @@ kappmaker publish --upload-metadata --upload-screenshots   # With metadata
 Run from the project root (containing `MobileApp/`) or inside `MobileApp/` directly. Requires Fastlane via Bundler (`Gemfile` + `fastlane/Fastfile`).
 
 **Prerequisites:**
-- **Android:** Google Play service account JSON — see [Google Play Publisher setup](overview.md#google-play-publisher--android-store-uploads--play-console-management)
-- **iOS:** App Store Connect API key — see [App Store Publisher setup](overview.md#app-store-publisher--ios-store-uploads). The CLI generates the Fastlane-format publisher JSON automatically from your `ascKeyId`/`ascIssuerId`/`ascPrivateKeyPath` config.
+- **Android:** Google Play service account JSON; see [Google Play Publisher setup](overview.md#google-play-publisher--android-store-uploads--play-console-management)
+- **iOS:** App Store Connect API key; see [App Store Publisher setup](overview.md#app-store-publisher--ios-store-uploads). The CLI generates the Fastlane-format publisher JSON automatically from your `ascKeyId`/`ascIssuerId`/`ascPrivateKeyPath` config.
 
 | Flag | Description | Default |
 |------|-------------|---------|
@@ -47,7 +47,7 @@ Run from the project root (containing `MobileApp/`) or inside `MobileApp/` direc
 | `--track <name>` | Android Play Store track (internal/alpha/beta/production) | `production` |
 | `--upload-metadata` | Upload metadata (title, description) | `false` |
 | `--upload-screenshots` | Upload screenshots | `false` |
-| `--upload-images` | Upload images — icon, feature graphic (Android only) | `false` |
+| `--upload-images` | Upload images: icon, feature graphic (Android only) | `false` |
 | `--submit-for-review` | Submit for review after upload | `true` |
 
 ---
@@ -65,8 +65,8 @@ kappmaker generate-keystore --output ./custom-keystore-dir
 Run from the project root (containing `MobileApp/`) or inside `MobileApp/` directly.
 
 **Output** (default: `distribution/android/keystore/` inside MobileApp):
-- `keystore.jks` — the signing keystore
-- `keystore.properties` — password, alias, and store file path
+- `keystore.jks`: the signing keystore
+- `keystore.properties`: password, alias, and store file path
 
 At least one of `--first-name` or `--organization` is required.
 

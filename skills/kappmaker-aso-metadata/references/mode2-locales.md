@@ -1,9 +1,9 @@
-# Mode 2 — market-localization: presets, reasoning script, and the locale table
+# Mode 2: market-localization: presets, reasoning script, and the locale table
 
 Read this when executing Mode 2. Contains the natural-language locale presets, the per-locale
 reasoning script, and the authoritative iOS↔Play locale table (the only valid `locales=` values).
 
-**Locale presets** — also accept the following natural-language phrasings instead of (or in addition to) explicit `locales=` codes. Expand the preset to its concrete locale set BEFORE running the validation step above. Always confirm the expanded set with the user before generating (single line: `"Localizing to N locales: <list>. Proceed? [y/N]"`).
+**Locale presets**: also accept the following natural-language phrasings instead of (or in addition to) explicit `locales=` codes. Expand the preset to its concrete locale set BEFORE running the validation step above. Always confirm the expanded set with the user before generating (single line: `"Localizing to N locales: <list>. Proceed? [y/N]"`).
 
 | Phrase patterns | Expanded locale set |
 |---|---|
@@ -18,13 +18,13 @@ reasoning script, and the authoritative iOS↔Play locale table (the only valid 
 | `Chinese`, `Chinese locales`, `Chinese-speaking markets` | `zh-Hans, zh-Hant` |
 | `MENA`, `Arabic`, `Middle East` | `ar-SA` (single locale; both stores ship one Arabic folder) |
 
-**Combiners** — also accept these natural-language patterns:
+**Combiners**: also accept these natural-language patterns:
 
 - `top 10 plus hi and id` → expand the preset, then add `hi, id`.
 - `tier 1 markets but skip ru and zh-Hans` → expand the preset, then remove the listed codes.
 - `German, Japanese, Korean, and Brazilian Portuguese` → resolve language names to codes (`de-DE, ja, ko, pt-BR`). Use the **Mode 2 Locale Table** below as the authoritative name → code mapping.
 
-If a preset expansion produces a locale not in the Mode 2 Locale Table, drop it silently — don't surface broken codes to the user.
+If a preset expansion produces a locale not in the Mode 2 Locale Table, drop it silently: don't surface broken codes to the user.
 
 **Existing-files check**: for each target locale, check whether ANY of the 4 iOS files or 3 Android files already exist on disk. Collect the list of "locales with existing files". If non-empty, **prompt ONCE**:
 
@@ -45,7 +45,7 @@ in their native language across Apple App Store and Google Play.
 
 # OBJECTIVE
 Adapt the app's metadata for the target locale to maximize **discoverability
-in that local market** — not translation accuracy.
+in that local market**, not translation accuracy.
 
 # INPUTS (from the base locale; verbatim text below)
 - iOS:
@@ -73,14 +73,14 @@ in that local market** — not translation accuracy.
    - Android: title ≤ 30, short_description ≤ 80, full_description ≤ 4000
 3. Front-load the primary keyword in title (iOS ranking is position-weighted).
 4. iOS keywords field MUST NOT repeat any word from name or subtitle.
-5. Android full_description: use primary keyword 3–5 times naturally, plus
+5. Android full_description: use primary keyword 3 to 5 times naturally, plus
    secondary keywords woven in. No keyword stuffing.
-6. Descriptions are conversion copy — write them for native speakers, not bots.
+6. Descriptions are conversion copy: write them for native speakers, not bots.
    Local idioms welcome.
 
 # PROCESS
 1. Identify the locale's primary search intent for this app category.
-2. Pick a PRIMARY keyword (highest local volume) + 3–5 SECONDARY keywords.
+2. Pick a PRIMARY keyword (highest local volume) + 3 to 5 SECONDARY keywords.
 3. Compose title around the primary keyword in a natural local phrasing.
 4. Compose subtitle (iOS) / short_description (Android) around secondaries.
 5. Compose description focusing on conversion, naturally seeded with keywords.
@@ -139,5 +139,5 @@ The codes here are the only valid values for `locales=`. If a user passes anythi
 | zh-Hans | zh-CN   | Chinese (Simplified) |
 | zh-Hant | zh-TW   | Chinese (Traditional) |
 
-If the user provides a Play code in `locales=` (e.g. `ko-KR`), accept it and look up the iOS counterpart (`ko`). Same in reverse — if they pass `zh-Hans`, the Play folder is `zh-CN`. Be liberal in what you accept on input; strict in what you write to disk (always use the canonical folder names from this table).
+If the user provides a Play code in `locales=` (e.g. `ko-KR`), accept it and look up the iOS counterpart (`ko`). Same in reverse: if they pass `zh-Hans`, the Play folder is `zh-CN`. Be liberal in what you accept on input; strict in what you write to disk (always use the canonical folder names from this table).
 
