@@ -35,7 +35,8 @@ Claude will check your config, verify API keys are set, and walk you through any
 
 `kappmaker mcp` gives your AI every KAppMaker step as a tool (54 tools: health checks, a new app, Firebase, logo,
 icons, screenshots, App Store Connect, Google Play, subscriptions, builds, publishing, and App Army on your own server
-over your own SSH key). The one-line connect commands are at the top of this page; `kappmaker mcp connect <app>` sets
+over your own SSH key). The one-line connect commands are in the
+[README](../../README.md#three-ways-in); `kappmaker mcp connect <app>` sets
 the long tool timeout for you where the app has one.
 
 For App Army, `army_setup` does the whole server setup: each call does the next step and says what it needs from you,

@@ -8,7 +8,8 @@ title: MCP Server (Claude Code, Codex, Gemini CLI)
 `kappmaker mcp` runs the CLI as an [MCP](https://modelcontextprotocol.io) server over stdio. Any agent
 that speaks MCP gets every KAppMaker capability as a typed tool: Claude Code, OpenAI Codex, Gemini CLI, and others.
 
-You need kappmaker 2.2.0 or newer. Nothing to install first: the lines below start it with `npx` (Node.js 22.12 or newer).
+You need kappmaker 2.2.2 or newer (2.2.1 and 2.2.2 fixed the App Army setup from your AI). Nothing to install first:
+the lines below start the newest version with `npx` (Node.js 22.12 or newer).
 
 ## Connect your agent
 
