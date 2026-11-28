@@ -5,7 +5,7 @@ title: AI Mascot Generation
 
 # AI Mascot Generation
 
-Generate an app mascot and its emotional states using fal.ai. A mascot personifies your app — it reacts on loading, empty, success and error screens, carries onboarding and streaks, and measurably boosts engagement and shareability.
+Generate an app mascot and its emotional states using fal.ai. A mascot personifies your app: it reacts on loading, empty, success and error screens, carries onboarding and streaks, and measurably boosts engagement and shareability.
 
 The flow mirrors [logo generation](./create-logo.md): a 4×4 grid of 16 different mascot concepts → you pick one → that exact character is rendered in 16 emotional states, sliced into individual files, backgrounds removed automatically.
 
@@ -26,23 +26,23 @@ kappmaker create-mascot --spec Assets/mascot/mascot-spec.json --states-spec Asse
 
 ### Flow
 
-1. **Concept grid** — generates a 4×4 grid of 16 distinct mascot concepts (cartoon, chibi, 3D, flat vector, …), opens a preview, and asks you to pick (1-16, or `R` to regenerate; optional `5 --zoom 1.1 --gap 3`).
-2. **Extraction** — the chosen mascot is cut out to `Assets/mascot/mascot.png`, plus a background-removed `mascot_no_bg.png`.
-3. **Emotional states** — the chosen mascot is passed as a reference image (edit mode) so its identity stays consistent, and a second 4×4 grid renders it in 16 states. Each sliced file is named after its state — `states/happy.png`, `states/loading.png`, `states/error.png`, … — and every background is removed.
+1. **Concept grid**: generates a 4×4 grid of 16 distinct mascot concepts (cartoon, chibi, 3D, flat vector, …), opens a preview, and asks you to pick (1-16, or `R` to regenerate; optional `5 --zoom 1.1 --gap 3`).
+2. **Extraction**: the chosen mascot is cut out to `Assets/mascot/mascot.png`, plus a background-removed `mascot_no_bg.png`.
+3. **Emotional states**: the chosen mascot is passed as a reference image (edit mode) so its identity stays consistent, and a second 4×4 grid renders it in 16 states. Each sliced file is named after its state: `states/happy.png`, `states/loading.png`, `states/error.png`, …; and every background is removed.
 
 ### Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | App idea (skips the interactive prompt) | — |
-| `--tone <text>` | App tone woven into the concept grid | — |
-| `--spec <path>` | Pre-authored concept-grid spec JSON (`spec-template mascot`) | — |
-| `--states-spec <path>` | Pre-authored states-grid spec JSON (`spec-template mascot-states`) — its `states` list also names the output files | — |
+| `--prompt <text>` | App idea (skips the interactive prompt) | - |
+| `--tone <text>` | App tone woven into the concept grid | - |
+| `--spec <path>` | Pre-authored concept-grid spec JSON (`spec-template mascot`) | - |
+| `--states-spec <path>` | Pre-authored states-grid spec JSON (`spec-template mascot-states`): its `states` list also names the output files | - |
 | `--states <names...>` | Custom state names (topped up to 16 with defaults) | 16 defaults |
 | `--output <dir>` | Output directory | `Assets/mascot` |
 | `--resolution <res>` | AI resolution for the states grid (`1K`, `2K`, `4K`) | `2K` |
-| `--skip-states` | Stop after the mascot is chosen | — |
-| `--skip-remove-bg` | Keep original backgrounds | — |
+| `--skip-states` | Stop after the mascot is chosen | - |
+| `--skip-remove-bg` | Keep original backgrounds | - |
 
 **Default states**: happy, sad, excited, thinking, loading, success, error, idle, celebrating, confused, proud, curious, sleeping, encouraging, waving, love.
 
@@ -59,15 +59,15 @@ Uses the existing mascot as the reference image (default: `Assets/mascot/mascot_
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--state <text>` | The emotional/situational state to generate | — |
+| `--state <text>` | The emotional/situational state to generate | - |
 | `--mascot <path>` | Mascot reference image | Auto-detect in `Assets/mascot` |
-| `--spec <path>` | Pre-authored single-state spec JSON used as the prompt | — |
+| `--spec <path>` | Pre-authored single-state spec JSON used as the prompt | - |
 | `--output <path>` | Output file path | `<mascot dir>/states/<slug>.png` |
-| `--skip-remove-bg` | Keep the original background | — |
+| `--skip-remove-bg` | Keep the original background | - |
 
 ## mascot-animate
 
-Animate a state into a short looping clip (image-to-video). **Priced per second — animate only the states you need** (an onboarding hero, a celebration), not all 16.
+Animate a state into a short looping clip (image-to-video). **Priced per second: animate only the states you need** (an onboarding hero, a celebration), not all 16.
 
 ```bash
 kappmaker mascot-animate --state happy                          # seedance-mini @480p, ~$0.35 per clip
@@ -75,22 +75,22 @@ kappmaker mascot-animate --state celebrating --motion "throws confetti and dance
 kappmaker mascot-animate --state happy --model seedance --duration 4   # premium (~$0.24/s)
 ```
 
-The command prints a cost estimate and asks for confirmation before generating (`--yes` skips). Output: `Assets/mascot/animations/<state>.mp4`, plus a looping `.webp` (and `.gif` with `--gif`) when `ffmpeg` is installed — ffmpeg is **not** bundled with kappmaker (`brew install ffmpeg`); without it the MP4 is still saved. Transparent source PNGs are auto-flattened onto white before upload (video models output no alpha channel).
+The command prints a cost estimate and asks for confirmation before generating (`--yes` skips). Output: `Assets/mascot/animations/<state>.mp4`, plus a looping `.webp` (and `.gif` with `--gif`) when `ffmpeg` is installed; ffmpeg is **not** bundled with kappmaker (`brew install ffmpeg`); without it the MP4 is still saved. Transparent source PNGs are auto-flattened onto white before upload (video models output no alpha channel).
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--state <name>` | Existing state to animate (`Assets/mascot/states/<state>.png`) | — |
-| `--image <path>` | Explicit source image | — |
+| `--state <name>` | Existing state to animate (`Assets/mascot/states/<state>.png`) | - |
+| `--image <path>` | Explicit source image | - |
 | `--motion <text>` | Motion description | Per-state preset |
 | `--model <id>` | `seedance-mini` (~$0.07/s), `ltx` (LTX 2.3, ~$0.04/s @1080p), `seedance` (~$0.24/s) | `seedance-mini` |
-| `--duration <seconds>` | ltx: 6–20 (even), seedance: 4–15; seedance-mini picks automatically | auto / 6 / 4 |
-| `--resolution <res>` | seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p–1080p | 480p / 1080p / 720p |
-| `--spec <path>` | Pre-authored animation spec (`spec-template mascot-animation`) | — |
-| `--gif` | Also emit a looping GIF (READMEs, chats, marketing) | — |
-| `--yes` | Skip the cost confirmation | — |
+| `--duration <seconds>` | ltx: 6 to 20 (even), seedance: 4 to 15; seedance-mini picks automatically | auto / 6 / 4 |
+| `--resolution <res>` | seedance-mini: 480p/720p, ltx: 1080p+, seedance: 480p-1080p | 480p / 1080p / 720p |
+| `--spec <path>` | Pre-authored animation spec (`spec-template mascot-animation`) | - |
+| `--gif` | Also emit a looping GIF (READMEs, chats, marketing) | - |
+| `--yes` | Skip the cost confirmation | - |
 
-**Format guidance**: never ship a GIF inside the app bundle — GIF is 3–6× larger than WebP for the same clip (256 colors, weak compression); it exists for READMEs, emails and chats. In-app, use the looping **WebP** (~0.5MB per clip), or MP4 + video player for a full-screen onboarding hero. For small in-app "alive" effects, tweening the static state PNGs (scale pulse, crossfade) is free, a few KB, and often looks better at small sizes. Video models output no alpha channel — clips keep the flat background.
+**Format guidance**: never ship a GIF inside the app bundle; GIF is 3 to 6× larger than WebP for the same clip (256 colors, weak compression); it exists for READMEs, emails and chats. In-app, use the looping **WebP** (~0.5MB per clip), or MP4 + video player for a full-screen onboarding hero. For small in-app "alive" effects, tweening the static state PNGs (scale pulse, crossfade) is free, a few KB, and often looks better at small sizes. Video models output no alpha channel: clips keep the flat background.
 
 ## Requirements
 
-Requires `falApiKey` only (prompted on first use). No OpenAI key. A full run makes ~4 fal.ai calls: one per grid generation (concepts, states) and one background removal each for the chosen mascot and the whole states grid — the grid is cleaned in a single call before slicing, so tiles inherit transparency.
+Requires `falApiKey` only (prompted on first use). No OpenAI key. A full run makes ~4 fal.ai calls: one per grid generation (concepts, states) and one background removal each for the chosen mascot and the whole states grid; the grid is cleaned in a single call before slicing, so tiles inherit transparency.

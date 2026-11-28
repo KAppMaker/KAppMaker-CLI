@@ -33,13 +33,13 @@ By default it uses the [KAppMaker](https://kappmaker.com) boilerplate (Kotlin Mu
 | [`kappmaker create <app-name>`](create-and-config.md#create-app-name) | Full end-to-end app setup (Firebase, logo, App Store Connect, Google Play Console, Adapty, release build) |
 | [`kappmaker clone <app-name>`](create-and-config.md#clone-app-name) | Clone the template into `<AppName>-All` (step 1 of `create` as a standalone) |
 | [`kappmaker git setup-upstream`](create-and-config.md#git-setup-upstream) | Rename `origin` to `upstream` (step 10 of `create` as a standalone) |
-| [`kappmaker firebase login`](stores.md#firebase) | `firebase login` — authenticate the Firebase CLI |
+| [`kappmaker firebase login`](stores.md#firebase) | `firebase login`: authenticate the Firebase CLI |
 | [`kappmaker firebase project`](stores.md#firebase) | Create a Firebase project (idempotent) |
 | [`kappmaker firebase apps`](stores.md#firebase) | Create Android + iOS apps in a Firebase project (idempotent) |
 | [`kappmaker firebase auth-anonymous`](stores.md#firebase) | Enable anonymous authentication |
 | [`kappmaker firebase configs`](stores.md#firebase) | Download `google-services.json` + `GoogleService-Info.plist` |
 | [`kappmaker create-logo`](images-and-aso.md#create-logo) | Generate an app logo with AI (fal.ai) |
-| [`kappmaker generate-image`](images-and-aso.md#generate-image) | Generate an arbitrary image with AI — generic wrapper around fal.ai nano-banana-2 |
+| [`kappmaker generate-image`](images-and-aso.md#generate-image) | Generate an arbitrary image with AI: generic wrapper around fal.ai nano-banana-2 |
 | [`kappmaker create-appstore-app`](stores.md#create-appstore-app) | Set up an app on App Store Connect (metadata, subscriptions, privacy) |
 | [`kappmaker appstore-monetization-push`](stores.md#appstore-monetization-push) | Push subscriptions + IAPs from `appstore-config.json` to App Store Connect (monetization step of `create-appstore-app` as a standalone; supports `--subscriptions-only`, `--iap-only`, `--config`) |
 | [`kappmaker gpc setup`](stores.md#gpc) | Set up an existing app on Google Play Console (listings, subscriptions, IAPs, data safety) |
@@ -61,8 +61,8 @@ By default it uses the [KAppMaker](https://kappmaker.com) boilerplate (Kotlin Mu
 | [`kappmaker generate-feature-image`](images-and-aso.md#generate-feature-image) | Generate a Google Play feature graphic (1024×500) with AI (OpenAI + fal.ai) |
 | [`kappmaker generate-ios-icons`](images-and-aso.md#generate-ios-icons) | Generate all iOS `AppIcon.appiconset` PNG sizes + `Contents.json` from one logo (sharp, no AI) |
 | [`kappmaker generate-android-icons`](images-and-aso.md#generate-android-icons) | Generate all Android `mipmap-*` launcher icons (5 densities × 3 files) + adaptive icon XML + `colors.xml` entry (sharp, no AI) |
-| [ASO Keyword Research](images-and-aso.md#aso-keyword-research-skill-driven) | _(skill-driven, no binary)_ — Find high-value keywords with popularity + difficulty scores via Astro MCP, cluster by sub-niche, write `AiGuidelines/keywords.md` |
-| [ASO Metadata Localization](images-and-aso.md#aso-metadata-localization-skill-driven) | _(skill-driven, no binary)_ — Write localized `name`/`subtitle`/`keywords`/`description` and `title`/`short/full_description` files for App Store + Google Play |
+| [ASO Keyword Research](images-and-aso.md#aso-keyword-research-skill-driven) | _(skill-driven, no binary)_: Find high-value keywords with popularity + difficulty scores via Astro MCP, cluster by sub-niche, write `AiGuidelines/keywords.md` |
+| [ASO Metadata Localization](images-and-aso.md#aso-metadata-localization-skill-driven) | _(skill-driven, no binary)_: Write localized `name`/`subtitle`/`keywords`/`description` and `title`/`short/full_description` files for App Store + Google Play |
 | [`kappmaker fastlane configure`](build-and-publish.md#fastlane-configure) | Set up Fastlane in the mobile app directory |
 | [`kappmaker publish`](build-and-publish.md#publish) | Build and upload to Google Play and/or App Store via Fastlane |
 | [`kappmaker generate-keystore`](build-and-publish.md#generate-keystore) | Generate an Android signing keystore for Play Store releases |
@@ -77,42 +77,42 @@ By default it uses the [KAppMaker](https://kappmaker.com) boilerplate (Kotlin Mu
 
 These commands are standalone and don't depend on any specific boilerplate:
 
-- **AI logo generation** — Generate logo variations with fal.ai, pick your favorite, auto-remove background
-- **AI screenshot generation** — Generate marketing screenshots from a text description (8 style presets)
-- **Screenshot translation** — Translate app screenshots to 48+ locales in parallel
-- **ASO keyword research** — Skill-driven workflow that discovers high-value sub-niche keywords for a base topic via the [Astro MCP](https://tryastro.app/docs/mcp/) tools (real-time App Store popularity + difficulty scores from competitor analysis and AI suggestions), filters them by configurable thresholds, clusters them by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm when Astro MCP isn't connected. Output feeds directly into the metadata localization workflow below.
-- **ASO metadata localization** — Skill-driven workflow that writes per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files with two strategies: US-indexed keyword expansion (English copy with different keywords per locale to multiply indexed surface) or native per-market localization. Char-limits, keyword-field rules, and no-duplicate-word-across-fields are enforced automatically.
-- **App Store Connect setup** — Register bundle ID (with Sign in with Apple, In-App Purchases, and Push Notifications capabilities enabled automatically), create app, set metadata, categories, age rating, subscriptions, privacy, and review info — fully automated, no manual App Store Connect steps needed
-- **Google Play Console setup** — Push store listings, subscriptions (new monetization API), one-time in-app products, and the data safety declaration via a built-in wrapper around the Play Publisher API — no external CLI, no extra dependencies
-- **Adapty subscription setup** — Create products, paywalls, and placements for iOS and Android
-- **Version bumping** — Increment Android and iOS version codes and names in one command
-- **Image tools** — Split grids, remove backgrounds, enhance quality, convert to WebP
+- **AI logo generation**: Generate logo variations with fal.ai, pick your favorite, auto-remove background
+- **AI screenshot generation**: Generate marketing screenshots from a text description (8 style presets)
+- **Screenshot translation**: Translate app screenshots to 48+ locales in parallel
+- **ASO keyword research**: Skill-driven workflow that discovers high-value sub-niche keywords for a base topic via the [Astro MCP](https://tryastro.app/docs/mcp/) tools (real-time App Store popularity + difficulty scores from competitor analysis and AI suggestions), filters them by configurable thresholds, clusters them by sub-niche, and writes `AiGuidelines/keywords.md`. Falls back to a manual brainstorm when Astro MCP isn't connected. Output feeds directly into the metadata localization workflow below.
+- **ASO metadata localization**: Skill-driven workflow that writes per-locale `name`/`subtitle`/`keywords`/`description` (iOS) and `title`/`short_description`/`full_description` (Android) text files with two strategies: US-indexed keyword expansion (English copy with different keywords per locale to multiply indexed surface) or native per-market localization. Char-limits, keyword-field rules, and no-duplicate-word-across-fields are enforced automatically.
+- **App Store Connect setup**: Register bundle ID (with Sign in with Apple, In-App Purchases, and Push Notifications capabilities enabled automatically), create app, set metadata, categories, age rating, subscriptions, privacy, and review info; fully automated, no manual App Store Connect steps needed
+- **Google Play Console setup**: Push store listings, subscriptions (new monetization API), one-time in-app products, and the data safety declaration via a built-in wrapper around the Play Publisher API; no external CLI, no extra dependencies
+- **Adapty subscription setup**: Create products, paywalls, and placements for iOS and Android
+- **Version bumping**: Increment Android and iOS version codes and names in one command
+- **Image tools**: Split grids, remove backgrounds, enhance quality, convert to WebP
 
 ### KAppMaker boilerplate-specific
 
 The `create` command runs the full end-to-end setup. Some steps assume the [KAppMaker](https://kappmaker.com) project structure and will be skipped with a warning if you use a custom template:
 
-- **Package refactor** — Renames package name, app ID, and display name using the TypeScript refactor service (also available standalone via `kappmaker refactor`)
-- **Firebase SDK config placement** — Downloads `google-services.json` and `GoogleService-Info.plist` to KAppMaker-specific paths (falls back to `Assets/` for custom templates)
-- **Build environment** — Creates `local.properties`; iOS dependencies resolve via Swift Package Manager at build time (CocoaPods runs only if a custom template still has a `Podfile`)
-- **Android release build** — Generates keystore and builds signed AAB (also available standalone via `kappmaker android-release-build`)
-- **Git remotes** — Renames origin to upstream (designed for the "fork from template" workflow)
-- **Screenshot translation default path** — Defaults to `MobileApp/distribution/ios/appstore_metadata/screenshots/en-US` (falls back to parent of source directory)
+- **Package refactor**: Renames package name, app ID, and display name using the TypeScript refactor service (also available standalone via `kappmaker refactor`)
+- **Firebase SDK config placement**: Downloads `google-services.json` and `GoogleService-Info.plist` to KAppMaker-specific paths (falls back to `Assets/` for custom templates)
+- **Build environment**: Creates `local.properties`; iOS dependencies resolve via Swift Package Manager at build time (CocoaPods runs only if a custom template still has a `Podfile`)
+- **Android release build**: Generates keystore and builds signed AAB (also available standalone via `kappmaker android-release-build`)
+- **Git remotes**: Renames origin to upstream (designed for the "fork from template" workflow)
+- **Screenshot translation default path**: Defaults to `MobileApp/distribution/ios/appstore_metadata/screenshots/en-US` (falls back to parent of source directory)
 
 ---
 
 ## Prerequisites
 
-- **Node.js** >= 22.12 — macOS: `brew install node@22`; Linux: `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs`
-- **Git** — macOS: `xcode-select --install`; Linux: `sudo apt-get install -y git`
-- **Firebase CLI** — `npm install -g firebase-tools`
-- **Fastlane** — via Bundler in the template repo (Ruby 3 + `gem install bundler`; Linux: `sudo apt-get install -y ruby-full build-essential`)
-- **JDK 17+** (Gradle, keytool) — macOS: `brew install --cask temurin@17`; Linux: `sudo apt-get install -y openjdk-17-jdk`
-- **Android SDK** — `ANDROID_HOME`, else `~/Library/Android/sdk` (macOS) or `~/Android/Sdk` (Linux); configurable via `androidSdkPath`
-- **asc CLI** (optional, for App Store Connect) — **≥ 5.9.0**: `brew install asc` (macOS/Linux) or `curl -fsSL https://asccli.sh/install | bash`
-- **Adapty CLI** (optional, for Adapty setup) — `npm install -g adapty`
-- **GitHub CLI** (optional, for `ios-ci`) — macOS: `brew install gh`; Linux: `sudo apt-get install -y gh`
-- **No extra CLI for Google Play Console** — `kappmaker gpc` talks to the Play Publisher API directly
+- **Node.js** >= 22.12: macOS: `brew install node@22`; Linux: `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs`
+- **Git**: macOS: `xcode-select --install`; Linux: `sudo apt-get install -y git`
+- **Firebase CLI**: `npm install -g firebase-tools`
+- **Fastlane**: via Bundler in the template repo (Ruby 3 + `gem install bundler`; Linux: `sudo apt-get install -y ruby-full build-essential`)
+- **JDK 17+** (Gradle, keytool): macOS: `brew install --cask temurin@17`; Linux: `sudo apt-get install -y openjdk-17-jdk`
+- **Android SDK**: `ANDROID_HOME`, else `~/Library/Android/sdk` (macOS) or `~/Android/Sdk` (Linux); configurable via `androidSdkPath`
+- **asc CLI** (optional, for App Store Connect): **≥ 5.9.0**: `brew install asc` (macOS/Linux) or `curl -fsSL https://asccli.sh/install | bash`
+- **Adapty CLI** (optional, for Adapty setup): `npm install -g adapty`
+- **GitHub CLI** (optional, for `ios-ci`): macOS: `brew install gh`; Linux: `sudo apt-get install -y gh`
+- **No extra CLI for Google Play Console**: `kappmaker gpc` talks to the Play Publisher API directly
 
 Run **`kappmaker doctor`** to see which of these are installed, at what version, and the exact install line for anything missing on your platform.
 
@@ -120,34 +120,34 @@ Run **`kappmaker doctor`** to see which of these are installed, at what version,
 
 The CLI integrates with several external services for AI image generation, app store management, and subscription setup. All keys are stored locally at `~/.config/kappmaker/config.json`.
 
-### fal.ai — AI Image Generation
+### fal.ai: AI Image Generation
 
 **Used for:** Logo generation, background removal, image enhancement, screenshot translation, and screenshot generation.
 
 **How to get your key:**
 1. Sign up at [fal.ai](https://fal.ai)
 2. Go to [Dashboard > Keys](https://fal.ai/dashboard/keys) and create an API key
-3. `kappmaker config set falApiKey <your-key>` — or skip this and the CLI will prompt you the first time you run a command that needs it
+3. `kappmaker config set falApiKey <your-key>`: or skip this and the CLI will prompt you the first time you run a command that needs it
 
-### ImgBB — Image Hosting
+### ImgBB: Image Hosting
 
 **Used for:** Temporarily hosting reference images when generating or translating screenshots (fal.ai needs a public URL to process images).
 
 **How to get your key:**
 1. Sign up at [imgbb.com](https://imgbb.com)
 2. Go to [api.imgbb.com](https://api.imgbb.com/) and get your free API key
-3. `kappmaker config set imgbbApiKey <your-key>` — or prompted on first use
+3. `kappmaker config set imgbbApiKey <your-key>`: or prompted on first use
 
-### OpenAI — Prompt Generation
+### OpenAI: Prompt Generation
 
 **Used for:** Generating detailed screenshot specifications from a short app description (uses GPT-4.1). Only needed for the `generate-screenshots` command.
 
 **How to get your key:**
 1. Sign up at [platform.openai.com](https://platform.openai.com)
 2. Go to [API Keys](https://platform.openai.com/api-keys) and create a new key
-3. `kappmaker config set openaiApiKey <your-key>` — or prompted on first use
+3. `kappmaker config set openaiApiKey <your-key>`: or prompted on first use
 
-### App Store Connect CLI (asc) — iOS App Management & Publishing
+### App Store Connect CLI (asc): iOS App Management & Publishing
 
 **Used for:** Creating apps, setting metadata, categories, subscriptions, privacy declarations, and review info on App Store Connect (`create-appstore-app`). The same API key credentials are also used by `publish --platform ios` to build and upload IPAs via Fastlane.
 
@@ -163,9 +163,9 @@ The CLI integrates with several external services for AI image generation, app s
    ```
    Or run `kappmaker config appstore-defaults --init` for interactive setup.
 
-> **Note:** `kappmaker publish --platform ios` uses `ascKeyId`, `ascIssuerId`, and `ascPrivateKeyPath` to automatically generate the Fastlane-format publisher JSON — no separate credentials needed.
+> **Note:** `kappmaker publish --platform ios` uses `ascKeyId`, `ascIssuerId`, and `ascPrivateKeyPath` to automatically generate the Fastlane-format publisher JSON; no separate credentials needed.
 
-### Adapty CLI — Subscription Management
+### Adapty CLI: Subscription Management
 
 **Used for:** Setting up in-app subscription products, paywalls, and placements across iOS and Android via Adapty's backend.
 
@@ -174,7 +174,7 @@ The CLI integrates with several external services for AI image generation, app s
 2. Log in: `adapty auth login` (opens browser for authentication)
 3. Run: `kappmaker adapty setup`
 
-### Firebase CLI — Backend Setup
+### Firebase CLI: Backend Setup
 
 **Used for:** Creating Firebase projects, registering Android/iOS apps, downloading SDK config files (`google-services.json`, `GoogleService-Info.plist`), and enabling anonymous authentication.
 
@@ -182,13 +182,13 @@ The CLI integrates with several external services for AI image generation, app s
 1. Install: `npm install -g firebase-tools`
 2. The `create` command handles login and project creation interactively.
 
-### Google Play Publisher — Android Store Uploads + Play Console Management
+### Google Play Publisher: Android Store Uploads + Play Console Management
 
 **Used for:**
 - Building and uploading Android AABs to Google Play Store via `kappmaker publish --platform android` (Fastlane)
 - Configuring store listings, subscriptions, in-app products, and the data safety declaration via `kappmaker gpc ...` (direct Publisher API call, no external CLI)
 
-Both flows share the same service account JSON key — set it once, use it everywhere.
+Both flows share the same service account JSON key: set it once, use it everywhere.
 
 **How to set up:**
 
@@ -203,9 +203,9 @@ Both flows share the same service account JSON key — set it once, use it every
    kappmaker config set googleServiceAccountPath /path/to/google-service-app-publisher.json
    ```
 
-> **Note:** Google Play does not allow creating new apps via any public API — you must create the app manually once in [Play Console](https://play.google.com/console/u/0/developers) before `kappmaker gpc` can configure it.
+> **Note:** Google Play does not allow creating new apps via any public API; you must create the app manually once in [Play Console](https://play.google.com/console/u/0/developers) before `kappmaker gpc` can configure it.
 
-### App Store Publisher — iOS Store Uploads
+### App Store Publisher: iOS Store Uploads
 
 **Used for:** Building and uploading iOS IPAs to App Store Connect, managing App Store metadata and screenshots via `kappmaker publish --platform ios`.
 

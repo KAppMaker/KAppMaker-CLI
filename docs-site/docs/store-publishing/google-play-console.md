@@ -5,7 +5,7 @@ title: Google Play Console Setup
 
 # Google Play Console Setup
 
-A tight wrapper around the official Google Play Android Publisher API. All subcommands authenticate via the service account JSON at `googleServiceAccountPath`. **No external CLI and no extra npm dependencies** — the JWT flow and HTTPS calls are implemented with Node's built-in `crypto` and `fetch`.
+A tight wrapper around the official Google Play Android Publisher API. All subcommands authenticate via the service account JSON at `googleServiceAccountPath`. **No external CLI and no extra npm dependencies**: the JWT flow and HTTPS calls are implemented with Node's built-in `crypto` and `fetch`.
 
 :::note
 Google Play does not allow creating new apps via any public API. Create the app manually once in [Play Console](https://play.google.com/console/u/0/developers), then use these commands to configure it.
@@ -28,7 +28,7 @@ Google Play does not allow creating new apps via any public API. Create the app 
 
 ## gpc setup
 
-Full end-to-end configuration (11 steps) — the Google Play parallel to `create-appstore-app`.
+Full end-to-end configuration (11 steps): the Google Play parallel to `create-appstore-app`.
 
 ```bash
 kappmaker gpc setup
@@ -46,7 +46,7 @@ kappmaker gpc setup --config ./my-config.json
 5. Start a Play Console edit (skipped if default-language listing has no title)
 6. Update app details (default language + contact website/email/phone)
 7. Update store listings per locale, merged with the live listing (empty config fields never clear Play; `--allow-empty` to clear), read back, then commit. The app name fills a title only where Play has none
-8. Create subscriptions via the new monetization API. Base plans are available to all ~175 Play regions (not just the regions with explicit prices — Google auto-converts pricing for the rest). Idempotent — existing product IDs are skipped. Skipped if no build is uploaded to any track
+8. Create subscriptions via the new monetization API. Base plans are available to all ~175 Play regions (not just the regions with explicit prices: Google auto-converts pricing for the rest). Idempotent: existing product IDs are skipped. Skipped if no build is uploaded to any track
 9. Create one-time in-app products via the new monetization API. Idempotent
 10. Update the data safety declaration (JSON → CSV conversion using bundled canonical template)
 11. Print a checklist of manual-only Play Console declarations that have no REST endpoints
@@ -74,7 +74,7 @@ Runs a single edit transaction: updates app details → updates every listing lo
 
 ## gpc subscriptions list
 
-Read-only — lists existing subscription product IDs on Play Console.
+Read-only: lists existing subscription product IDs on Play Console.
 
 ```bash
 kappmaker gpc subscriptions list --package com.example.myapp
@@ -83,7 +83,7 @@ kappmaker gpc subscriptions list   # uses app.package_name from the config file
 
 ## gpc subscriptions push
 
-Create or reuse subscriptions from the config file. Idempotent — already-existing product IDs are skipped.
+Create or reuse subscriptions from the config file. Idempotent: already-existing product IDs are skipped.
 
 ```bash
 kappmaker gpc subscriptions push
@@ -107,7 +107,7 @@ Uses the new monetization API. Auto-generated IDs:
 
 ## gpc iap list
 
-Read-only — lists existing one-time in-app product SKUs on Play Console.
+Read-only: lists existing one-time in-app product SKUs on Play Console.
 
 ```bash
 kappmaker gpc iap list --package com.example.myapp
@@ -116,7 +116,7 @@ kappmaker gpc iap list
 
 ## gpc iap push
 
-Create or reuse one-time in-app products from the config file. Idempotent — existing products are PATCHed with fresh PPP regional pricing.
+Create or reuse one-time in-app products from the config file. Idempotent: existing products are PATCHed with fresh PPP regional pricing.
 
 ```bash
 kappmaker gpc iap push
@@ -134,7 +134,7 @@ Uses the new monetization API (`PATCH /onetimeproducts/{id}?allowMissing=true`),
 
 ### Per-region PPP pricing (1.6.0+)
 
-Subscriptions and one-time products are fanned out to **every Play-supported region** (~175) with purchasing-power-parity-adjusted USD prices — not just the region you list explicitly. The multiplier table is Steam/Spotify-inspired ([iosdevmax/ppp-pricing](https://github.com/iosdevmax/ppp-pricing), MIT, bundled at `src/data/ppp-tiers.upstream.json`):
+Subscriptions and one-time products are fanned out to **every Play-supported region** (~175) with purchasing-power-parity-adjusted USD prices: not just the region you list explicitly. The multiplier table is Steam/Spotify-inspired ([iosdevmax/ppp-pricing](https://github.com/iosdevmax/ppp-pricing), MIT, bundled at `src/data/ppp-tiers.upstream.json`):
 
 | Tier | Multiplier | Sample regions |
 |---|---|---|
@@ -148,15 +148,15 @@ Subscriptions and one-time products are fanned out to **every Play-supported reg
 
 Prices are rounded to .99 endings. Regions outside the table fall back via a closest-neighbour lookup (e.g. `PR → US`, `XK → AL`); anything still missing uses `0.60` (mid tier).
 
-**Each region's price is in that region's native currency** (AE → AED, JP → JPY, IN → INR, etc.) — Google Play rejects mismatched currencies (HTTP 400 _"Invalid currency for region code AE: expected AED but got USD"_).
+**Each region's price is in that region's native currency** (AE → AED, JP → JPY, IN → INR, etc.): Google Play rejects mismatched currencies (HTTP 400 _"Invalid currency for region code AE: expected AED but got USD"_).
 
 The CLI calls Google's `pricing:convertRegionPrices` endpoint with your USD base price once per (package, base price) tuple. That single call:
-1. Returns the authoritative billable region list (sanctioned countries like AF / IR / KP / SY are excluded — they don't appear in the response).
+1. Returns the authoritative billable region list (sanctioned countries like AF / IR / KP / SY are excluded: they don't appear in the response).
 2. Returns fair FX-converted prices in each region's native currency.
 
 Then KAppMaker multiplies each native price by the region's PPP multiplier and charm-rounds:
-- **Decimal currencies** (USD, EUR, GBP, INR, BRL, etc.) — nearest `.49`/`.99` ending, ties rounding up (1.13.18+). So `INR 415 × 0.35 ≈ 145.25 → INR 145.49`, and `USD 6.99 × 0.35 ≈ 2.45 → USD 2.49` (pre-1.13.18 floor+`.99` gave `2.99`).
-- **Zero-decimal currencies** (JPY, KRW, CLP, ISK, VND, etc.) — round to the nearest `X99` / `X9` / integer. So `JPY 750 × 0.80 = 600 → JPY 599`.
+- **Decimal currencies** (USD, EUR, GBP, INR, BRL, etc.): nearest `.49`/`.99` ending, ties rounding up (1.13.18+). So `INR 415 × 0.35 ≈ 145.25 → INR 145.49`, and `USD 6.99 × 0.35 ≈ 2.45 → USD 2.49` (pre-1.13.18 floor+`.99` gave `2.99`).
+- **Zero-decimal currencies** (JPY, KRW, CLP, ISK, VND, etc.): round to the nearest `X99` / `X9` / integer. So `JPY 750 × 0.80 = 600 → JPY 599`.
 
 Typical apps with 5 distinct base prices (weekly sub + yearly sub + 3 credit packs) make ~5 `convertRegionPrices` calls per setup run.
 
@@ -164,7 +164,7 @@ Typical apps with 5 distinct base prices (weekly sub + yearly sub + 3 credit pac
 
 The default is `2026/01` since 2.2.0. This section applies only with `--regions-version 2022/02`.
 
-Google's monetization API requires `regionsVersion.version` and `"2022/02"` is the only documented value as of 2026. Several regions have drifted since that snapshot — Google's live API returns one currency but `2022/02` expects another. The CLI handles this transparently:
+Google's monetization API requires `regionsVersion.version` and `"2022/02"` is the only documented value as of 2026. Several regions have drifted since that snapshot: Google's live API returns one currency but `2022/02` expects another. The CLI handles this transparently:
 
 | Region | Live API | 2022/02 expects | Resolution |
 |---|---|---|---|
@@ -175,18 +175,18 @@ Google's monetization API requires `regionsVersion.version` and `"2022/02"` is t
 | SN (Senegal) | XOF | USD | Same |
 | MN (Mongolia) | billable | NOT BILLABLE | Drop entirely (no currency works at 2022/02) |
 
-Net effect: typical products land with all ~173 billable regions AVAILABLE (only MN drops out). Google's storage layer auto-converts each region's submitted currency to the user-facing display currency at runtime — e.g. we send `BG: BGN`, Google shows EUR to Bulgarian users; we send `CI: USD`, Google shows XOF to Ivorian users.
+Net effect: typical products land with all ~173 billable regions AVAILABLE (only MN drops out). Google's storage layer auto-converts each region's submitted currency to the user-facing display currency at runtime: e.g. we send `BG: BGN`, Google shows EUR to Bulgarian users; we send `CI: USD`, Google shows XOF to Ivorian users.
 
 ### "New countries and regions" set to AVAILABLE (1.6.11+)
 
-Both subscriptions (`otherRegionsConfig`) and one-time products (`newRegionsConfig`) are now always set to `availability: AVAILABLE` with USD + EUR anchors when a USD anchor is present in your config. In Play Console this surfaces as **"New countries and regions: Available"** — any region Google adds to its billable catalog in the future automatically gets pricing derived from those anchors, no maintenance needed.
+Both subscriptions (`otherRegionsConfig`) and one-time products (`newRegionsConfig`) are now always set to `availability: AVAILABLE` with USD + EUR anchors when a USD anchor is present in your config. In Play Console this surfaces as **"New countries and regions: Available"**; any region Google adds to its billable catalog in the future automatically gets pricing derived from those anchors, no maintenance needed.
 
 ### Stuck legacy products (`NEVER_BILLABLE` regions)
 
-If Google's old catalog stored a `NEVER_BILLABLE` region (currently just MN) on an existing product, that PATCH can't be completed at `regionsVersion=2022/02` — Google won't accept MN's currency but also refuses to drop the region. The CLI detects this deadlock, marks the product as "stuck" in its final summary, and offers three fix paths in order of safety:
+If Google's old catalog stored a `NEVER_BILLABLE` region (currently just MN) on an existing product, that PATCH can't be completed at `regionsVersion=2022/02`: Google won't accept MN's currency but also refuses to drop the region. The CLI detects this deadlock, marks the product as "stuck" in its final summary, and offers three fix paths in order of safety:
 
-1. **Recommended** — bump the `product_id` in your config (e.g. `credit_pack_10_499_myapp` → `credit_pack_10_499_myapp_v2`). Fresh product, full PPP fan-out, zero downtime.
-2. `kappmaker gpc iap push --recreate-stuck` — DELETEs the stuck product(s) and recreates them fresh. **WARNING**: Google soft-deletes for a few minutes to a few hours after deletion. CREATE during that window returns `"Product ID already in use"`. Plan downtime if your app code references these IDs in production.
+1. **Recommended**: bump the `product_id` in your config (e.g. `credit_pack_10_499_myapp` → `credit_pack_10_499_myapp_v2`). Fresh product, full PPP fan-out, zero downtime.
+2. `kappmaker gpc iap push --recreate-stuck`: DELETEs the stuck product(s) and recreates them fresh. **WARNING**: Google soft-deletes for a few minutes to a few hours after deletion. CREATE during that window returns `"Product ID already in use"`. Plan downtime if your app code references these IDs in production.
 3. Manually delete on Play Console UI, wait for the reservation window to clear, then re-run.
 
 ### Simpler alternative: `ppp_enabled: false`
@@ -224,7 +224,7 @@ US gets your `default_price`, DE keeps your explicit `5.49 EUR`, the other ~173 
 
 **Opt-out of PPP**: set `"ppp_enabled": false` on a subscription base plan or IAP for plain currency conversion in every billable region (no PPP discount).
 
-**Why explicit fan-out**: Google's `otherRegionsConfig` / `newRegionsConfig` auto-conversion (used in 1.5.x) fanned out unreliably — many users saw products listed in only 1-2 regions even with valid USD/EUR anchors. Per-region fan-out is now the default and works.
+**Why explicit fan-out**: Google's `otherRegionsConfig` / `newRegionsConfig` auto-conversion (used in 1.5.x) fanned out unreliably; many users saw products listed in only 1-2 regions even with valid USD/EUR anchors. Per-region fan-out is now the default and works.
 
 ### Default credit packs
 
@@ -244,7 +244,7 @@ The `Assets/googleplay-config.json` template ships with three default consumable
 
 ## gpc monetization push
 
-Re-run only the subscription + IAP push steps from `gpc setup` — useful for refreshing PPP pricing across all ~175 regions without repeating listings, data safety, or the manual-checklist prompt.
+Re-run only the subscription + IAP push steps from `gpc setup`: useful for refreshing PPP pricing across all ~175 regions without repeating listings, data safety, or the manual-checklist prompt.
 
 ```bash
 # Push everything (subscriptions + IAPs)
@@ -263,14 +263,14 @@ kappmaker gpc monetization push --config ./path/to/googleplay-config.json
 kappmaker gpc monetization push --recreate-stuck
 ```
 
-Validates the service account and probes app state (requires at least one uploaded build — internal testing track is enough). Calls the same `setupSubscriptions` / `setupInAppProducts` functions as `gpc setup` — fully idempotent: existing products are PATCHed with refreshed PPP regional fan-out.
+Validates the service account and probes app state (requires at least one uploaded build: internal testing track is enough). Calls the same `setupSubscriptions` / `setupInAppProducts` functions as `gpc setup`: fully idempotent: existing products are PATCHed with refreshed PPP regional fan-out.
 
 | Flag | Description | Default |
 |---|---|---|
 | `--config <path>` | Path to JSON config file | `./Assets/googleplay-config.json` |
-| `--subscriptions-only` | Push subscriptions only, skip IAPs | — |
-| `--iap-only` | Push IAPs only, skip subscriptions | — |
-| `--recreate-stuck` | DELETE + recreate products stuck due to `regionsVersion=2022/02` incompatibility | — |
+| `--subscriptions-only` | Push subscriptions only, skip IAPs | - |
+| `--iap-only` | Push IAPs only, skip subscriptions | - |
+| `--recreate-stuck` | DELETE + recreate products stuck due to `regionsVersion=2022/02` incompatibility | - |
 
 :::tip When to use this vs `gpc setup`
 Use `gpc monetization push` when you've already run the full setup and just want to sync pricing (e.g. after upgrading KAppMaker for a PPP fix, or after adding a new product to the config). Use `gpc setup` for initial setup or when you also need to update listings or data safety.
@@ -288,7 +288,7 @@ kappmaker gpc data-safety push
 
 ### Two Ways to Configure
 
-**1. Structured JSON (recommended)** — `data_safety.answers` overlay on top of defaults:
+**1. Structured JSON (recommended)**: `data_safety.answers` overlay on top of defaults:
 
 ```json
 "data_safety": {
@@ -321,7 +321,7 @@ To override a specific answer, add keys to `answers`:
 }
 ```
 
-**2. Escape hatch: CSV file** — upload a Play Console-exported CSV verbatim:
+**2. Escape hatch: CSV file**; upload a Play Console-exported CSV verbatim:
 
 ```json
 "data_safety_csv_path": "Assets/data-safety.csv"
@@ -343,4 +343,4 @@ Exits `0` if found, `2` if missing (prints the Play Console deep link).
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--package <name>` | Override the package name from config | — |
+| `--package <name>` | Override the package name from config | - |

@@ -4,7 +4,7 @@ Moved here from the README. Index: [docs/commands](README.md).
 
 ## Claude Code Skill
 
-If you use [Claude Code](https://claude.ai/code), you can install the `/kappmaker` skill to run any CLI command through natural language — with automatic prerequisite checks, guided setup, and inline error recovery.
+If you use [Claude Code](https://claude.ai/code), you can install the `/kappmaker` skill to run any CLI command through natural language: with automatic prerequisite checks, guided setup, and inline error recovery.
 
 **Install:**
 
@@ -29,7 +29,7 @@ Or via the Claude Code plugin system:
 
 Claude will check your config, verify API keys are set, and walk you through any missing prerequisites before running the command.
 
-**Context-aware**: when a command needs inputs you didn't pass (app description, app name, brand color, tagline, keywords, etc.), the skill reads your project's `AiGuidelines/` folder first (`app-idea.md`, `prd.md`, `keywords.md`, `brand.md`), then `README.md`, then existing ASO metadata, and fills in what it finds — you're only prompted for things that aren't already written down somewhere in the project.
+**Context-aware**: when a command needs inputs you didn't pass (app description, app name, brand color, tagline, keywords, etc.), the skill reads your project's `AiGuidelines/` folder first (`app-idea.md`, `prd.md`, `keywords.md`, `brand.md`), then `README.md`, then existing ASO metadata, and fills in what it finds; you're only prompted for things that aren't already written down somewhere in the project.
 
 ## MCP server (Claude Code, Claude desktop, Codex, Gemini CLI)
 

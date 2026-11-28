@@ -17,8 +17,8 @@ Run from the project root (containing `MobileApp/`) or inside `MobileApp/` direc
 
 ## What it Creates
 
-- `Gemfile` — Ruby gem dependencies (fastlane)
-- `fastlane/Fastfile` — Build and upload lanes for Android (Play Store) and iOS (App Store)
+- `Gemfile`: Ruby gem dependencies (fastlane)
+- `fastlane/Fastfile`: Build and upload lanes for Android (Play Store) and iOS (App Store)
 
 If files already exist, they are skipped (not overwritten).
 

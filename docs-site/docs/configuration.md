@@ -34,7 +34,7 @@ kappmaker config adapty-defaults --init                  # Initialize from templ
 kappmaker config adapty-defaults --save ./config.json    # Save as global defaults
 ```
 
-`--init` is idempotent — running it against an existing defaults file backfills any missing arrays from the built-in template (e.g. `in_app_purchases` for ASC, or `products` / `paywalls` / `placements` for Adapty) so upgrades from earlier KAppMaker versions don't silently lose credit-pack support.
+`--init` is idempotent: running it against an existing defaults file backfills any missing arrays from the built-in template (e.g. `in_app_purchases` for ASC, or `products` / `paywalls` / `placements` for Adapty) so upgrades from earlier KAppMaker versions don't silently lose credit-pack support.
 
 ## Config Keys
 
@@ -44,15 +44,15 @@ kappmaker config adapty-defaults --save ./config.json    # Save as global defaul
 | `bundleIdPrefix` | Bundle/package ID prefix (e.g., `com.measify`) | `com.<appname>` |
 | `androidSdkPath` | Android SDK location | `~/Library/Android/sdk` |
 | `organization` | Organization for Fastlane signing | App name |
-| `falApiKey` | fal.ai API key | — |
-| `imgbbApiKey` | imgbb API key | — |
-| `openaiApiKey` | OpenAI API key (only for `--prompt` flows without `--spec`) | — |
-| `openaiModel` | OpenAI model for those flows (also `KAPPMAKER_OPENAI_MODEL`). `gpt-4.1` is deprecated by OpenAI and shuts down 2027-01-14 — set a current model here, or use `--spec` | `gpt-4.1` |
+| `falApiKey` | fal.ai API key | - |
+| `imgbbApiKey` | imgbb API key | - |
+| `openaiApiKey` | OpenAI API key (only for `--prompt` flows without `--spec`) | - |
+| `openaiModel` | OpenAI model for those flows (also `KAPPMAKER_OPENAI_MODEL`). `gpt-4.1` is deprecated by OpenAI and shuts down 2027-01-14: set a current model here, or use `--spec` | `gpt-4.1` |
 | `ascAuthName` | ASC keychain credential name | `KAppMaker` |
-| `ascKeyId` | App Store Connect API Key ID | — |
-| `ascIssuerId` | App Store Connect Issuer ID | — |
-| `ascPrivateKeyPath` | Path to `.p8` private key | — |
-| `appleId` | Apple ID email | — |
+| `ascKeyId` | App Store Connect API Key ID | - |
+| `ascIssuerId` | App Store Connect Issuer ID | - |
+| `ascPrivateKeyPath` | Path to `.p8` private key | - |
+| `appleId` | Apple ID email | - |
 | `googleServiceAccountPath` | Google Play service account JSON | `~/credentials/google-service-app-publisher.json` |
 | `playRegionsVersion` | Google Play `regionsVersion` for subscription / IAP writes (`--regions-version` wins) | `2026/01` |
 
@@ -69,10 +69,10 @@ Global defaults are merged as a base layer so shared settings (review contact, p
 
 For App Store Connect and Adapty, configuration is resolved by deep-merging layers (later overrides earlier):
 
-1. **Built-in template** — sensible defaults (age rating, privacy, encryption, subscriptions)
-2. **Global defaults** — shared settings across all your apps
-3. **Local config** (e.g., `./Assets/appstore-config.json`) — per-project overrides
-4. **Interactive prompts** — only for fields still empty
+1. **Built-in template**: sensible defaults (age rating, privacy, encryption, subscriptions)
+2. **Global defaults**: shared settings across all your apps
+3. **Local config** (e.g., `./Assets/appstore-config.json`): per-project overrides
+4. **Interactive prompts**: only for fields still empty
 
 ## Subscription Product ID Alignment
 
@@ -152,6 +152,6 @@ Default consumable in-app purchases (credit packs) ship in all three templates. 
 | Adapty `ios_product_id` / `android_product_id` | _same_ | `credit_pack_10_499_myapp` |
 | ASC `ref_name` | `{AppName} {LocalizedName} v1 ({price})` | `MyApp Basic Credit Pack v1 (4.99)` |
 
-**Default credit packs**: Basic — 10 credits / $4.99, Pro — 30 credits / $9.99, Ultimate — 80 credits / $19.99.
+**Default credit packs**: Basic (10 credits, $4.99), Pro (30 credits, $9.99), Ultimate (80 credits, $19.99).
 
 The Adapty template also adds a `Credits Paywall` (linking the three credit pack products) and a `Credits` placement (developer_id `credits_pack`). Fetch with `Adapty.getPaywall("credits_pack")`.

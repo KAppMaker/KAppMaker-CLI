@@ -5,7 +5,7 @@ title: Firebase Setup
 
 # Firebase Setup
 
-Five standalone subcommands matching steps 2–6 of [`kappmaker create`](/project-setup/create). Run them individually for partial flows (e.g. set up Firebase for an existing project, or refresh `google-services.json` in CI), or chain them together to replicate what `create` does.
+Five standalone subcommands matching steps 2 to 6 of [`kappmaker create`](/project-setup/create). Run them individually for partial flows (e.g. set up Firebase for an existing project, or refresh `google-services.json` in CI), or chain them together to replicate what `create` does.
 
 **Commands:**
 
@@ -48,7 +48,7 @@ kappmaker firebase login
 
 ## `firebase project`
 
-Creates the Firebase project. Idempotent — if the project already exists it skips creation.
+Creates the Firebase project. Idempotent: if the project already exists it skips creation.
 
 ```bash
 kappmaker firebase project --app-name MyApp                # derives project-id = myapp-app
@@ -61,13 +61,13 @@ kappmaker firebase project --project-id myapp-prod --display-name MyApp
 | `--display-name <name>` | Project display name | Defaults to `--project-id` or `--app-name` |
 | `--app-name <name>` | PascalCase app name; derives `project-id = <lowercase>-app` and `display-name = <name>` | Yes, unless explicit IDs are passed |
 
-When called from `create`, returns success/failure to the orchestrator — if creation fails, steps 4–6 are skipped with a warning.
+When called from `create`, returns success/failure to the orchestrator: if creation fails, steps 4 to 6 are skipped with a warning.
 
 ---
 
 ## `firebase apps`
 
-Creates an Android + iOS app under the project. Idempotent — reuses existing apps that match the expected display name instead of creating duplicates.
+Creates an Android + iOS app under the project. Idempotent: reuses existing apps that match the expected display name instead of creating duplicates.
 
 ```bash
 kappmaker firebase apps --project myapp-app --app-name MyApp --package-name com.example.myapp
@@ -121,11 +121,11 @@ kappmaker firebase configs --project myapp-app --app-name MyApp \
 
 When `--android-output` / `--ios-output` aren't given, the command probes:
 
-1. `MobileApp/androidApp/google-services.json` (AGP 9 layout) — picked if `MobileApp/androidApp/` exists
-2. `MobileApp/composeApp/google-services.json` (legacy KMP-as-application layout) — picked if `MobileApp/composeApp/` exists
-3. `Assets/google-services.json` — last-resort fallback
+1. `MobileApp/androidApp/google-services.json` (AGP 9 layout): picked if `MobileApp/androidApp/` exists
+2. `MobileApp/composeApp/google-services.json` (legacy KMP-as-application layout): picked if `MobileApp/composeApp/` exists
+3. `Assets/google-services.json`: last-resort fallback
 
-Same probe for iOS — `MobileApp/iosApp/iosApp/GoogleService-Info.plist` first, otherwise `Assets/GoogleService-Info.plist`.
+Same probe for iOS: `MobileApp/iosApp/iosApp/GoogleService-Info.plist` first, otherwise `Assets/GoogleService-Info.plist`.
 
 ### Package verification
 
@@ -153,4 +153,4 @@ kappmaker firebase auth-anonymous --project myapp-app
 kappmaker firebase configs --project myapp-app --app-name MyApp --package-name com.example.myapp
 ```
 
-Same as steps 2–6 of [`create`](/project-setup/create).
+Same as steps 2 to 6 of [`create`](/project-setup/create).

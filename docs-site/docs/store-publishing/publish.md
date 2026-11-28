@@ -27,13 +27,13 @@ Run from the project root (containing `MobileApp/`) or inside `MobileApp/` direc
 | `--track <name>` | Android Play Store track (internal/alpha/beta/production) | `production` |
 | `--upload-metadata` | Upload metadata (title, description) | `false` |
 | `--upload-screenshots` | Upload screenshots | `false` |
-| `--upload-images` | Upload images — icon, feature graphic (Android only) | `false` |
+| `--upload-images` | Upload images: icon, feature graphic (Android only) | `false` |
 | `--submit-for-review` | Submit for review after upload | `true` |
 
 ## Prerequisites
 
-- **Android:** Google Play service account JSON — see [Google Play Publisher setup](/guides/external-services#google-play-publisher)
-- **iOS:** App Store Connect API key — see [App Store Connect setup](/guides/external-services#app-store-connect-cli). The CLI generates the Fastlane-format publisher JSON automatically from your `ascKeyId`/`ascIssuerId`/`ascPrivateKeyPath` config.
+- **Android:** Google Play service account JSON; see [Google Play Publisher setup](/guides/external-services#google-play-publisher)
+- **iOS:** App Store Connect API key; see [App Store Connect setup](/guides/external-services#app-store-connect-cli). The CLI generates the Fastlane-format publisher JSON automatically from your `ascKeyId`/`ascIssuerId`/`ascPrivateKeyPath` config.
 
 :::tip
 Run [`fastlane configure`](/build-signing/fastlane-configure) first if you haven't set up Fastlane yet.

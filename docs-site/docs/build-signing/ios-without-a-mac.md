@@ -6,7 +6,7 @@ title: Ship iOS without a Mac
 # Ship iOS without a Mac
 
 Xcode only runs on macOS, so a Windows or Linux machine cannot compile an iOS app. That is the
-*only* part of shipping that needs Apple hardware — creating the App Store Connect record,
+*only* part of shipping that needs Apple hardware: creating the App Store Connect record,
 subscriptions, pricing, metadata and screenshots all happen over the API and work anywhere.
 
 `kappmaker ios-ci` closes that one gap by renting a Mac for the twenty minutes the compile takes: a
@@ -16,10 +16,10 @@ GitHub-hosted macOS runner builds your app, signs it, and uploads it to TestFlig
 
 ## What you need first
 
-- A GitHub repository for your app, and the GitHub CLI logged in — `gh auth login`
+- A GitHub repository for your app, and the GitHub CLI logged in: `gh auth login`
 - An App Store Connect API key in your kappmaker config (`ascKeyId`, `ascIssuerId`,
-  `ascPrivateKeyPath`) — the same key `create-appstore-app` uses
-- The App Store Connect app record already created — `kappmaker create-appstore-app`
+  `ascPrivateKeyPath`): the same key `create-appstore-app` uses
+- The App Store Connect app record already created: `kappmaker create-appstore-app`
 
 ## One-time setup
 
@@ -34,7 +34,7 @@ This reads your bundle ID and repo, then:
 1. generates a password that encrypts your signing certificates, and stores it on your machine
 2. pushes your App Store Connect key and that password into your repo's GitHub **secrets**,
    along with any build-time keys already filled in locally
-3. checks the release workflow — your project already ships it, so an up-to-date app is left
+3. checks the release workflow: your project already ships it, so an up-to-date app is left
    alone; only a project predating the current pipeline gets it updated
 
 It is safe to re-run.
@@ -101,14 +101,14 @@ So before shipping a new build of the same app, run:
 kappmaker update-version
 ```
 
-then commit and push. Same step you would take for a local release — the pipeline deliberately does
+then commit and push. Same step you would take for a local release: the pipeline deliberately does
 not invent numbers for you, so what ships always matches what is in git.
 
 ## What it costs
 
 GitHub gives every account a monthly allowance of Actions minutes, but macOS minutes are charged at
 roughly ten times the Linux rate. In practice that is about **ten iOS builds a month on a free
-plan** — plenty for a normal release cadence.
+plan**: plenty for a normal release cadence.
 
 The workflow only runs when you ask it to (there is no build-on-every-push trigger) precisely so a
 busy week of commits cannot quietly drain your allowance.
@@ -123,10 +123,10 @@ Two different things are involved, and they have different lifetimes:
 | **Provisioning profile** | one **app** | Binds that app's bundle ID to the certificate. |
 
 Because the certificate is account-wide, all your apps share **one private repo** for signing
-material — by default `<your-owner>/apple-certificates`, created automatically. Your first app
+material: by default `<your-owner>/apple-certificates`, created automatically. Your first app
 creates the certificate; every app after that finds it and adds only its own profile.
 
-Give each app its own store instead and you would mint a fresh certificate per app — and your
+Give each app its own store instead and you would mint a fresh certificate per app: and your
 third app would fail permanently, because Apple would not issue another.
 
 ```bash
@@ -135,11 +135,11 @@ kappmaker ios-ci init --certs-repo my-org/apple-certificates   # or let it defau
 
 The choice is remembered (`iosCertsRepo`), so later apps reuse it without the flag.
 
-Everything lives on the repo's `main` branch — fastlane would otherwise use `master` and leave the
+Everything lives on the repo's `main` branch: fastlane would otherwise use `master` and leave the
 store split across two branches.
 
 **The repo is private**, so your certificates are never public regardless of whether your app repos
-are. Reading it from a build needs a personal access token with repo read access — GitHub's built-in
+are. Reading it from a build needs a personal access token with repo read access: GitHub's built-in
 token only reaches the repo it is running in:
 
 ```bash
@@ -160,8 +160,8 @@ gh variable delete MATCH_READONLY              # back to read-only
 ```
 
 If you ever see *"Could not create another Distribution certificate"*, your account is already at the
-limit — revoke one you no longer use in the Apple Developer portal.
+limit: revoke one you no longer use in the Apple Developer portal.
 
 **Keep your `MATCH_PASSWORD`.** It encrypts the store, and every app sharing that store uses the same
-one. Lose it and the stored certificates can never be decrypted — you would have to reset the repo
+one. Lose it and the stored certificates can never be decrypted: you would have to reset the repo
 and burn your other certificate slot.

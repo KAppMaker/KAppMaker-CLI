@@ -29,5 +29,5 @@ Run from the project root (containing `MobileApp/`) or inside `MobileApp/` direc
 
 Default location: `distribution/android/keystore/` inside MobileApp.
 
-- `keystore.jks` — the signing keystore
-- `keystore.properties` — password, alias, and store file path
+- `keystore.jks`: the signing keystore
+- `keystore.properties`: password, alias, and store file path

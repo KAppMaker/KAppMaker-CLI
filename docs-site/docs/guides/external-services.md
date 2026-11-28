@@ -7,7 +7,7 @@ title: External Services & API Keys
 
 The CLI integrates with several external services for AI image generation, app store management, and subscription setup. All keys are stored locally at `~/.config/kappmaker/config.json`.
 
-## fal.ai — AI Image Generation
+## fal.ai: AI Image Generation
 
 **Used for:** Logo generation, background removal, image enhancement, screenshot translation, and screenshot generation.
 
@@ -18,11 +18,11 @@ The CLI integrates with several external services for AI image generation, app s
    ```bash
    kappmaker config set falApiKey <your-key>
    ```
-   Or skip this — the CLI will prompt you the first time you run a command that needs it.
+   Or skip this: the CLI will prompt you the first time you run a command that needs it.
 
 ---
 
-## ImgBB — Image Hosting
+## ImgBB: Image Hosting
 
 **Used for:** Temporarily hosting reference images when generating or translating screenshots (fal.ai needs a public URL to process images).
 
@@ -36,9 +36,9 @@ The CLI integrates with several external services for AI image generation, app s
 
 ---
 
-## OpenAI — Prompt Generation
+## OpenAI: Prompt Generation
 
-**Used for:** Generating detailed image specifications from a short app description (uses GPT-4.1). Only needed for the `--prompt` flows of `generate-screenshots` and `generate-feature-image` — **optional entirely** if you pass a pre-authored spec via `--spec` (see `kappmaker spec-template`), which is what the Claude Code skills do.
+**Used for:** Generating detailed image specifications from a short app description (uses GPT-4.1). Only needed for the `--prompt` flows of `generate-screenshots` and `generate-feature-image`: **optional entirely** if you pass a pre-authored spec via `--spec` (see `kappmaker spec-template`), which is what the Claude Code skills do.
 
 **How to get your key:**
 1. Sign up at [platform.openai.com](https://platform.openai.com)
@@ -67,12 +67,12 @@ The CLI integrates with several external services for AI image generation, app s
    Or run `kappmaker config appstore-defaults --init` for interactive setup.
 
 :::note
-`kappmaker publish --platform ios` uses `ascKeyId`, `ascIssuerId`, and `ascPrivateKeyPath` to automatically generate the Fastlane-format publisher JSON — no separate credentials needed.
+`kappmaker publish --platform ios` uses `ascKeyId`, `ascIssuerId`, and `ascPrivateKeyPath` to automatically generate the Fastlane-format publisher JSON: no separate credentials needed.
 :::
 
 ---
 
-## Adapty CLI — Subscription Management
+## Adapty CLI: Subscription Management
 
 **Used for:** Setting up in-app subscription products, paywalls, and placements across iOS and Android via Adapty's backend.
 
@@ -83,7 +83,7 @@ The CLI integrates with several external services for AI image generation, app s
 
 ---
 
-## Firebase CLI — Backend Setup
+## Firebase CLI: Backend Setup
 
 **Used for:** Creating Firebase projects, registering Android/iOS apps, downloading SDK config files, and enabling anonymous authentication.
 
@@ -99,7 +99,7 @@ The CLI integrates with several external services for AI image generation, app s
 - Building and uploading Android AABs via `kappmaker publish --platform android` (Fastlane)
 - Configuring store listings, subscriptions, in-app products, and data safety via `kappmaker gpc ...` (direct Publisher API)
 
-Both flows share the same service account JSON key — set it once, use it everywhere.
+Both flows share the same service account JSON key: set it once, use it everywhere.
 
 **How to set up:**
 
@@ -115,12 +115,12 @@ Both flows share the same service account JSON key — set it once, use it every
    ```
 
 :::note
-Google Play does not allow creating new apps via any public API — you must create the app manually once in [Play Console](https://play.google.com/console/u/0/developers) before `kappmaker gpc` can configure it.
+Google Play does not allow creating new apps via any public API: you must create the app manually once in [Play Console](https://play.google.com/console/u/0/developers) before `kappmaker gpc` can configure it.
 :::
 
 ---
 
-## App Store Publisher — iOS Store Uploads
+## App Store Publisher: iOS Store Uploads
 
 **Used for:** Building and uploading iOS IPAs to App Store Connect via `kappmaker publish --platform ios`.
 

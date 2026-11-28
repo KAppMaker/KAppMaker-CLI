@@ -18,7 +18,7 @@ This is the image counterpart to [Metadata Localization](metadata-localization.m
 ## Flow
 
 1. Combines source screenshots into a 2×4 grid (configurable rows / cols).
-2. Submits the grid to fal.ai for every target locale **in parallel** — the request runs concurrently across locales, not sequentially.
+2. Submits the grid to fal.ai for every target locale **in parallel**: the request runs concurrently across locales, not sequentially.
 3. Downloads the translated grids and splits each one back into individual screenshots.
 4. Writes the results to the Fastlane iOS and Android directory structure under `MobileApp/distribution/`.
 
@@ -49,8 +49,8 @@ If the source directory is somewhere inside a `distribution` tree, the distribut
 
 ## Requirements
 
-- `falApiKey` — see [External Services](../guides/external-services.md). Prompted on first use if not set.
-- `imgbbApiKey` — used to upload the source grid for fal.ai to fetch. Prompted on first use if not set.
+- `falApiKey`: see [External Services](../guides/external-services.md). Prompted on first use if not set.
+- `imgbbApiKey`: used to upload the source grid for fal.ai to fetch. Prompted on first use if not set.
 
 ## Supported locales (48 total)
 
@@ -59,9 +59,9 @@ If the source directory is somewhere inside a `distribution` tree, the distribut
 
 | Play Store | App Store | | Play Store | App Store |
 |------------|-----------|---|------------|-----------|
-| `ar` | `ar-SA` | | `lt-LT` | — |
-| `bg-BG` | — | | `lv-LV` | — |
-| `bn-BD` | — | | `ms` | `ms` |
+| `ar` | `ar-SA` | | `lt-LT` | - |
+| `bg-BG` | - | | `lv-LV` | - |
+| `bn-BD` | - | | `ms` | `ms` |
 | `ca` | `ca` | | `nl-NL` | `nl-NL` |
 | `cs-CZ` | `cs` | | `no-NO` | `no` |
 | `da-DK` | `da` | | `pl-PL` | `pl` |
@@ -70,12 +70,12 @@ If the source directory is somewhere inside a `distribution` tree, the distribut
 | `en-AU` | `en-AU` | | `ro` | `ro` |
 | `en-GB` | `en-GB` | | `ru-RU` | `ru` |
 | `es-ES` | `es-ES` | | `sk` | `sk` |
-| `es-419` | `es-MX` | | `sl-SI` | — |
-| `et-EE` | — | | `sr` | — |
+| `es-419` | `es-MX` | | `sl-SI` | - |
+| `et-EE` | - | | `sr` | - |
 | `fi-FI` | `fi` | | `sv-SE` | `sv` |
-| `fil` | — | | `sw` | — |
-| `fr-FR` | `fr-FR` | | `ta-IN` | — |
-| `fr-CA` | `fr-CA` | | `te-IN` | — |
+| `fil` | - | | `sw` | - |
+| `fr-FR` | `fr-FR` | | `ta-IN` | - |
+| `fr-CA` | `fr-CA` | | `te-IN` | - |
 | `he-IL` | `he` | | `th` | `th` |
 | `hi-IN` | `hi` | | `tr-TR` | `tr` |
 | `hr` | `hr` | | `uk` | `uk` |
@@ -85,12 +85,12 @@ If the source directory is somewhere inside a `distribution` tree, the distribut
 | `ja-JP` | `ja` | | | |
 | `ko-KR` | `ko` | | | |
 
-Locales marked with **—** are Android-only (no App Store equivalent).
+Locales marked with **: ** are Android-only (no App Store equivalent).
 
 </details>
 
 ## See also
 
-- [Metadata Localization](metadata-localization.md) — the text-side ASO companion. Generate localized `name` / `keywords` / `description` files for the same locales you translate screenshots into.
-- [Screenshot Generation](../ai-image-tools/screenshots.md) — generate the source screenshots from a text prompt before translating them.
-- [ASO Guidelines](guidelines.md) — character limits and ranking rules that apply to your text metadata.
+- [Metadata Localization](metadata-localization.md): the text-side ASO companion. Generate localized `name` / `keywords` / `description` files for the same locales you translate screenshots into.
+- [Screenshot Generation](../ai-image-tools/screenshots.md): generate the source screenshots from a text prompt before translating them.
+- [ASO Guidelines](guidelines.md): character limits and ranking rules that apply to your text metadata.

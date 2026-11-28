@@ -13,7 +13,7 @@ Set up RevenueCat entitlements, products, offerings and packages for your app.
 kappmaker revenuecat setup --api-key sk_...
 ```
 
-RevenueCat is one of two supported subscription providers — the other is
+RevenueCat is one of two supported subscription providers: the other is
 [Adapty](./adapty-setup.md). A project normally uses one of them; the quick-add commands detect
 which by looking for `Assets/revenuecat-config.json` or `Assets/adapty-config.json`.
 
@@ -26,7 +26,7 @@ In the RevenueCat dashboard: **Project settings → API keys → V2**, and creat
 (`sk_...`). A v1 key will not work.
 
 **Keys are per-project.** A v2 key is created inside one RevenueCat project and can only see that
-project — so each app needs its own key. Pass it once and it is remembered for that app:
+project: so each app needs its own key. Pass it once and it is remembered for that app:
 
 ```bash
 cd ~/projects/MyApp-All      # the folder containing Assets/ and MobileApp/
@@ -52,7 +52,7 @@ Seven idempotent steps:
 1. validate the key
 2. load `Assets/revenuecat-config.json` (created from a template if missing)
 3. find or create the App Store and Play Store apps
-4. create entitlements — `premium` and `credit_pack_access`
+4. create entitlements: `premium` and `credit_pack_access`
 5. connect your store products
 6. attach products to their entitlements
 7. create the `default` and `credits_pack` offerings, with a package per product
@@ -68,13 +68,13 @@ One RevenueCat-specific rule: **Play subscriptions are connected as `productId:b
 example `myapp.premium.weekly.v1:autorenew-weekly-699-v1`. RevenueCat rejects the bare subscription
 ID as ambiguous. iOS products and Play one-time products use their plain IDs.
 
-Packages use RevenueCat's conventional keys — `$rc_weekly`, `$rc_monthly`, `$rc_annual` — and credit
+Packages use RevenueCat's conventional keys, `$rc_weekly`, `$rc_monthly`, `$rc_annual`, and credit
 packs get `credit_pack_<credits>`. The credits offering is called `credits_pack`, matching Adapty's
 placement name, so your app code uses one constant whichever provider you pick.
 
 ## Adding a product later
 
-Don't re-run the full setup for one product — the quick-add commands push to the stores **and**
+Don't re-run the full setup for one product: the quick-add commands push to the stores **and**
 mirror into your provider:
 
 ```bash
@@ -87,10 +87,10 @@ run both providers. See [Quick Add](./quick-add.md).
 
 ## Finish in the dashboard
 
-RevenueCat cannot validate purchases until the store credentials are uploaded — these steps are
+RevenueCat cannot validate purchases until the store credentials are uploaded: these steps are
 dashboard-only, and the command prints them as a checklist:
 
-- **App Store Connect API key** — the same `.p8` / Key ID / Issuer ID used by `create-appstore-app`
-- **Play service credentials** — the same service-account JSON used by `gpc setup`
-- **SDK keys** — copy each app's public key (`appl_...` / `goog_...`) into your mobile app
-- **Current offering** — mark `default` as current if it isn't already
+- **App Store Connect API key**: the same `.p8` / Key ID / Issuer ID used by `create-appstore-app`
+- **Play service credentials**: the same service-account JSON used by `gpc setup`
+- **SDK keys**: copy each app's public key (`appl_...` / `goog_...`) into your mobile app
+- **Current offering**: mark `default` as current if it isn't already

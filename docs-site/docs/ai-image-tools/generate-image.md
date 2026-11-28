@@ -5,7 +5,7 @@ title: AI Image Generation
 
 # AI Image Generation
 
-Generate arbitrary images using fal.ai's nano-banana-2 model. A generic wrapper — use this any time you need a one-off image without the logo-grid selection flow.
+Generate arbitrary images using fal.ai's nano-banana-2 model. A generic wrapper: use this any time you need a one-off image without the logo-grid selection flow.
 
 **Command:** `kappmaker generate-image`
 
@@ -19,7 +19,7 @@ kappmaker generate-image --prompt "Put this logo on a black t-shirt" --reference
 ## Better results with a JSON spec (`--spec`)
 
 For anything with brand, layout or mood requirements, a structured JSON spec steers the model
-noticeably better than a prose prompt — it pins down subject, composition, palette, lighting and
+noticeably better than a prose prompt: it pins down subject, composition, palette, lighting and
 hard constraints separately, and iterating means editing one field instead of rewriting a sentence:
 
 ```bash
@@ -29,20 +29,20 @@ kappmaker generate-image --spec Assets/image-spec.json --aspect-ratio 16:9
 ```
 
 The skeleton's `_instructions` key explains each field and is stripped before generation. Any single
-JSON object works — the template is a baseline, not a rigid schema.
+JSON object works: the template is a baseline, not a rigid schema.
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--prompt <text>` | Text description of the image (required unless `--spec` is given) | — |
-| `--spec <path>` | Pre-authored JSON spec used verbatim as the structured prompt | — |
+| `--prompt <text>` | Text description of the image (required unless `--spec` is given) | - |
+| `--spec <path>` | Pre-authored JSON spec used verbatim as the structured prompt | - |
 | `--output <path>` | Output file or directory | `Assets/generated.png` |
-| `--num-images <n>` | Number of images to generate (1–8) | `1` |
+| `--num-images <n>` | Number of images to generate (1 to 8) | `1` |
 | `--aspect-ratio <ratio>` | `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`, `21:9`, `9:21`, `auto` | `1:1` |
 | `--resolution <res>` | `1K`, `2K`, `4K` | `2K` |
 | `--output-format <fmt>` | `png`, `jpg`, `webp` | `png` |
-| `--reference <paths...>` | Reference images — file paths, directories, or HTTP URLs (edit mode, max 10) | — |
+| `--reference <paths...>` | Reference images: file paths, directories, or HTTP URLs (edit mode, max 10) | - |
 
 ## Output path behavior
 
@@ -56,9 +56,9 @@ Passing `--reference` switches the endpoint from `nano-banana-2` (text-to-image)
 
 Each reference entry can be any of:
 
-- **A file path** — `Assets/logo.png`
-- **A directory** — all `.png` / `.jpg` / `.jpeg` / `.webp` inside are picked up, sorted alphabetically, non-recursive
-- **An HTTP(S) URL** — used as-is without re-upload
+- **A file path**: `Assets/logo.png`
+- **A directory**: all `.png` / `.jpg` / `.jpeg` / `.webp` inside are picked up, sorted alphabetically, non-recursive
+- **An HTTP(S) URL**: used as-is without re-upload
 
 Up to **10** references are used (extras are dropped with a warning). Multiple entries can be mixed and matched:
 
@@ -82,7 +82,7 @@ kappmaker generate-image \
 | `imgbbApiKey` configured | Uploaded to imgbb; the resulting public URL is passed to fal.ai |
 | `imgbbApiKey` not set | Read locally and sent inline as a base64 data URI |
 
-Data URIs work fine for small images but can fail on very large ones — configure an imgbb key for more reliable large-image handling:
+Data URIs work fine for small images but can fail on very large ones: configure an imgbb key for more reliable large-image handling:
 
 ```bash
 kappmaker config set imgbbApiKey <your-key>
