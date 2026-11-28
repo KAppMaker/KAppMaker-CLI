@@ -159,7 +159,8 @@ test('secrets go in on a one-time local page (URL elicitation), never a form or 
   });
   const inst = await call('army_install_server', { ...box, confirm: true });
   assert.equal(inst.isError, false, inst.body);
-  assert.match(ssh.at(-1)!.stdin, /'--code' 'ABCD-EFGH-JKLM'/);
+  assert.match(ssh.at(-1)!.stdin, /KAPPMAKER_INSTALL_CODE='ABCD-EFGH-JKLM'; export KAPPMAKER_INSTALL_CODE/);
+  assert.doesNotMatch(ssh.at(-1)!.stdin, /'--code'/, 'the install code is never a command-line argument');
 
   const add = await call('army_add_worker', { ...box, name: 'main', confirm: true });
   assert.equal(add.isError, false, add.body);

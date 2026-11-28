@@ -58,11 +58,10 @@ export function judge(p: Probe, c: Conn): { lines: string[]; blockers: string[];
   return { lines, blockers, installed };
 }
 
-/** The installer run: the verified install.sh and (optionally) the licence key go in on stdin, never as arguments. */
+/** The installer run: the verified install.sh, the licence key and the install code go in on stdin, never as arguments (so they never show in the server's process list). */
 export function installScript(o: { script: string; key?: string; keyFile?: string; code?: string; api?: string; sudo: 'limited' | 'full'; worker: string; mentor: boolean; kitOnly?: boolean; extra?: string[] }): string {
   if (o.script.includes('KAPPMAKER_INSTALLER_EOF')) throw new Error('installer text contains the stream marker');
   const args = ['--server', '--yes', '--no-start', '--sudo', o.sudo, '--worker', o.worker];
-  if (o.code) args.push('--code', o.code);
   if (o.kitOnly) args.push('--no-toolchain', '--no-voice', '--no-claude-mem');
   if (o.extra) args.push(...o.extra);
   return [
@@ -71,8 +70,9 @@ export function installScript(o: { script: string; key?: string; keyFile?: strin
     ...(o.key ? [`KAPPMAKER_LICENSE_KEY=${shq(o.key)}; export KAPPMAKER_LICENSE_KEY`] : []),
     // Detached runs (army_setup): the key waits in a root-only file, read and deleted before the installer starts.
     ...(o.keyFile ? [`KAPPMAKER_LICENSE_KEY="$(cat ${shq(o.keyFile)} 2>/dev/null)"; rm -f ${shq(o.keyFile)}; export KAPPMAKER_LICENSE_KEY`] : []),
+    ...(o.code ? [`KAPPMAKER_INSTALL_CODE=${shq(o.code)}; export KAPPMAKER_INSTALL_CODE`] : []),
     ...(o.api ? [`KAPPMAKER_API=${shq(o.api)}; export KAPPMAKER_API`] : []),
-    `bash "$d/install.sh" ${args.map(shq).join(' ')}`, 'rc=$?', 'unset KAPPMAKER_LICENSE_KEY',
+    `bash "$d/install.sh" ${args.map(shq).join(' ')}`, 'rc=$?', 'unset KAPPMAKER_LICENSE_KEY KAPPMAKER_INSTALL_CODE',
     ...(o.mentor ? [
       `if [ "$rc" = 0 ]; then echo "== mentor pack"; runuser -l ${WORKER_USER} -c 'export PATH="$HOME/.army/bin:$PATH"; kappmaker-army mentor install' || echo "mentor pack: not installed yet (run kappmaker-army mentor install on the server)"; fi`,
     ] : []),

@@ -127,7 +127,8 @@ test('one sentence is the go-ahead: one page (code + bot token), install, sign-i
   assert.equal(pages.length, 1, 'one page for the install code and the bot token');
   const inst = srv.sent.find((x) => x.stdin.includes('KAPPMAKER_SETUP_EOF'))!;
   assert.match(inst.stdin, /nohup \$SETSID bash/, 'install runs detached');
-  assert.match(inst.stdin, /'--code' 'ABCD-EFGH-JKLM'/);
+  assert.match(inst.stdin, /KAPPMAKER_INSTALL_CODE='ABCD-EFGH-JKLM'; export KAPPMAKER_INSTALL_CODE/);
+  assert.doesNotMatch(inst.stdin, /'--code'/, 'the install code is never a command-line argument');
   assert.ok(!inst.stdin.includes(TOKEN), 'the bot token is held until its step, not sent with the install');
   assert.doesNotMatch(inst.remote, /ABCD|install/, 'nothing secret on the ssh command line');
 
