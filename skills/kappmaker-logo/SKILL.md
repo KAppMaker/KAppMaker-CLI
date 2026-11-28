@@ -1,18 +1,18 @@
 ---
 name: kappmaker-logo
-description: Generate the app's logo with AI — the brand mark used for icons, splash and store art. Use when the user asks for a logo or brand mark. For any other picture use kappmaker-image; for platform icon sets use kappmaker-app-icons.
+description: Generate the app's logo with AI (the brand mark used for icons, splash and store art). Use when the user asks for a logo or brand mark. For any other picture use kappmaker-image; for platform icon sets use kappmaker-app-icons.
 ---
 
-# KAppMaker — Logo
+# KAppMaker: Logo
 
 ## Before running any command
 
-1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
+1. **Prerequisites**: `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+2. **Read `AiGuidelines/` first**: the PRD, positioning and UI spec already answer most questions.
 
 
-### create-logo — AI Logo Generation
+### create-logo: AI Logo Generation
 
 **Syntax**: `kappmaker create-logo [--prompt <text>] [--spec <spec.json>] [--output <path>]`
 
@@ -20,11 +20,11 @@ description: Generate the app's logo with AI — the brand mark used for icons, 
 
 **Prefer authoring the spec yourself** when you want brand-tailored variations: run
 `kappmaker spec-template logo --output Assets/logo-spec.json` to get the canonical logo-grid spec
-JSON (the proven prompt structure — grid rules, visual language, 16 style-theme slots), fill it from
+JSON (the proven prompt structure: grid rules, visual language, 16 style-theme slots), fill it from
 `AiGuidelines/` (brand color, mood, audience; customize the 16 `style_themes`), then run
 `kappmaker create-logo --spec Assets/logo-spec.json`. The skeleton is a proven baseline, not a
-straitjacket — restructure or enrich it when you can do better, and use a user-supplied spec as-is.
-ONE fixed rule: the spec MUST keep the 4×4 grid — the CLI slices the result into 16 cells. Plain
+straitjacket: restructure or enrich it when you can do better, and use a user-supplied spec as-is.
+ONE fixed rule: the spec MUST keep the 4×4 grid; the CLI slices the result into 16 cells. Plain
 `--prompt` uses the built-in generic template instead.
 
 **What it does**:
@@ -42,4 +42,4 @@ ONE fixed rule: the spec MUST keep the 4×4 grid — the CLI slices the result i
 ## Where this sits in the flow
 
 - **Before this:** **kappmaker-new-app**.
-- **After this:** **kappmaker-app-icons** — turn the finished logo into iOS and Android icon sets.
+- **After this:** **kappmaker-app-icons**: turn the finished logo into iOS and Android icon sets.

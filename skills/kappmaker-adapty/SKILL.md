@@ -1,18 +1,18 @@
 ---
 name: kappmaker-adapty
-description: Configure Adapty for a KAppMaker app — the subscription provider dashboard, products, paywalls and SDK keys. Use when the user mentions Adapty, or asks who handles entitlements, subscription state or paywall delivery and their project uses Adapty. For RevenueCat use kappmaker-revenuecat; to create the store products themselves use kappmaker-monetization.
+description: Configure Adapty for a KAppMaker app (the subscription provider dashboard, products, paywalls and SDK keys). Use when the user mentions Adapty, or asks who handles entitlements, subscription state or paywall delivery and their project uses Adapty. For RevenueCat use kappmaker-revenuecat; to create the store products themselves use kappmaker-monetization.
 ---
 
-# KAppMaker — Adapty
+# KAppMaker: Adapty
 
 ## Before running any command
 
-1. **Prerequisites** — `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
+1. **Prerequisites**: `kappmaker --version` (install: `npm i -g kappmaker`). If a credential is
    missing the CLI says so; re-run `kappmaker config init`.
-2. **Read `AiGuidelines/` first** — the PRD, positioning and UI spec already answer most questions.
+2. **Read `AiGuidelines/` first**: the PRD, positioning and UI spec already answer most questions.
 
 
-### adapty setup — Subscription Management
+### adapty setup: Subscription Management
 
 **Syntax**: `kappmaker adapty setup [--config <path>] [--yes]`
 
@@ -37,7 +37,7 @@ For credit pack IAPs (entries with `credits` field): `ios_product_id` = `android
 
 **Adapty CLI consumable-period workaround**: the Adapty CLI v0.1.5 hardcodes a period whitelist that excludes `consumable`. KAppMaker bypasses this for credit packs by hitting Adapty's REST API directly (using the auth token cached at `~/.config/adapty/config.json` or `ADAPTY_TOKEN` env var). Subscriptions and lifetime products still go through the CLI. No user-visible difference; just a transparent fallback.
 
-**Prices are not developer-set in Adapty**: the `price` field in `Assets/adapty-config.json` only drives ID generation (and mirrors into ASC/GPC). Adapty's developer API explicitly strips price fields from product creation — verified via OPTIONS metadata ("Strips response to plan-specified fields (id, title, vendor_products)"). Prices appear in the Adapty dashboard only after the user connects App Store Connect and Google Play integrations there (dashboard-only step; not exposed via CLI/API). When users complain that prices are missing in Adapty, point them to: Adapty dashboard → Settings → Integrations → connect ASC (paste the same `.p8` / Key ID / Issuer ID they used for `kappmaker create-appstore-app`) and Google Play (upload the same service-account JSON used by `kappmaker gpc setup`). The mobile Adapty SDK already shows correct prices in-app — it fetches them from native store APIs at runtime regardless of dashboard state.
+**Prices are not developer-set in Adapty**: the `price` field in `Assets/adapty-config.json` only drives ID generation (and mirrors into ASC/GPC). Adapty's developer API explicitly strips price fields from product creation: verified via OPTIONS metadata ("Strips response to plan-specified fields (id, title, vendor_products)"). Prices appear in the Adapty dashboard only after the user connects App Store Connect and Google Play integrations there (dashboard-only step; not exposed via CLI/API). When users complain that prices are missing in Adapty, point them to: Adapty dashboard → Settings → Integrations → connect ASC (paste the same `.p8` / Key ID / Issuer ID they used for `kappmaker create-appstore-app`) and Google Play (upload the same service-account JSON used by `kappmaker gpc setup`). The mobile Adapty SDK already shows correct prices in-app: it fetches them from native store APIs at runtime regardless of dashboard state.
 
 **Multi-access-level config shape**: `access_levels: [...]` (plural) replaces the legacy single `access_level`. Each product has an `access_level_sdk_id` field linking it to one of the access levels. Existing configs with the legacy field auto-migrate on load.
 
@@ -51,5 +51,5 @@ For credit pack IAPs (entries with `credits` field): `ios_product_id` = `android
 
 ## Where this sits in the flow
 
-- **Before this:** **kappmaker-monetization** — create the store products first; Adapty references them.
+- **Before this:** **kappmaker-monetization**: create the store products first; Adapty references them.
 - **After this:** Paywall work in the app itself.
