@@ -61,13 +61,13 @@ export async function generateIosIcons(options: GenerateIosIconsOptions): Promis
 
   if (width < 1024 || height < 1024) {
     logger.warn(
-      `Source image is ${width}×${height} — recommended minimum is 1024×1024. ` +
+      `Source image is ${width}×${height}: recommended minimum is 1024×1024. ` +
       `Sharp will upscale, which may produce blurry icons.`,
     );
   }
   if (width !== height) {
     logger.warn(
-      `Source image is not square (${width}×${height}) — it will be center-cropped to a square before resizing.`,
+      `Source image is not square (${width}×${height}): it will be center-cropped to a square before resizing.`,
     );
   }
 

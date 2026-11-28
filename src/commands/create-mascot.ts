@@ -46,7 +46,7 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
   let selection: GridSelectionResult | null =
     options.choose && (await fs.pathExists(gridPath)) ? { index: options.choose } : null;
   if (options.choose && selection === null) {
-    logger.fatal(`--choose needs an existing grid at ${gridPath} — run with --grid-only first.`);
+    logger.fatal(`--choose needs an existing grid at ${gridPath}: run with --grid-only first.`);
     process.exit(1);
   }
 
@@ -54,7 +54,7 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
     logger.step(1, 4, 'Generating mascot concept grid (16 variations)');
     const queue = await fal.submitGeneration(config.falApiKey, variationPrompt);
     await fal.pollUntilComplete(config.falApiKey, queue.status_url, {
-      label: 'Generating mascots — this usually takes 1–2 minutes',
+      label: 'Generating mascots (usually takes 1 to 2 minutes)',
     });
     const imageUrl = await fal.fetchResult(config.falApiKey, queue.response_url);
     await fal.downloadImage(imageUrl, gridPath);
@@ -123,7 +123,7 @@ export async function createMascot(options: CreateMascotOptions): Promise<void> 
     aspectRatio: '1:1',
   });
   await fal.pollUntilComplete(config.falApiKey, statesQueue.status_url, {
-    label: 'Generating states — this usually takes 1–2 minutes',
+    label: 'Generating states (usually takes 1 to 2 minutes)',
   });
   const statesUrl = await fal.fetchResult(config.falApiKey, statesQueue.response_url);
   const statesGridPath = path.join(outDir, 'mascot_states_grid.png');

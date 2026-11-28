@@ -58,7 +58,7 @@ export async function revenuecatSetup(options: CreateRevenueCatOptions): Promise
   await rc.requireApiKey(config.app.bundle_id);
   const projects = await rc.listProjects();
   if (projects.length === 0) {
-    logger.fatal('This API key can see no RevenueCat project — it may be revoked or a v1 key.');
+    logger.fatal('This API key can see no RevenueCat project: it may be revoked or a v1 key.');
     process.exit(1);
   }
 
@@ -83,7 +83,7 @@ export async function revenuecatSetup(options: CreateRevenueCatOptions): Promise
     config.project_id = projectId;
   } else if (!projects.some((p) => p.id === projectId)) {
     logger.fatal(`This API key belongs to project ${projects[0].id}, not ${projectId} from the config.`);
-    logger.info('RevenueCat keys are per-project — pass the key created inside this app\'s project.');
+    logger.info('RevenueCat keys are per-project: pass the key created inside this app\'s project.');
     process.exit(1);
   }
 
@@ -113,7 +113,7 @@ export async function revenuecatSetup(options: CreateRevenueCatOptions): Promise
   }
   console.log(`  ${chalk.cyan('Offerings:')}`);
   for (const offering of config.offerings) {
-    console.log(`    ${chalk.gray('•')} ${offering.display_name} (${offering.identifier}) — ${offering.product_titles.length} package(s)`);
+    console.log(`    ${chalk.gray('•')} ${offering.display_name} (${offering.identifier}): ${offering.product_titles.length} package(s)`);
   }
   console.log('');
   console.log(chalk.gray('  Edit the config file to change any values before continuing.'));
@@ -227,7 +227,7 @@ export async function revenuecatSetup(options: CreateRevenueCatOptions): Promise
   for (const [lookupKey, productIds] of rcProductIdsByEntitlement) {
     const entitlementId = entitlementIdByKey.get(lookupKey);
     if (!entitlementId) {
-      logger.warn(`No entitlement "${lookupKey}" — skipping ${productIds.length} product attachment(s).`);
+      logger.warn(`No entitlement "${lookupKey}": skipping ${productIds.length} product attachment(s).`);
       continue;
     }
     try {
@@ -297,10 +297,10 @@ function printPostSetupChecklist(projectId: string): void {
   console.log('');
   console.log(chalk.bold('  Finish in the RevenueCat dashboard (one-time, dashboard-only):'));
   console.log('');
-  console.log(`    ${chalk.gray('☐')} ${chalk.bold('App Store Connect API key')} — same .p8 / Key ID / Issuer ID as ${chalk.cyan('kappmaker create-appstore-app')} (App settings → App Store Connect API)`);
-  console.log(`    ${chalk.gray('☐')} ${chalk.bold('Play service credentials')} — same service-account JSON as ${chalk.cyan('kappmaker gpc setup')} (App settings → Service credentials)`);
-  console.log(`    ${chalk.gray('☐')} ${chalk.bold('SDK API keys')} — copy each app's public key (appl_… / goog_…) into the mobile app config`);
-  console.log(`    ${chalk.gray('☐')} ${chalk.bold('Current offering')} — mark "default" as current if it isn't already`);
+  console.log(`    ${chalk.gray('☐')} ${chalk.bold('App Store Connect API key')}: same .p8 / Key ID / Issuer ID as ${chalk.cyan('kappmaker create-appstore-app')} (App settings → App Store Connect API)`);
+  console.log(`    ${chalk.gray('☐')} ${chalk.bold('Play service credentials')}: same service-account JSON as ${chalk.cyan('kappmaker gpc setup')} (App settings → Service credentials)`);
+  console.log(`    ${chalk.gray('☐')} ${chalk.bold('SDK API keys')}: copy each app's public key (appl_… / goog_…) into the mobile app config`);
+  console.log(`    ${chalk.gray('☐')} ${chalk.bold('Current offering')}: mark "default" as current if it isn't already`);
   console.log('');
   console.log(chalk.gray(`  Dashboard: https://app.revenuecat.com/projects/${projectId}`));
   console.log('');

@@ -60,13 +60,13 @@ export async function generateAndroidIcons(
 
   if (width < 432 || height < 432) {
     logger.warn(
-      `Source image is ${width}×${height} — recommended minimum is 432×432 (the xxxhdpi foreground size). ` +
+      `Source image is ${width}×${height}: recommended minimum is 432×432 (the xxxhdpi foreground size). ` +
       `Smaller sources are upscaled and may look blurry.`,
     );
   }
   if (width !== height) {
     logger.warn(
-      `Source image is not square (${width}×${height}) — it will be center-cropped to a square before resizing.`,
+      `Source image is not square (${width}×${height}): it will be center-cropped to a square before resizing.`,
     );
   }
 

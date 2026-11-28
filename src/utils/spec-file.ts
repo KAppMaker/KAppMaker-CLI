@@ -44,7 +44,7 @@ export async function loadSpec(
     screenshots.length !== expectedScreenshotCount
   ) {
     logger.warn(
-      `Spec lists ${screenshots.length} screenshots but the grid renders exactly ${expectedScreenshotCount} — output count will not change.`,
+      `Spec lists ${screenshots.length} screenshots but the grid renders exactly ${expectedScreenshotCount}: output count will not change.`,
     );
   }
 

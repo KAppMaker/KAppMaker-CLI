@@ -88,7 +88,7 @@ async function request<T>(
   let response = await send();
   for (let attempt = 0; response.status === 429 && attempt < 3; attempt++) {
     const waitSeconds = Math.min(60, Number(response.headers.get('retry-after')) || 2 ** (attempt + 2));
-    logger.info(`RevenueCat rate limit — retrying in ${waitSeconds}s`);
+    logger.info(`RevenueCat rate limit: retrying in ${waitSeconds}s`);
     await new Promise((r) => setTimeout(r, waitSeconds * 1000));
     response = await send();
   }

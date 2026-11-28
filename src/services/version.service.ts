@@ -45,7 +45,7 @@ export async function updateAndroidVersion(
   ];
   const buildFile = candidates.find((p) => fs.existsSync(p));
   if (!buildFile) {
-    logger.warn('Android build file not found — skipping Android version update');
+    logger.warn('Android build file not found: skipping Android version update');
     return null;
   }
 
@@ -54,7 +54,7 @@ export async function updateAndroidVersion(
   const codeMatch = content.match(/^\s*versionCode\s*=\s*(\d+)/m);
   const nameMatch = content.match(/^\s*versionName\s*=\s*"([^"]+)"/m);
   if (!codeMatch || !nameMatch) {
-    logger.warn('Could not parse Android version — skipping');
+    logger.warn('Could not parse Android version: skipping');
     return null;
   }
 
@@ -86,7 +86,7 @@ export async function updateIosVersion(
   const infoPlist = path.join(mobileDir, 'iosApp', 'iosApp', 'Info.plist');
 
   if (!fs.existsSync(pbxproj)) {
-    logger.warn('iOS project.pbxproj not found — skipping iOS version update');
+    logger.warn('iOS project.pbxproj not found: skipping iOS version update');
     return null;
   }
 
@@ -95,7 +95,7 @@ export async function updateIosVersion(
   const codeMatch = pbx.match(/CURRENT_PROJECT_VERSION\s*=\s*(\d+);/);
   const nameMatch = pbx.match(/MARKETING_VERSION\s*=\s*([^;]+);/);
   if (!codeMatch || !nameMatch) {
-    logger.warn('Could not parse iOS version — skipping');
+    logger.warn('Could not parse iOS version: skipping');
     return null;
   }
 
@@ -128,7 +128,7 @@ export async function updateIosVersion(
     );
     await fs.writeFile(infoPlist, plist, 'utf8');
   } else {
-    logger.warn('Info.plist not found — updated project.pbxproj only');
+    logger.warn('Info.plist not found: updated project.pbxproj only');
   }
 
   return { oldCode, newCode, oldName, newName };

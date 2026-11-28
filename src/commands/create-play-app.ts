@@ -145,7 +145,7 @@ export async function createPlayApp(options: CreatePlayAppOptions): Promise<void
   // Step 11: Manual-only declarations. Google doesn't expose any of these
   // in the Publisher API v3 — verified against the discovery document
   // ($discovery/rest?version=v3). They must be completed in Play Console.
-  logger.step(11, TOTAL_STEPS, 'Wrap-up — manual Play Console declarations');
+  logger.step(11, TOTAL_STEPS, 'Wrap-up: manual Play Console declarations');
   printManualDeclarationsChecklist(config.app.package_name);
 
   // Save updated config (currently unchanged, but mirrors ASC save-back behaviour)
@@ -293,7 +293,7 @@ function printManualDeclarationsChecklist(packageName: string): void {
     'COVID-19 contact tracing declaration (if applicable)',
     'Advertising ID usage declaration',
     'Families policy compliance (if targeting children)',
-    'App pricing tier (free vs paid — set at app creation)',
+    'App pricing tier (free or paid, set when the app is created)',
   ];
   for (const item of items) {
     console.log(`    ${chalk.gray('☐')} ${item}`);

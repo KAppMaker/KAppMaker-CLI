@@ -77,7 +77,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<void
     }
 
     if (localFiles.length > 0 && !useImgbb) {
-      logger.info('imgbbApiKey not set — using inline data URIs for reference images. Set it with `kappmaker config set imgbbApiKey <key>` for faster/more reliable uploads.');
+      logger.info('imgbbApiKey not set: using inline data URIs for reference images. Set it with `kappmaker config set imgbbApiKey <key>` for faster/more reliable uploads.');
     }
 
     for (const ref of refs) {
@@ -115,7 +115,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<void
 
   logger.step(2, 3, 'Waiting for generation to complete');
   await fal.pollUntilComplete(config.falApiKey, queue.status_url, {
-    label: 'Generating image(s) — this usually takes 1–2 minutes',
+    label: 'Generating image(s) (usually takes 1 to 2 minutes)',
   });
 
   logger.step(3, 3, 'Downloading image(s)');

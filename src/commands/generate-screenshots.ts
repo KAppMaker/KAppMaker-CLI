@@ -44,7 +44,7 @@ export async function generateScreenshots(
   }
 
   if (!hasReferenceImages) {
-    logger.info('No reference images found — generating screenshots from scratch');
+    logger.info('No reference images found: generating screenshots from scratch');
   }
 
   // --print-prompt: emit the master prompt (schema + style direction) and exit.

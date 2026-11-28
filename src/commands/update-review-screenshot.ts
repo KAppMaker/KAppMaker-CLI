@@ -51,7 +51,7 @@ export async function updateSubscriptionReviewScreenshot(
   for (const sub of targets) {
     const filePath = options.file ?? sub.review_screenshot ?? config.review_screenshot;
     if (!filePath) {
-      logger.info(`No screenshot path configured for "${sub.ref_name}" — skipping.`);
+      logger.info(`No screenshot path configured for "${sub.ref_name}": skipping.`);
       continue;
     }
     await uploadSubscriptionReviewScreenshot(appId, sub.product_id, sub.ref_name, filePath, {
@@ -92,7 +92,7 @@ export async function updateIapReviewScreenshot(
   for (const iap of targets) {
     const filePath = options.file ?? iap.review_screenshot ?? config.review_screenshot;
     if (!filePath) {
-      logger.info(`No screenshot path configured for "${iap.ref_name}" — skipping.`);
+      logger.info(`No screenshot path configured for "${iap.ref_name}": skipping.`);
       continue;
     }
     await uploadIapReviewScreenshot(appId, iap.product_id, iap.ref_name, filePath, {

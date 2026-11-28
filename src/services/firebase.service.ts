@@ -191,7 +191,7 @@ async function waitForProject(projectId: string): Promise<void> {
   }
 
   logger.fatal(`Firebase project "${projectId}" is not available after waiting ~60 s.`);
-  logger.info('You can try again — the project may still be provisioning.');
+  logger.info('You can try again: the project may still be provisioning.');
   process.exit(1);
 }
 
@@ -208,7 +208,7 @@ async function createOrFindApp(
 
   const existingAppId = await findExistingApp(project, platform, displayName);
   if (existingAppId) {
-    logger.info(`${platformLabel} app already exists — App ID: ${existingAppId}`);
+    logger.info(`${platformLabel} app already exists: App ID: ${existingAppId}`);
     return { appId: existingAppId, platform };
   }
 
